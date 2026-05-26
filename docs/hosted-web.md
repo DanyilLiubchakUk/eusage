@@ -37,5 +37,7 @@ The first Convex dev run creates the local Convex deployment and generated types
 
 ## Current Collector HTTP Routes
 
+Collector uploads go directly to the Convex HTTP Actions URL, not through Vercel.
+
 - `GET /health`: hosted collector health check.
 - `POST /v1/snapshots`: teammate desktop upload endpoint. Requires `Authorization: Bearer <writeToken>`.

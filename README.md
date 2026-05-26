@@ -31,6 +31,8 @@ Deploy on Vercel:
 
 See [docs/hosted-web.md](docs/hosted-web.md).
 
+Desktop uploads should use the Convex collector URL directly. Vercel serves setup and TV dashboard UI.
+
 ## Collector
 
 Start the collector:
