@@ -36,11 +36,11 @@ The shared web view that shows organization usage across teammates.
 
 ### Write Token
 
-A secret that lets a teammate desktop app upload usage snapshots for one organization.
+A secret assigned to one teammate that lets that teammate's desktop app upload usage snapshots.
 
-- Use when: Authorizing desktop-to-collector writes.
-- Do not use for: Dashboard viewing or organization administration.
-- Related terms: Read Token, Organization.
+- Use when: Authorizing desktop-to-collector writes for exactly one teammate.
+- Do not use for: Dashboard viewing, organization administration, or a shared organization-wide upload secret.
+- Related terms: Teammate, Read Token, Organization.
 
 ### Read Token
 

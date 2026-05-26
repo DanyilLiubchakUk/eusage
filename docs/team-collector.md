@@ -12,12 +12,12 @@ The current collector is a local development collector. The accepted hosted dire
 
 ## Auth Model
 
-Each organization has two tokens:
+Each organization has setup/admin access and dashboard read tokens. Each teammate has their own write token:
 
-- `writeToken`: used by teammate desktop apps to upload snapshots.
+- `writeToken`: used by one teammate desktop app to upload snapshots for that teammate.
 - `readToken`: used by the TV dashboard and read-only API.
 
-Tokens are stored hashed in the collector data file. Raw tokens are shown only when the organization is created.
+Tokens are stored hashed. Raw tokens are shown only when created.
 
 This is not full user auth. It is capability-token auth. For small teams, it is enough and simple.
 
@@ -66,9 +66,7 @@ Add `teamSync` to app `settings.json`:
     "enabled": true,
     "collectorUrl": "http://127.0.0.1:8787",
     "orgId": "acme-team",
-    "writeToken": "ub_write_xxx",
-    "teammateId": "alex",
-    "teammateName": "Alex"
+    "writeToken": "eu_write_xxx"
   }
 }
 ```
@@ -80,8 +78,6 @@ Payload shape:
 ```json
 {
   "orgId": "acme-team",
-  "teammateId": "alex",
-  "teammateName": "Alex",
   "snapshot": {
     "providerId": "codex",
     "displayName": "Codex",
@@ -103,6 +99,8 @@ Authorization: Bearer WRITE_TOKEN
 ```
 
 Body: payload above.
+
+The collector resolves the teammate from the write token. It does not trust teammate identity from the request body.
 
 ### `GET /v1/orgs/:orgId/usage`
 
