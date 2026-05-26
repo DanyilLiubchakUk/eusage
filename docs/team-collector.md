@@ -32,6 +32,8 @@ For owner convenience, Convex stores safe display metadata for read/write tokens
 
 The setup UI can show `eu_write_abcd******wxyz`, but it cannot recover the raw token.
 
+When creating or rotating a token, the setup UI shows the raw token once with a copy button. The owner distributes it manually through an existing secure channel.
+
 This is not full user auth. It is capability-token auth. For small teams, it is enough and simple.
 
 ## Run
