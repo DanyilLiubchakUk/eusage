@@ -2,6 +2,8 @@
 
 The hosted eUsage dashboard lives in `web/`.
 
+v1 supports one organization per Vercel + Convex deployment.
+
 ## Vercel
 
 1. Import the GitHub repo into Vercel.

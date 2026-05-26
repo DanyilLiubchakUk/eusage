@@ -22,6 +22,8 @@ This fork is not the official OpenUsage project. Original source code is MIT lic
 
 The hosted dashboard lives in `web/` and uses TanStack Start with Convex.
 
+v1 supports one organization per Vercel + Convex deployment.
+
 Deploy on Vercel:
 
 1. Import this repo.
