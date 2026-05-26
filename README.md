@@ -6,6 +6,7 @@ It has two parts:
 
 - Desktop app: reads local AI tool usage on each teammate machine.
 - Collector: receives teammate snapshots and serves a TV dashboard.
+- Hosted web app: Vercel + Convex dashboard in `web/`.
 
 This fork is not the official OpenUsage project. Original source code is MIT licensed; the OpenUsage name and logo are not reused.
 
@@ -14,7 +15,21 @@ This fork is not the official OpenUsage project. Original source code is MIT lic
 - macOS app works from the upstream base.
 - Windows app needs platform cleanup before release.
 - Team collector is included and can run today.
+- Hosted Vercel/Convex dashboard scaffold is included in `web/`.
 - Signed macOS/Windows releases are planned after signing access is ready.
+
+## Hosted Dashboard
+
+The hosted dashboard lives in `web/` and uses TanStack Start with Convex.
+
+Deploy on Vercel:
+
+1. Import this repo.
+2. Set Root Directory to `web`.
+3. Add `CONVEX_DEPLOY_KEY` and `SETUP_TOKEN`.
+4. Deploy.
+
+See [docs/hosted-web.md](docs/hosted-web.md).
 
 ## Collector
 
@@ -94,6 +109,7 @@ Collector:
 bun install
 bun run test
 bun run collector:test
+bun run web:build
 bun tauri dev
 ```
 
