@@ -84,6 +84,8 @@ Add `teamSync` to app `settings.json`:
 }
 ```
 
+The desktop app does not store teammate name or teammate ID for authorization. A test connection should return the teammate name from the collector and display it as confirmation.
+
 The desktop app uploads after successful provider probes.
 
 Payload shape:

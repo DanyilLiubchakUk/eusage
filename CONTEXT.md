@@ -15,7 +15,7 @@ A team or company using eUsage to combine teammate usage in one shared place.
 A person whose desktop app reports local AI tool usage to an organization.
 
 - Use when: Talking about the human source of uploaded usage snapshots.
-- Do not use for: A machine, API token, or Vercel/GitHub user.
+- Do not use for: A machine, Vercel/GitHub user, or client-provided request field.
 - Related terms: Organization, Write Token.
 
 ### Collector
