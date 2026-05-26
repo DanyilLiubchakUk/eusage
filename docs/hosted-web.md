@@ -16,7 +16,7 @@ v1 supports one organization per Vercel + Convex deployment.
 
 After the Vercel project is linked to `web`, normal pushes to the Git branch deploy the dashboard automatically.
 
-After deploy, open `/setup`, enter `SETUP_TOKEN`, and create the single organization for this deployment.
+After deploy, open `/setup`, enter `SETUP_TOKEN`, and create the single organization for this deployment. The owner then creates teammate write tokens manually.
 
 ## Local Development
 
@@ -36,7 +36,7 @@ The first Convex dev run creates the local Convex deployment and generated types
 ## Current Routes
 
 - `/`: hosted app landing screen.
-- `/setup`: owner setup screen. Creates the organization once, then manages tokens.
+- `/setup`: owner setup screen. Creates the organization once, then manages teammate write tokens and dashboard read tokens.
 - `/tv/:orgId`: TV dashboard shell.
 
 ## Current Collector HTTP Routes
