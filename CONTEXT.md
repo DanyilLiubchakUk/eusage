@@ -49,3 +49,11 @@ A secret that lets a dashboard read usage snapshots for one organization.
 - Use when: Authorizing TV or browser dashboard reads.
 - Do not use for: Desktop upload authorization.
 - Related terms: Write Token, Dashboard.
+
+### Tray Panel
+
+The desktop UI opened from the operating system tray area.
+
+- Use when: Talking about the menu bar panel on macOS or the taskbar corner popup on Windows.
+- Do not use for: The hosted web dashboard or TV display.
+- Related terms: Dashboard, Collector.
