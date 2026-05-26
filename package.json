@@ -3,10 +3,6 @@
   "private": true,
   "version": "0.6.24",
   "type": "module",
-  "packageManager": "bun@1.3.12",
-  "workspaces": [
-    "web"
-  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -19,10 +15,6 @@
     "test:coverage": "vitest run --coverage.enabled",
     "collector:dev": "node collector/server.mjs",
     "collector:test": "node collector/server.test.mjs",
-    "web:dev": "bun run --cwd web dev",
-    "web:build": "bun run --cwd web build",
-    "web:typecheck": "bun run --cwd web typecheck",
-    "web:convex": "bun run --cwd web convex:dev",
     "tauri": "tauri"
   },
   "dependencies": {
