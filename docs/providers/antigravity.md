@@ -201,7 +201,7 @@ client_id=$ANTIGRAVITY_GOOGLE_CLIENT_ID
 
 Response: `{ "access_token": "ya29...", "expires_in": 3599 }`
 
-UsageBoard does not ship a Google OAuth client secret. Set `ANTIGRAVITY_GOOGLE_CLIENT_ID` and `ANTIGRAVITY_GOOGLE_CLIENT_SECRET` only if you are allowed to use those credentials.
+eUsage does not ship a Google OAuth client secret. Set `ANTIGRAVITY_GOOGLE_CLIENT_ID` and `ANTIGRAVITY_GOOGLE_CLIENT_SECRET` only if you are allowed to use those credentials.
 
 ## Cloud Code API (fallback)
 

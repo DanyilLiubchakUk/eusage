@@ -20,7 +20,7 @@ describe("useChangelog", () => {
       name: "v1.2.3",
       body: "notes",
       published_at: "2024-01-02T00:00:00Z",
-      html_url: "https://github.com/usageboard/usageboard/releases/tag/v1.2.3",
+      html_url: "https://github.com/DanyilLiubchakUk/eusage/releases/tag/v1.2.3",
     }
 
     const response = {
@@ -43,7 +43,7 @@ describe("useChangelog", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.github.com/repos/usageboard/usageboard/releases/tags/v1.2.3",
+      "https://api.github.com/repos/DanyilLiubchakUk/eusage/releases/tags/v1.2.3",
     )
   })
 
@@ -60,7 +60,7 @@ describe("useChangelog", () => {
       name: "v1.0.0",
       body: "older",
       published_at: "2023-01-01T00:00:00Z",
-      html_url: "https://github.com/usageboard/usageboard/releases/tag/v1.0.0",
+      html_url: "https://github.com/DanyilLiubchakUk/eusage/releases/tag/v1.0.0",
     }
 
     const okResponse = {
@@ -90,11 +90,11 @@ describe("useChangelog", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "https://api.github.com/repos/usageboard/usageboard/releases/tags/v1.0.0",
+      "https://api.github.com/repos/DanyilLiubchakUk/eusage/releases/tags/v1.0.0",
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "https://api.github.com/repos/usageboard/usageboard/releases/tags/1.0.0",
+      "https://api.github.com/repos/DanyilLiubchakUk/eusage/releases/tags/1.0.0",
     )
   })
 

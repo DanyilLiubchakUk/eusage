@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "usageboard",
+      "name": "eusage",
       "dependencies": {
         "@base-ui/react": "^1.1.0",
         "@dnd-kit/core": "^6.3.1",

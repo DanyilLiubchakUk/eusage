@@ -1,6 +1,6 @@
-# Contributing to UsageBoard
+# Contributing to eUsage
 
-UsageBoard keeps scope narrow:
+eUsage keeps scope narrow:
 
 - Track AI subscription usage.
 - Share team snapshots with an opt-in collector.

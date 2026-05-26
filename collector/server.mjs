@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { dirname, resolve } from "node:path";
 
 const DEFAULT_PORT = 8787;
-const DEFAULT_DATA_FILE = resolve("collector/data/usageboard.json");
+const DEFAULT_DATA_FILE = resolve("collector/data/eusage.json");
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "access-control-allow-origin": "*",
@@ -199,7 +199,7 @@ function tvHtml(orgId, readToken) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>UsageBoard TV</title>
+  <title>eUsage TV</title>
   <style>
     body { margin: 0; font: 16px system-ui, sans-serif; background: #101214; color: #f4f7f8; }
     header { display: flex; justify-content: space-between; align-items: center; padding: 24px 32px; border-bottom: 1px solid #2a3034; }
@@ -216,7 +216,7 @@ function tvHtml(orgId, readToken) {
 </head>
 <body>
   <header>
-    <h1>UsageBoard TV</h1>
+    <h1>eUsage TV</h1>
     <p id="status" class="muted">Loading</p>
   </header>
   <main id="app"></main>
@@ -251,7 +251,7 @@ function tvHtml(orgId, readToken) {
 </html>`;
 }
 
-export function createCollector({ dataFile = DEFAULT_DATA_FILE, adminToken = process.env.USAGEBOARD_ADMIN_TOKEN } = {}) {
+export function createCollector({ dataFile = DEFAULT_DATA_FILE, adminToken = process.env.EUSAGE_ADMIN_TOKEN } = {}) {
   return createServer(async (req, res) => {
     try {
       const url = new URL(req.url || "/", "http://127.0.0.1");
@@ -275,12 +275,12 @@ export function createCollector({ dataFile = DEFAULT_DATA_FILE, adminToken = pro
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.PORT || DEFAULT_PORT);
-  const dataFile = process.env.USAGEBOARD_DATA_FILE || DEFAULT_DATA_FILE;
+  const dataFile = process.env.EUSAGE_DATA_FILE || DEFAULT_DATA_FILE;
   const server = createCollector({ dataFile });
   server.listen(port, () => {
-    console.log(`UsageBoard collector listening on http://127.0.0.1:${port}`);
-    if (!process.env.USAGEBOARD_ADMIN_TOKEN) {
-      console.log("USAGEBOARD_ADMIN_TOKEN is not set; org creation is disabled.");
+    console.log(`eUsage collector listening on http://127.0.0.1:${port}`);
+    if (!process.env.EUSAGE_ADMIN_TOKEN) {
+      console.log("EUSAGE_ADMIN_TOKEN is not set; org creation is disabled.");
     }
   });
 }

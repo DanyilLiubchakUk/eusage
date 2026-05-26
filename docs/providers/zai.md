@@ -21,8 +21,8 @@ Tracks [Z.ai](https://z.ai) (Zhipu AI) usage quotas for GLM coding plans.
    the [Z.ai console](https://z.ai/manage-apikey/apikey-list)
 2. Set `ZAI_API_KEY` (fallback: `GLM_API_KEY`)
 
-UsageBoard is a GUI app. A one-off `export ...` in a terminal session will not be visible when you launch UsageBoard from
-Spotlight/Launchpad. Persist it, then restart UsageBoard.
+eUsage is a GUI app. A one-off `export ...` in a terminal session will not be visible when you launch eUsage from
+Spotlight/Launchpad. Persist it, then restart eUsage.
 
 zsh (`~/.zshrc`):
 
@@ -36,7 +36,7 @@ fish (universal var):
 set -Ux ZAI_API_KEY "YOUR_API_KEY"
 ```
 
-3. Enable the Z.ai plugin in UsageBoard settings
+3. Enable the Z.ai plugin in eUsage settings
 
 ## Endpoints
 

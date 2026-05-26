@@ -77,7 +77,7 @@
           Authorization: "Bearer " + token,
           "X-XAI-Token-Auth": TOKEN_AUTH_HEADER,
           Accept: "application/json",
-          "User-Agent": "UsageBoard",
+          "User-Agent": "eUsage",
         },
         timeoutMs: 10000,
       })
@@ -108,7 +108,7 @@
           Authorization: "Bearer " + token,
           "X-XAI-Token-Auth": TOKEN_AUTH_HEADER,
           Accept: "application/json",
-          "User-Agent": "UsageBoard",
+          "User-Agent": "eUsage",
         },
         timeoutMs: 10000,
       })

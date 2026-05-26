@@ -213,7 +213,7 @@
     return null
   }
   function buildUserAgent(ctx) {
-    return "UsageBoard/" + String(ctx.app && ctx.app.version ? ctx.app.version : "0.0.0")
+    return "eUsage/" + String(ctx.app && ctx.app.version ? ctx.app.version : "0.0.0")
   }
   function needsRefresh(ctx, authState, nowMs) {
     return ctx.util.needsRefreshByExpiry({

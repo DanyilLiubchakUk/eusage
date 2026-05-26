@@ -1,6 +1,6 @@
 # Security Policy
 
-UsageBoard reads local AI tool usage and can upload summaries to a collector.
+eUsage reads local AI tool usage and can upload summaries to a collector.
 
 ## Sensitive Data Rules
 
@@ -16,7 +16,7 @@ The collector uses capability tokens:
 
 - `writeToken` lets teammate apps upload snapshots.
 - `readToken` lets dashboards read snapshots.
-- `USAGEBOARD_ADMIN_TOKEN` creates organizations.
+- `EUSAGE_ADMIN_TOKEN` creates organizations.
 
 Use HTTPS outside a trusted LAN.
 

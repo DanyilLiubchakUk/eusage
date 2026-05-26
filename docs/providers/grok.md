@@ -21,9 +21,9 @@ Tracks Grok Build credit usage from the local Grok CLI login.
 grok login
 ```
 
-2. Enable the Grok plugin in UsageBoard settings.
+2. Enable the Grok plugin in eUsage settings.
 
-UsageBoard reads the same local auth file that the Grok CLI uses. If the token expires, run `grok login` again.
+eUsage reads the same local auth file that the Grok CLI uses. If the token expires, run `grok login` again.
 
 ## Endpoint
 
@@ -63,7 +63,7 @@ Returns the current Grok Build billing period, credit usage, and pay-as-you-go c
 
 ### GET /settings
 
-Returns remote CLI settings. UsageBoard reads `subscription_tier_display` from this response and shows it as the provider plan label, for example `SuperGrok Heavy`.
+Returns remote CLI settings. eUsage reads `subscription_tier_display` from this response and shows it as the provider plan label, for example `SuperGrok Heavy`.
 
 Used fields:
 

@@ -1,6 +1,6 @@
-# UsageBoard
+# eUsage
 
-UsageBoard is an open source fork of OpenUsage for team AI subscription usage monitoring.
+eUsage is an open source fork of OpenUsage for team AI subscription usage monitoring.
 
 It has two parts:
 
@@ -21,7 +21,7 @@ This fork is not the official OpenUsage project. Original source code is MIT lic
 Start the collector:
 
 ```bash
-USAGEBOARD_ADMIN_TOKEN=change-me bun run collector:dev
+EUSAGE_ADMIN_TOKEN=change-me bun run collector:dev
 ```
 
 Create an organization:

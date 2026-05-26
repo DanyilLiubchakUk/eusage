@@ -87,7 +87,7 @@ describe("SideNav", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Help" }))
 
-    expect(openUrl).toHaveBeenCalledWith("https://github.com/usageboard/usageboard/issues")
+    expect(openUrl).toHaveBeenCalledWith("https://github.com/DanyilLiubchakUk/eusage/issues")
     expect(invoke).toHaveBeenCalledWith("hide_panel")
   })
 })

@@ -16,7 +16,7 @@ function listen(server) {
 }
 
 async function withServer(fn) {
-  const dir = await mkdtemp(join(tmpdir(), "usageboard-collector-"));
+  const dir = await mkdtemp(join(tmpdir(), "eusage-collector-"));
   const server = createCollector({
     dataFile: join(dir, "store.json"),
     adminToken: "admin-secret",

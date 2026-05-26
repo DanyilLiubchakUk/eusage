@@ -18,14 +18,14 @@ This is not full user auth. It is capability-token auth. For small teams, it is 
 ## Run
 
 ```bash
-USAGEBOARD_ADMIN_TOKEN=change-me bun run collector:dev
+EUSAGE_ADMIN_TOKEN=change-me bun run collector:dev
 ```
 
 Optional:
 
 ```bash
 PORT=8787
-USAGEBOARD_DATA_FILE=/var/lib/usageboard/store.json
+EUSAGE_DATA_FILE=/var/lib/eusage/store.json
 ```
 
 ## Create Organization
@@ -117,12 +117,12 @@ TV dashboard. Refreshes every 15 seconds.
 LAN-only:
 
 ```bash
-USAGEBOARD_ADMIN_TOKEN=change-me PORT=8787 bun run collector:dev
+EUSAGE_ADMIN_TOKEN=change-me PORT=8787 bun run collector:dev
 ```
 
 Internet:
 
 - Run collector behind HTTPS.
-- Keep `USAGEBOARD_ADMIN_TOKEN` secret.
+- Keep `EUSAGE_ADMIN_TOKEN` secret.
 - Treat `writeToken` and `readToken` like passwords.
 - Rotate tokens by creating a new org until token rotation UI exists.

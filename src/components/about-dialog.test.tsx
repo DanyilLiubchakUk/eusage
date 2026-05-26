@@ -25,7 +25,7 @@ vi.mock("@/hooks/use-changelog", () => ({
 describe("AboutDialog", () => {
   it("renders version, links, and maintainers", () => {
     render(<AboutDialog version="1.2.3" onClose={() => {}} />)
-    expect(screen.getByText("UsageBoard")).toBeInTheDocument()
+    expect(screen.getByText("eUsage")).toBeInTheDocument()
     expect(screen.getByText("v1.2.3")).toBeInTheDocument()
     expect(screen.getByText("GitHub")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "validatedev" })).toBeInTheDocument()
@@ -61,7 +61,7 @@ describe("AboutDialog", () => {
     await userEvent.keyboard("{Escape}")
 
     expect(onClose).not.toHaveBeenCalled()
-    expect(screen.getByText("UsageBoard")).toBeInTheDocument()
+    expect(screen.getByText("eUsage")).toBeInTheDocument()
   })
 
   it("does not close on other keys", async () => {
@@ -80,7 +80,7 @@ describe("AboutDialog", () => {
 
     // Clicking inside the dialog should not close.
     onClose.mockClear()
-    await userEvent.click(screen.getByText("UsageBoard"))
+    await userEvent.click(screen.getByText("eUsage"))
     expect(onClose).not.toHaveBeenCalled()
   })
 

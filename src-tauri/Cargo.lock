@@ -3226,7 +3226,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "usageboard"
+name = "eusage"
 version = "0.6.24"
 dependencies = [
  "aes-gcm",

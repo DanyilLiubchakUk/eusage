@@ -1,5 +1,5 @@
 (function () {
-  const KEYCHAIN_SERVICE = "UsageBoard-copilot";
+  const KEYCHAIN_SERVICE = "eUsage-copilot";
   const GH_KEYCHAIN_SERVICE = "gh:github.com";
   const USAGE_URL = "https://api.github.com/copilot_internal/user";
 
@@ -49,12 +49,12 @@
       if (raw) {
         const parsed = ctx.util.tryParseJson(raw);
         if (parsed && parsed.token) {
-          ctx.host.log.info("token loaded from UsageBoard keychain");
+          ctx.host.log.info("token loaded from eUsage keychain");
           return { token: parsed.token, source: "keychain" };
         }
       }
     } catch (e) {
-      ctx.host.log.info("UsageBoard keychain read failed: " + String(e));
+      ctx.host.log.info("eUsage keychain read failed: " + String(e));
     }
     return null;
   }
@@ -196,7 +196,7 @@
       );
     }
 
-    // Persist gh-cli token to UsageBoard keychain for future use
+    // Persist gh-cli token to eUsage keychain for future use
     if (source === "gh-cli") {
       saveToken(ctx, token);
     }

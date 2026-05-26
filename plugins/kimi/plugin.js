@@ -136,7 +136,7 @@
       headers: {
         Authorization: "Bearer " + accessToken,
         Accept: "application/json",
-        "User-Agent": "UsageBoard",
+        "User-Agent": "eUsage",
       },
       timeoutMs: 10000,
     })

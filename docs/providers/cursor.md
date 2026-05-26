@@ -144,7 +144,7 @@ Returns subscription and Stripe customer balance metadata from `cursor.com`.
 
 ### Token Sources
 
-UsageBoard reads Cursor auth in this order:
+eUsage reads Cursor auth in this order:
 
 1. **Cursor Desktop SQLite** (preferred)
 2. **Cursor CLI keychain** (fallback)
@@ -168,7 +168,7 @@ sqlite3 ~/Library/Application\ Support/Cursor/User/globalStorage/state.vscdb \
 
 #### 2) Cursor CLI keychain (fallback)
 
-UsageBoard reads Cursor CLI tokens from keychain:
+eUsage reads Cursor CLI tokens from keychain:
 
 - `cursor-access-token`
 - `cursor-refresh-token`
