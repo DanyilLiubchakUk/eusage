@@ -58,6 +58,14 @@ A deploy-time secret that lets the organization owner administer initial eUsage 
 - Do not use for: Dashboard viewing, desktop uploads, or teammate identity.
 - Related terms: Organization, Write Token, Read Token.
 
+### Token Fingerprint
+
+A safe display hint for a token, usually the first few and last few characters with hidden middle characters.
+
+- Use when: Helping an owner distinguish saved tokens without exposing the full secret.
+- Do not use for: Authenticating requests or recovering the original token.
+- Related terms: Write Token, Read Token, Setup Token.
+
 ### Tray Panel
 
 The desktop UI opened from the operating system tray area.

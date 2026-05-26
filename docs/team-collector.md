@@ -20,6 +20,18 @@ Each self-hosted deployment has one setup token. Each organization has dashboard
 
 Read and write tokens are stored hashed. Raw tokens are shown only when created. The setup token is not stored in Convex.
 
+For owner convenience, Convex stores safe display metadata for read/write tokens:
+
+- label
+- first few token characters
+- last few token characters
+- token type
+- created time
+- last used time when available
+- revoked time when available
+
+The setup UI can show `eu_write_abcd******wxyz`, but it cannot recover the raw token.
+
 This is not full user auth. It is capability-token auth. For small teams, it is enough and simple.
 
 ## Run
