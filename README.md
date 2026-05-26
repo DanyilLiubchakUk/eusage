@@ -30,6 +30,7 @@ Deploy on Vercel:
 2. Set Root Directory to `web`.
 3. Add `CONVEX_DEPLOY_KEY` and `SETUP_TOKEN`.
 4. Deploy.
+5. Open `/setup` and create the organization once.
 
 See [docs/hosted-web.md](docs/hosted-web.md).
 
