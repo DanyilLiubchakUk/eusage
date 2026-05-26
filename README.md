@@ -36,6 +36,8 @@ See [docs/hosted-web.md](docs/hosted-web.md).
 
 Desktop uploads should use the Convex collector URL directly. Vercel serves setup and TV dashboard UI.
 
+Teammate identity comes from the write token. The desktop app should not ask teammates to enter their own names for team sync.
+
 ## Collector
 
 Start the collector:

@@ -18,6 +18,8 @@ After the Vercel project is linked to `web`, normal pushes to the Git branch dep
 
 After deploy, open `/setup`, enter `SETUP_TOKEN`, and create the single organization for this deployment. The owner then creates teammate write tokens manually.
 
+Teammates do not enter their names in the desktop app. The write token determines teammate identity, and the collector returns the teammate label after connection.
+
 ## Local Development
 
 ```bash
