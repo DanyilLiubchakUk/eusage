@@ -2,7 +2,13 @@
 
 The collector receives teammate usage snapshots and serves a TV dashboard.
 
-Design goal: no accounts, no database setup, no SaaS dependency.
+Design goal: simple setup for small teams.
+
+The current collector is a local development collector. The accepted hosted direction is:
+
+- Vercel hosts the public dashboard and API.
+- Convex stores organizations, tokens, teammates, and usage snapshots.
+- Each organization self-hosts its own eUsage instance.
 
 ## Auth Model
 
@@ -114,15 +120,15 @@ TV dashboard. Refreshes every 15 seconds.
 
 ## Deployment
 
-LAN-only:
+Local development:
 
 ```bash
 EUSAGE_ADMIN_TOKEN=change-me PORT=8787 bun run collector:dev
 ```
 
-Internet:
+Hosted v1:
 
-- Run collector behind HTTPS.
-- Keep `EUSAGE_ADMIN_TOKEN` secret.
+- Deploy the web dashboard/API to Vercel.
+- Use Convex for durable data.
+- Keep setup/admin secrets in Vercel and Convex environment variables.
 - Treat `writeToken` and `readToken` like passwords.
-- Rotate tokens by creating a new org until token rotation UI exists.
