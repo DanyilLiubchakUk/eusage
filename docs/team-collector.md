@@ -12,12 +12,13 @@ The current collector is a local development collector. The accepted hosted dire
 
 ## Auth Model
 
-Each organization has setup/admin access and dashboard read tokens. Each teammate has their own write token:
+Each self-hosted deployment has one setup token. Each organization has dashboard read tokens. Each teammate has their own write token:
 
+- `SETUP_TOKEN`: stored as a hosting environment variable; used by the owner to create organizations and manage tokens.
 - `writeToken`: used by one teammate desktop app to upload snapshots for that teammate.
 - `readToken`: used by the TV dashboard and read-only API.
 
-Tokens are stored hashed. Raw tokens are shown only when created.
+Read and write tokens are stored hashed. Raw tokens are shown only when created. The setup token is not stored in Convex.
 
 This is not full user auth. It is capability-token auth. For small teams, it is enough and simple.
 

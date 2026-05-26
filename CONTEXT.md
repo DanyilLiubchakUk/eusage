@@ -50,6 +50,14 @@ A secret that lets a dashboard read usage snapshots for one organization.
 - Do not use for: Desktop upload authorization.
 - Related terms: Write Token, Dashboard.
 
+### Setup Token
+
+A deploy-time secret that lets the organization owner administer initial eUsage setup.
+
+- Use when: Creating organizations and managing write/read tokens in a self-hosted deployment.
+- Do not use for: Dashboard viewing, desktop uploads, or teammate identity.
+- Related terms: Organization, Write Token, Read Token.
+
 ### Tray Panel
 
 The desktop UI opened from the operating system tray area.
