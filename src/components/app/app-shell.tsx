@@ -2,10 +2,12 @@ import { useShallow } from "zustand/react/shallow"
 import { AppContent, type AppContentActionProps } from "@/components/app/app-content"
 import { PanelFooter } from "@/components/panel-footer"
 import { SideNav, type NavPlugin, type PluginContextAction } from "@/components/side-nav"
+import { WindowsTrayGuidance } from "@/components/app/windows-tray-guidance"
 import type { DisplayPluginState } from "@/hooks/app/use-app-plugin-views"
 import type { SettingsPluginState } from "@/hooks/app/use-settings-plugin-list"
 import { useAppVersion } from "@/hooks/app/use-app-version"
 import { usePanel } from "@/hooks/app/use-panel"
+import { useWindowsTrayGuidance } from "@/hooks/app/use-windows-tray-guidance"
 import { useAppUpdate } from "@/hooks/use-app-update"
 import { useAppUiStore } from "@/stores/app-ui-store"
 
@@ -65,6 +67,7 @@ export function AppShell({
 
   const appVersion = useAppVersion()
   const { updateStatus, triggerInstall, checkForUpdates } = useAppUpdate()
+  const windowsTrayGuidance = useWindowsTrayGuidance()
 
   return (
     <div
@@ -77,6 +80,9 @@ export function AppShell({
         className="relative bg-card rounded-xl overflow-hidden select-none w-full border shadow-lg flex flex-col"
         style={maxPanelHeightPx ? { maxHeight: `${maxPanelHeightPx - ARROW_OVERHEAD_PX}px` } : undefined}
       >
+        {windowsTrayGuidance.visible ? (
+          <WindowsTrayGuidance onDismiss={windowsTrayGuidance.dismiss} />
+        ) : null}
         <div className="flex flex-1 min-h-0 flex-row">
           <SideNav
             activeView={activeView}

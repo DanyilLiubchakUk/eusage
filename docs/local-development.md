@@ -161,6 +161,14 @@ bun dev:desktop
 
 This starts Tauri.
 
+Expected shell behavior:
+
+1. eUsage starts with no normal centered window.
+2. eUsage appears in the taskbar corner or hidden-icons overflow.
+3. First run shows a short note explaining tray overflow and manual pinning.
+4. Left-click the tray icon to open and close the popup.
+5. Right-click the tray icon to open the menu and quit.
+
 Use the same connection string shape locally:
 
 ```powershell
@@ -185,18 +193,27 @@ bun tauri dev
 
 Do this one by one:
 
-1. App starts.
-2. Tray icon appears in taskbar corner or overflow.
-3. Tray click opens popup.
-4. Popup closes.
-5. Quit works from tray menu.
-6. Logs exist.
-7. Codex provider works.
-8. Cursor provider works.
-9. Claude provider works.
-10. JetBrains AI Assistant provider works.
-11. Team page connects.
-12. Team sync sends data.
+1. `bun install`.
+2. `bun dev:web` in one PowerShell.
+3. `bun dev:desktop` in a second PowerShell.
+4. App starts outside WSL.
+5. Tray icon appears in taskbar corner or overflow.
+6. First run explains overflow and manual pinning.
+7. Left-click tray icon opens popup near the tray area.
+8. Left-click tray icon again closes popup.
+9. `Esc` closes popup.
+10. Right-click tray icon opens menu.
+11. Quit works from tray menu.
+12. Logs exist.
+
+Provider work comes later:
+
+13. Codex provider works.
+14. Cursor provider works.
+15. Claude provider works.
+16. JetBrains AI Assistant provider works.
+17. Team page connects.
+18. Team sync sends data.
 
 If one step fails, stop and fix that step first.
 

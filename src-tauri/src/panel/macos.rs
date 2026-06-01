@@ -85,9 +85,6 @@ macro_rules! get_or_init_panel {
     };
 }
 
-// Export macro for use in other modules
-pub(crate) use get_or_init_panel;
-
 /// Retrieve the tray icon rect and position the panel beneath it.
 /// No-ops gracefully if the tray icon or its rect is unavailable.
 fn position_panel_from_tray(app_handle: &AppHandle) {
@@ -116,6 +113,12 @@ pub fn show_panel(app_handle: &AppHandle) {
     }
 }
 
+pub fn hide_panel(app_handle: &AppHandle) {
+    if let Ok(panel) = app_handle.get_webview_panel("main") {
+        panel.hide();
+    }
+}
+
 /// Toggle panel visibility. If visible, hide it. If hidden, show it.
 /// Used by global shortcut handler.
 pub fn toggle_panel(app_handle: &AppHandle) {
@@ -131,6 +134,26 @@ pub fn toggle_panel(app_handle: &AppHandle) {
         panel.show_and_make_key();
         position_panel_from_tray(app_handle);
     }
+}
+
+pub fn toggle_panel_at_tray_icon(
+    app_handle: &AppHandle,
+    icon_position: Position,
+    icon_size: Size,
+) {
+    let Some(panel) = get_or_init_panel!(app_handle) else {
+        return;
+    };
+
+    if panel.is_visible() {
+        log::debug!("tray click: hiding panel");
+        panel.hide();
+        return;
+    }
+
+    log::debug!("tray click: showing panel");
+    panel.show_and_make_key();
+    position_panel_at_tray_icon(app_handle, icon_position, icon_size);
 }
 
 // Define our panel class and event handler together
@@ -261,7 +284,7 @@ pub fn position_panel_at_tray_icon(
     let panel_width = match (window.outer_size(), window.scale_factor()) {
         (Ok(s), Ok(win_scale)) => s.width as f64 / win_scale,
         _ => {
-            let conf: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json"))
+            let conf: serde_json::Value = serde_json::from_str(include_str!("../../tauri.conf.json"))
                 .expect("tauri.conf.json must be valid JSON");
             conf["app"]["windows"][0]["width"]
                 .as_f64()

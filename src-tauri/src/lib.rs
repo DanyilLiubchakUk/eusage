@@ -15,7 +15,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use serde::Serialize;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use tauri_plugin_log::{Target, TargetKind};
 use uuid::Uuid;
 
@@ -110,9 +110,26 @@ fn init_panel(app_handle: tauri::AppHandle) {
 
 #[tauri::command]
 fn hide_panel(app_handle: tauri::AppHandle) {
-    use tauri_nspanel::ManagerExt;
-    if let Ok(panel) = app_handle.get_webview_panel("main") {
-        panel.hide();
+    panel::hide_panel(&app_handle);
+}
+
+#[tauri::command]
+fn get_desktop_platform() -> &'static str {
+    #[cfg(target_os = "windows")]
+    {
+        "windows"
+    }
+    #[cfg(target_os = "macos")]
+    {
+        "macos"
+    }
+    #[cfg(target_os = "linux")]
+    {
+        "linux"
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        "unknown"
     }
 }
 
@@ -290,10 +307,7 @@ async fn start_probe_batch(
 
 #[tauri::command]
 fn get_log_path(app_handle: tauri::AppHandle) -> Result<String, String> {
-    // macOS log directory: ~/Library/Logs/{bundleIdentifier}
-    let home = dirs::home_dir().ok_or("no home dir")?;
-    let bundle_id = app_handle.config().identifier.clone();
-    let log_dir = home.join("Library").join("Logs").join(&bundle_id);
+    let log_dir = app_handle.path().app_log_dir().map_err(|e| e.to_string())?;
     let log_file = log_dir.join(format!("{}.log", app_handle.package_info().name));
     Ok(log_file.to_string_lossy().to_string())
 }
@@ -414,10 +428,14 @@ pub fn run() {
     let runtime = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
     let _guard = runtime.enter();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_nspanel::init())
+        .plugin(tauri_plugin_store::Builder::default().build());
+
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_nspanel::init());
+
+    builder
         .plugin(
             tauri_plugin_log::Builder::new()
                 .targets([
@@ -438,6 +456,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             init_panel,
             hide_panel,
+            get_desktop_platform,
             open_devtools,
             start_probe_batch,
             list_plugins,
@@ -453,8 +472,6 @@ pub fn run() {
                 app_nap::disable_app_nap();
                 webkit_config::disable_webview_suspension(app.handle());
             }
-
-            use tauri::Manager;
 
             let version = app.package_info().version.to_string();
             log::info!("eUsage v{} starting", version);

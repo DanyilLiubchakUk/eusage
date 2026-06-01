@@ -36,6 +36,7 @@ const LEGACY_TRAY_ICON_STYLE_KEY = "trayIconStyle";
 const LEGACY_TRAY_SHOW_PERCENTAGE_KEY = "trayShowPercentage";
 const GLOBAL_SHORTCUT_KEY = "globalShortcut";
 const START_ON_LOGIN_KEY = "startOnLogin";
+const WINDOWS_TRAY_GUIDANCE_SEEN_KEY = "windowsTrayGuidanceSeen";
 
 export const DEFAULT_AUTO_UPDATE_INTERVAL: AutoUpdateIntervalMinutes = 15;
 export const DEFAULT_THEME_MODE: ThemeMode = "system";
@@ -330,5 +331,15 @@ export async function loadStartOnLogin(): Promise<boolean> {
 
 export async function saveStartOnLogin(value: boolean): Promise<void> {
   await store.set(START_ON_LOGIN_KEY, value);
+  await store.save();
+}
+
+export async function loadWindowsTrayGuidanceSeen(): Promise<boolean> {
+  const stored = await store.get<unknown>(WINDOWS_TRAY_GUIDANCE_SEEN_KEY);
+  return stored === true;
+}
+
+export async function saveWindowsTrayGuidanceSeen(value: boolean): Promise<void> {
+  await store.set(WINDOWS_TRAY_GUIDANCE_SEEN_KEY, value);
   await store.save();
 }

@@ -19,6 +19,7 @@ import {
   loadResetTimerDisplayMode,
   loadStartOnLogin,
   loadTimeFormatMode,
+  loadWindowsTrayGuidanceSeen,
   migrateLegacyTraySettings,
   loadThemeMode,
   normalizePluginSettings,
@@ -31,6 +32,7 @@ import {
   saveStartOnLogin,
   saveThemeMode,
   saveTimeFormatMode,
+  saveWindowsTrayGuidanceSeen,
 } from "@/lib/settings"
 import type { PluginMeta } from "@/lib/plugin-types"
 
@@ -360,5 +362,19 @@ describe("settings", () => {
   it("falls back to default for invalid start on login value", async () => {
     storeState.set("startOnLogin", "invalid")
     await expect(loadStartOnLogin()).resolves.toBe(DEFAULT_START_ON_LOGIN)
+  })
+
+  it("loads Windows tray guidance as unseen by default", async () => {
+    await expect(loadWindowsTrayGuidanceSeen()).resolves.toBe(false)
+  })
+
+  it("loads stored Windows tray guidance seen flag", async () => {
+    storeState.set("windowsTrayGuidanceSeen", true)
+    await expect(loadWindowsTrayGuidanceSeen()).resolves.toBe(true)
+  })
+
+  it("saves Windows tray guidance seen flag", async () => {
+    await saveWindowsTrayGuidanceSeen(true)
+    await expect(loadWindowsTrayGuidanceSeen()).resolves.toBe(true)
   })
 })

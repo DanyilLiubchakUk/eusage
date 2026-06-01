@@ -27,6 +27,14 @@ Make the Tauri desktop shell run cleanly on Windows x64 with a tray icon, tray p
 - [ ] Local development docs describe the Windows run/test order.
 - [ ] Manual Windows verification notes are added to the issue or docs after testing on the real Windows machine.
 
+## Local implementation notes
+
+- macOS keeps the NSPanel tray popup.
+- Windows/non-macOS uses the hidden undecorated `main` Tauri window as the tray popup.
+- Left-click tray toggles the popup.
+- Right-click tray menu still owns Settings, About, Debug Level, and Quit.
+- Real Windows x64 run/install verification is still HITL.
+
 ## Blocked by
 
 - https://github.com/DanyilLiubchakUk/eusage/issues/4

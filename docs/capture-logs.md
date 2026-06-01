@@ -4,11 +4,13 @@ Use this when eUsage is not working and you need to share debug info.
 
 - Audience: non-technical users
 - Time: ~2 minutes
-- Platform: macOS
+- Platform: macOS or Windows
 
 ## 1) Set log level to Debug
 
-1. In your macOS menu bar, find the eUsage icon.
+1. Find the eUsage icon.
+   - macOS: menu bar.
+   - Windows: taskbar corner or hidden-icons overflow.
 2. Right-click it (or hold `Control` and click).
 3. Open `Debug Level`.
 4. Select `Debug`.
@@ -21,7 +23,9 @@ If eUsage does not open at all, skip this step and continue.
 2. Wait for the failure to happen.
 3. Stop after 1-2 attempts (enough data, less noise).
 
-## 3) Open the log folder in Finder
+## 3) Open the log folder
+
+macOS Finder:
 
 1. Open Finder.
 2. Press `Shift` + `Command` + `G`.
@@ -32,6 +36,17 @@ If eUsage does not open at all, skip this step and continue.
 ```
 
 4. Press `Enter`.
+
+Windows File Explorer:
+
+1. Press `Windows` + `R`.
+2. Paste this path:
+
+```text
+%LOCALAPPDATA%\app.eusage.desktop\logs
+```
+
+3. Press `Enter`.
 
 ## 4) Attach log files to your GitHub issue
 
