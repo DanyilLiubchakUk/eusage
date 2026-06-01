@@ -151,7 +151,17 @@ eUsage reads Cursor auth in this order:
 
 #### 1) Cursor Desktop SQLite (preferred)
 
-Path: `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`
+macOS path:
+
+`~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`
+
+Windows v1 target:
+
+`%APPDATA%\Cursor\User\globalStorage\state.vscdb`
+
+Cursor Windows support requires the Cursor desktop app to be installed and signed in.
+eUsage does not try to collect Cursor usage on Windows without a local Cursor install/login.
+The Windows path candidates must be verified on a real Windows machine during implementation.
 
 ```bash
 sqlite3 ~/Library/Application\ Support/Cursor/User/globalStorage/state.vscdb \
