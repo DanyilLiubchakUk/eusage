@@ -9,4 +9,15 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_slug", ["slug"]),
+  admins: defineTable({
+    teamId: v.id("teams"),
+    clerkUserId: v.string(),
+    email: v.optional(v.string()),
+    name: v.optional(v.string()),
+    role: v.literal("owner"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_clerkUserId", ["clerkUserId"])
+    .index("by_teamId", ["teamId"]),
 })
