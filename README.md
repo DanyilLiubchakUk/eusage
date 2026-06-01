@@ -73,6 +73,7 @@ Official v1 path:
 - Desktop/provider code extracts normalized source facts before upload. The web/backend validates and stores those facts; it does not own normal provider extraction in v1.
 - Each v1 provider plugin must have tests for normalized source facts and upload redaction shape before that provider counts as done.
 - DB stores source values needed for calculations. Admin/TV/web code calculates derived totals, averages, percentages, projections, comparisons, and chart aggregates from those source values instead of storing duplicate calculated values.
+- Shared web metric functions live in `web/src/lib/metrics` and cover date ranges, totals, comparison deltas, chart series, Cursor pool fallback, quota coverage, and oldest-update labels.
 - v1 admin UI does not expose a raw payload viewer. Raw payloads stay in Convex for backend debugging/reprocessing only.
 - Convex uses normalized v1 tables for team, admins, developers, developer tokens, devices, providers, usage snapshots, raw payloads, daily metric samples, audit events, sync errors, dashboard settings, and TV settings. See `docs/convex-data-model-v1.md`.
 - v1 keeps all normalized usage history and supports all-time developer/provider comparisons.

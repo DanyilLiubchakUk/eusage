@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TvRouteImport } from './routes/tv'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as DevelopersRouteImport } from './routes/developers'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,6 +18,11 @@ import { Route as ApiV1UsageBatchRouteImport } from './routes/api/v1/usage/batch
 import { Route as ApiV1DeviceDisconnectRouteImport } from './routes/api/v1/device/disconnect'
 import { Route as ApiV1DeviceCheckInRouteImport } from './routes/api/v1/device/check-in'
 
+const TvRoute = TvRouteImport.update({
+  id: '/tv',
+  path: '/tv',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/developers': typeof DevelopersRoute
   '/setup': typeof SetupRoute
+  '/tv': typeof TvRoute
   '/api/v1/team-config': typeof ApiV1TeamConfigRoute
   '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
   '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/developers': typeof DevelopersRoute
   '/setup': typeof SetupRoute
+  '/tv': typeof TvRoute
   '/api/v1/team-config': typeof ApiV1TeamConfigRoute
   '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
   '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/developers': typeof DevelopersRoute
   '/setup': typeof SetupRoute
+  '/tv': typeof TvRoute
   '/api/v1/team-config': typeof ApiV1TeamConfigRoute
   '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
   '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/developers'
     | '/setup'
+    | '/tv'
     | '/api/v1/team-config'
     | '/api/v1/device/check-in'
     | '/api/v1/device/disconnect'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/developers'
     | '/setup'
+    | '/tv'
     | '/api/v1/team-config'
     | '/api/v1/device/check-in'
     | '/api/v1/device/disconnect'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/developers'
     | '/setup'
+    | '/tv'
     | '/api/v1/team-config'
     | '/api/v1/device/check-in'
     | '/api/v1/device/disconnect'
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DevelopersRoute: typeof DevelopersRoute
   SetupRoute: typeof SetupRoute
+  TvRoute: typeof TvRoute
   ApiV1TeamConfigRoute: typeof ApiV1TeamConfigRoute
   ApiV1DeviceCheckInRoute: typeof ApiV1DeviceCheckInRoute
   ApiV1DeviceDisconnectRoute: typeof ApiV1DeviceDisconnectRoute
@@ -123,6 +136,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tv': {
+      id: '/tv'
+      path: '/tv'
+      fullPath: '/tv'
+      preLoaderRoute: typeof TvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/setup': {
       id: '/setup'
       path: '/setup'
@@ -179,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DevelopersRoute: DevelopersRoute,
   SetupRoute: SetupRoute,
+  TvRoute: TvRoute,
   ApiV1TeamConfigRoute: ApiV1TeamConfigRoute,
   ApiV1DeviceCheckInRoute: ApiV1DeviceCheckInRoute,
   ApiV1DeviceDisconnectRoute: ApiV1DeviceDisconnectRoute,

@@ -101,6 +101,54 @@ select {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.dashboard-metric-grid {
+  width: min(100%, 84rem);
+}
+
+.dashboard-card {
+  width: min(100%, 84rem);
+}
+
+.tv-page {
+  display: grid;
+  min-height: 100vh;
+  padding: 2rem;
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+.tv-slide {
+  display: grid;
+  align-content: center;
+  gap: 1.25rem;
+  width: min(100%, 72rem);
+  min-height: calc(100vh - 4rem);
+}
+
+.tv-slide h1 {
+  margin: 0;
+  font-size: clamp(3rem, 9vw, 7rem);
+  line-height: 0.92;
+}
+
+.tv-subtitle {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 1.35rem;
+}
+
+.tv-slide .setup-panel {
+  width: 100%;
+}
+
+.tv-slide .setup-panel > div {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tv-slide .setup-label {
+  color: #7dd3fc;
+}
+
 .setup-card {
   display: grid;
   gap: 1rem;

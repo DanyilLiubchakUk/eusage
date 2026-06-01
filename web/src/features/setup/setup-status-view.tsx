@@ -21,8 +21,14 @@ export function SetupStatusView({ state }: SetupStatusViewProps) {
         ) : null}
         {state.status === "setup-complete" ? (
           <div className="setup-action-row">
+            <Link className="setup-button" to="/">
+              Open overview
+            </Link>
             <Link className="setup-button" to="/developers">
               Open developers
+            </Link>
+            <Link className="setup-button setup-button-secondary" to="/tv">
+              Open TV
             </Link>
             <Link className="setup-button setup-button-secondary" to="/setup">
               View setup status

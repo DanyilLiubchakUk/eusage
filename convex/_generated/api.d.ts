@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as dashboard from "../dashboard.js";
 import type * as desktopApi from "../desktopApi.js";
 import type * as desktopApiCore from "../desktopApiCore.js";
 import type * as developerTokenLifecycle from "../developerTokenLifecycle.js";
@@ -28,6 +29,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  dashboard: typeof dashboard;
   desktopApi: typeof desktopApi;
   desktopApiCore: typeof desktopApiCore;
   developerTokenLifecycle: typeof developerTokenLifecycle;

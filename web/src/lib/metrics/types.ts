@@ -1,0 +1,86 @@
+export type DateRangePreset = "last7" | "last30" | "last90" | "allTime" | "custom"
+
+export type MetricDateRangeInput =
+  | {
+      preset: Exclude<DateRangePreset, "custom">
+    }
+  | {
+      preset: "custom"
+      startDay: string
+      endDay: string
+    }
+
+export type ResolvedMetricDateRange = {
+  preset: DateRangePreset
+  label: string
+  current: MetricRangeWindow
+  comparison: MetricRangeWindow | null
+}
+
+export type MetricRangeWindow = {
+  startMs: number | null
+  endMs: number | null
+  startDay: string | null
+  endDay: string | null
+}
+
+export type MetricSource = "providerReported" | "normalized" | "estimated"
+
+export type CursorSummary = {
+  planUsedUsd?: number
+  planLimitUsd?: number
+  onDemandUsedUsd?: number
+  onDemandLimitUsd?: number
+  individualUsedUsd?: number
+  individualLimitUsd?: number
+  individualRemainingUsd?: number
+  pooledUsedUsd?: number
+  pooledLimitUsd?: number
+  pooledRemainingUsd?: number
+  apiPercentUsed?: number
+  [key: string]: unknown
+}
+
+export type UsageSummarySource = {
+  tokensTotal?: number
+  estimatedCostUsd?: number
+  budgetUsedUsd?: number
+  budgetLimitUsd?: number
+  quotaPercent?: number
+  creditsUsed?: number
+  creditsRemaining?: number
+  requestsUsed?: number
+  provider?: {
+    cursor?: CursorSummary
+    [key: string]: unknown
+  }
+}
+
+export type UsageSnapshotSourceRow = {
+  id?: string
+  developerId: string
+  developerName?: string
+  deviceId?: string
+  providerId: string
+  periodStart?: number
+  periodEnd?: number
+  periodKey: string
+  dataIdentity: string
+  summary: UsageSummarySource
+  metricFamilies?: string[]
+  capturedAt: number
+  updatedAt: number
+}
+
+export type UsageMetricSampleSourceRow = {
+  id?: string
+  providerId: string
+  developerId?: string
+  metricKey: string
+  value: number
+  unit: string
+  sampleDay: string
+  source: MetricSource
+  capturedAt: number
+  updatedAt: number
+}
