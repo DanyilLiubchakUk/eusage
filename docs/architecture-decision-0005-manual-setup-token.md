@@ -12,7 +12,7 @@ A setup CLI could generate this token later, but v1 should keep tooling small.
 
 ## Decision
 
-For v1, the admin manually creates a random `SETUP_TOKEN` and stores it in Vercel environment variables.
+For v1, the admin manually creates a random `SETUP_TOKEN` and stores it in Convex environment variables.
 
 The README should show a simple command such as:
 

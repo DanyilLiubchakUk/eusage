@@ -195,20 +195,26 @@ openssl rand -base64 32
 
 ```text
 CONVEX_DEPLOY_KEY=...
-NEXT_PUBLIC_CONVEX_URL=...
-CONVEX_HTTP_URL=...
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...
+CONVEX_DEPLOYMENT=...
+VITE_CONVEX_URL=...
+VITE_CLERK_PUBLISHABLE_KEY=...
 CLERK_SECRET_KEY=...
+```
+
+7. Add Convex environment variables:
+
+```text
+CLERK_JWT_ISSUER_DOMAIN=...
 SETUP_TOKEN=...
 ```
 
-7. Deploy the Vercel project.
-8. Open `/setup` on the deployed app.
-9. Sign in with Clerk.
-10. Enter `SETUP_TOKEN`.
-11. Create the team. This Clerk user becomes the deployment owner.
-12. Create a developer token.
-13. Copy the generated connection string and send it to the developer.
+8. Deploy the Vercel project.
+9. Open `/setup` on the deployed app.
+10. Sign in with Clerk.
+11. Enter `SETUP_TOKEN`.
+12. Create the team. This Clerk user becomes the deployment owner.
+13. Create a developer token.
+14. Copy the generated connection string and send it to the developer.
 
 The connection string will look like:
 
