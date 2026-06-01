@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { makeCtx } from "../test-helpers.js"
 
+const WINDOWS_APPDATA_STATE_DB = "C:/Users/Alice/AppData/Roaming/Cursor/User/globalStorage/state.vscdb"
+const WINDOWS_APPDATA_STATE_DB_LABEL = "%APPDATA%/Cursor/User/globalStorage/state.vscdb"
+
 const loadPlugin = async () => {
   await import("./plugin.js")
   return globalThis.__openusage_plugin
@@ -138,6 +141,95 @@ describe("cursor plugin", () => {
     expect(result.lines.find((line) => line.label === "Total usage")).toBeTruthy()
     expect(ctx.host.keychain.readGenericPassword).toHaveBeenCalledWith("cursor-access-token")
     expect(ctx.host.keychain.readGenericPassword).toHaveBeenCalledWith("cursor-refresh-token")
+  })
+
+  it("loads sqlite tokens from Windows APPDATA Cursor state DB", async () => {
+    const ctx = makeCtx()
+    const accessToken = makeJwt({ exp: 9999999999 })
+    ctx.app.platform = "windows"
+    ctx.host.env.get.mockImplementation((name) => {
+      if (name === "APPDATA") return "C:/Users/Alice/AppData/Roaming"
+      return null
+    })
+    ctx.host.sqlite.query.mockImplementation((db, sql) => {
+      expect(db).toBe(WINDOWS_APPDATA_STATE_DB)
+      if (String(sql).includes("cursorAuth/accessToken")) {
+        return JSON.stringify([{ value: accessToken }])
+      }
+      if (String(sql).includes("cursorAuth/refreshToken")) {
+        return JSON.stringify([{ value: "windows-refresh-token" }])
+      }
+      return JSON.stringify([])
+    })
+    ctx.host.http.request.mockImplementation((opts) => {
+      if (String(opts.url).includes("GetCurrentPeriodUsage")) {
+        expect(opts.headers.Authorization).toBe("Bearer " + accessToken)
+      }
+      return {
+        status: 200,
+        bodyText: JSON.stringify({
+          enabled: true,
+          planUsage: { totalSpend: 1200, limit: 2400 },
+        }),
+      }
+    })
+
+    const plugin = await loadPlugin()
+    const result = plugin.probe(ctx)
+
+    expect(result.lines.find((line) => line.label === "Total usage")).toBeTruthy()
+    expect(ctx.host.env.get).toHaveBeenCalledWith("APPDATA")
+    expect(ctx.host.log.info).toHaveBeenCalledWith(
+      "tokens loaded from sqlite (" + WINDOWS_APPDATA_STATE_DB_LABEL + "): accessToken=yes refreshToken=yes"
+    )
+    expect(ctx.host.log.info).not.toHaveBeenCalledWith(expect.stringContaining(accessToken))
+    expect(ctx.host.log.info).not.toHaveBeenCalledWith(expect.stringContaining("windows-refresh-token"))
+  })
+
+  it("tries the next Windows state DB candidate when the first is unreadable", async () => {
+    const ctx = makeCtx()
+    const accessToken = makeJwt({ exp: 9999999999 })
+    const unreadableDb = "C:/bad/AppData/Roaming/Cursor/User/globalStorage/state.vscdb"
+    ctx.app.platform = "windows"
+    ctx.host.env.get.mockImplementation((name) => {
+      if (name === "APPDATA") return "C:/bad/AppData/Roaming"
+      return null
+    })
+    ctx.host.sqlite.query.mockImplementation((db, sql) => {
+      if (db === unreadableDb) {
+        throw new Error("cannot read sqlite")
+      }
+      if (db === WINDOWS_APPDATA_STATE_DB_LABEL && String(sql).includes("cursorAuth/accessToken")) {
+        return JSON.stringify([{ value: accessToken }])
+      }
+      if (db === WINDOWS_APPDATA_STATE_DB_LABEL && String(sql).includes("cursorAuth/refreshToken")) {
+        return JSON.stringify([{ value: "fallback-refresh-token" }])
+      }
+      return JSON.stringify([])
+    })
+    ctx.host.http.request.mockReturnValue({
+      status: 200,
+      bodyText: JSON.stringify({
+        enabled: true,
+        planUsage: { totalSpend: 1200, limit: 2400 },
+      }),
+    })
+
+    const plugin = await loadPlugin()
+    const result = plugin.probe(ctx)
+
+    expect(result.lines.find((line) => line.label === "Total usage")).toBeTruthy()
+    expect(ctx.host.sqlite.query).toHaveBeenCalledWith(
+      unreadableDb,
+      expect.stringContaining("cursorAuth/accessToken")
+    )
+    expect(ctx.host.sqlite.query).toHaveBeenCalledWith(
+      WINDOWS_APPDATA_STATE_DB_LABEL,
+      expect.stringContaining("cursorAuth/accessToken")
+    )
+    expect(ctx.host.log.warn).toHaveBeenCalledWith(
+      expect.stringContaining("sqlite auth candidate unavailable: " + WINDOWS_APPDATA_STATE_DB_LABEL)
+    )
   })
 
   it("prefers keychain when sqlite looks free and token subjects differ", async () => {
