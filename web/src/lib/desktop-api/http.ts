@@ -114,6 +114,9 @@ export function statusForDesktopApiError(code: DesktopApiError["code"]) {
     case "device-id-required":
     case "device-os-required":
     case "device-app-version-required":
+    case "upload-schema-version-required":
+    case "unsupported-upload-schema-version":
+    case "usage-providers-required":
     case "invalid-json":
     case "invalid-body":
       return 400

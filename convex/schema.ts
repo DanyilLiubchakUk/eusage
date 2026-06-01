@@ -71,4 +71,118 @@ export default defineSchema({
     .index("by_developerId_status", ["developerId", "status"])
     .index("by_teamId_status", ["teamId", "status"])
     .index("by_lastSeenAt", ["lastSeenAt"]),
+  usageSnapshots: defineTable({
+    teamId: v.id("teams"),
+    developerId: v.id("developers"),
+    deviceId: v.string(),
+    providerId: v.string(),
+    periodStart: v.optional(v.number()),
+    periodEnd: v.optional(v.number()),
+    periodKey: v.string(),
+    dataIdentity: v.string(),
+    summary: v.any(),
+    summaryVersion: v.string(),
+    extractorVersion: v.record(v.string(), v.string()),
+    metricFamilies: v.array(v.string()),
+    rawPayloadId: v.optional(v.id("rawPayloads")),
+    capturedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_snapshot_identity", [
+      "teamId",
+      "developerId",
+      "deviceId",
+      "providerId",
+      "periodKey",
+      "dataIdentity",
+    ])
+    .index("by_team_provider_period", ["teamId", "providerId", "periodKey"])
+    .index("by_team_developer_provider_period", [
+      "teamId",
+      "developerId",
+      "providerId",
+      "periodKey",
+    ])
+    .index("by_team_updatedAt", ["teamId", "updatedAt"])
+    .index("by_team_developer_updatedAt", ["teamId", "developerId", "updatedAt"]),
+  rawPayloads: defineTable({
+    teamId: v.id("teams"),
+    developerId: v.id("developers"),
+    deviceId: v.string(),
+    providerId: v.string(),
+    payload: v.any(),
+    payloadVersion: v.string(),
+    redactionVersion: v.string(),
+    capturedAt: v.number(),
+    updatedAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_team_provider_capturedAt", ["teamId", "providerId", "capturedAt"])
+    .index("by_developer_provider_capturedAt", [
+      "developerId",
+      "providerId",
+      "capturedAt",
+    ])
+    .index("by_expiresAt", ["expiresAt"]),
+  metricSamples: defineTable({
+    teamId: v.id("teams"),
+    providerId: v.string(),
+    developerId: v.optional(v.id("developers")),
+    metricKey: v.string(),
+    value: v.number(),
+    unit: v.string(),
+    sampleDay: v.string(),
+    periodStart: v.optional(v.number()),
+    periodEnd: v.optional(v.number()),
+    source: v.union(
+      v.literal("providerReported"),
+      v.literal("normalized"),
+      v.literal("estimated")
+    ),
+    coverage: v.optional(v.any()),
+    summaryVersion: v.string(),
+    extractorVersion: v.record(v.string(), v.string()),
+    capturedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_sample_identity", [
+      "teamId",
+      "providerId",
+      "developerId",
+      "metricKey",
+      "sampleDay",
+      "periodStart",
+      "periodEnd",
+    ])
+    .index("by_team_metric_day", ["teamId", "metricKey", "sampleDay"])
+    .index("by_team_provider_metric_day", [
+      "teamId",
+      "providerId",
+      "metricKey",
+      "sampleDay",
+    ])
+    .index("by_team_developer_metric_day", [
+      "teamId",
+      "developerId",
+      "metricKey",
+      "sampleDay",
+    ]),
+  syncErrors: defineTable({
+    teamId: v.id("teams"),
+    developerId: v.optional(v.id("developers")),
+    deviceId: v.optional(v.string()),
+    providerId: v.optional(v.string()),
+    errorCode: v.string(),
+    message: v.string(),
+    details: v.optional(
+      v.object({
+        reason: v.string(),
+        field: v.optional(v.string()),
+      })
+    ),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_team_createdAt", ["teamId", "createdAt"])
+    .index("by_expiresAt", ["expiresAt"]),
 })

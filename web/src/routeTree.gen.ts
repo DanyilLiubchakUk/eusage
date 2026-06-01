@@ -13,6 +13,7 @@ import { Route as SetupRouteImport } from './routes/setup'
 import { Route as DevelopersRouteImport } from './routes/developers'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiV1TeamConfigRouteImport } from './routes/api/v1/team-config'
+import { Route as ApiV1UsageBatchRouteImport } from './routes/api/v1/usage/batch'
 import { Route as ApiV1DeviceDisconnectRouteImport } from './routes/api/v1/device/disconnect'
 import { Route as ApiV1DeviceCheckInRouteImport } from './routes/api/v1/device/check-in'
 
@@ -36,6 +37,11 @@ const ApiV1TeamConfigRoute = ApiV1TeamConfigRouteImport.update({
   path: '/api/v1/team-config',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1UsageBatchRoute = ApiV1UsageBatchRouteImport.update({
+  id: '/api/v1/usage/batch',
+  path: '/api/v1/usage/batch',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiV1DeviceDisconnectRoute = ApiV1DeviceDisconnectRouteImport.update({
   id: '/api/v1/device/disconnect',
   path: '/api/v1/device/disconnect',
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/team-config': typeof ApiV1TeamConfigRoute
   '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
   '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
+  '/api/v1/usage/batch': typeof ApiV1UsageBatchRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/api/v1/team-config': typeof ApiV1TeamConfigRoute
   '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
   '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
+  '/api/v1/usage/batch': typeof ApiV1UsageBatchRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,6 +79,7 @@ export interface FileRoutesById {
   '/api/v1/team-config': typeof ApiV1TeamConfigRoute
   '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
   '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
+  '/api/v1/usage/batch': typeof ApiV1UsageBatchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,6 +90,7 @@ export interface FileRouteTypes {
     | '/api/v1/team-config'
     | '/api/v1/device/check-in'
     | '/api/v1/device/disconnect'
+    | '/api/v1/usage/batch'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/api/v1/team-config'
     | '/api/v1/device/check-in'
     | '/api/v1/device/disconnect'
+    | '/api/v1/usage/batch'
   id:
     | '__root__'
     | '/'
@@ -97,6 +108,7 @@ export interface FileRouteTypes {
     | '/api/v1/team-config'
     | '/api/v1/device/check-in'
     | '/api/v1/device/disconnect'
+    | '/api/v1/usage/batch'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -106,6 +118,7 @@ export interface RootRouteChildren {
   ApiV1TeamConfigRoute: typeof ApiV1TeamConfigRoute
   ApiV1DeviceCheckInRoute: typeof ApiV1DeviceCheckInRoute
   ApiV1DeviceDisconnectRoute: typeof ApiV1DeviceDisconnectRoute
+  ApiV1UsageBatchRoute: typeof ApiV1UsageBatchRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -138,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1TeamConfigRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/usage/batch': {
+      id: '/api/v1/usage/batch'
+      path: '/api/v1/usage/batch'
+      fullPath: '/api/v1/usage/batch'
+      preLoaderRoute: typeof ApiV1UsageBatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/device/disconnect': {
       id: '/api/v1/device/disconnect'
       path: '/api/v1/device/disconnect'
@@ -162,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1TeamConfigRoute: ApiV1TeamConfigRoute,
   ApiV1DeviceCheckInRoute: ApiV1DeviceCheckInRoute,
   ApiV1DeviceDisconnectRoute: ApiV1DeviceDisconnectRoute,
+  ApiV1UsageBatchRoute: ApiV1UsageBatchRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
