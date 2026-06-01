@@ -56,5 +56,9 @@ describe("SetupStatusView", () => {
     expect(screen.getByText("Acme Team is ready for the admin dashboard.")).toBeInTheDocument()
     expect(screen.getAllByText("Acme Team")).toHaveLength(1)
     expect(screen.getByText("owner@example.com")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Open developers" })).toHaveAttribute(
+      "href",
+      "/developers"
+    )
   })
 })

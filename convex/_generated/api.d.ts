@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as developerTokens from "../developerTokens.js";
+import type * as developers from "../developers.js";
 import type * as setup from "../setup.js";
 import type * as setupClaim from "../setupClaim.js";
 
@@ -18,6 +20,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  developerTokens: typeof developerTokens;
+  developers: typeof developers;
   setup: typeof setup;
   setupClaim: typeof setupClaim;
 }>;

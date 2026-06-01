@@ -213,7 +213,7 @@ SETUP_TOKEN=...
 10. Sign in with Clerk.
 11. Enter `SETUP_TOKEN`.
 12. Create the team. This Clerk user becomes the deployment owner.
-13. Create a developer token.
+13. Open `/developers` and create a developer token.
 14. Copy the generated connection string and send it to the developer.
 
 The connection string will look like:

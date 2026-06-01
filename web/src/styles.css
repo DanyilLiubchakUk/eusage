@@ -36,6 +36,13 @@ select {
   padding: 2rem;
 }
 
+.admin-page {
+  display: grid;
+  gap: 1rem;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
 .setup-hero {
   width: min(100%, 48rem);
 }
@@ -154,6 +161,19 @@ select {
   opacity: 0.7;
 }
 
+.setup-button-secondary {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.setup-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
 .setup-message {
   padding: 0.75rem;
   border-radius: 6px;
@@ -171,8 +191,70 @@ select {
   color: #991b1b;
 }
 
+.setup-form textarea {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  resize: vertical;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #111827;
+}
+
+.developer-secret {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.developer-secret code {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 0.65rem;
+  border-radius: 6px;
+  background: rgba(6, 95, 70, 0.09);
+  color: #064e3b;
+}
+
+.developer-table-card {
+  width: min(100%, 72rem);
+  overflow-x: auto;
+}
+
+.developer-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.developer-table th,
+.developer-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.developer-table th {
+  color: #047857;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.developer-table td {
+  color: #334155;
+}
+
+.developer-table td span {
+  display: block;
+  margin-top: 0.25rem;
+  color: #64748b;
+}
+
 @media (max-width: 700px) {
   .setup-page {
+    padding: 1.25rem;
+  }
+
+  .admin-page {
     padding: 1.25rem;
   }
 
