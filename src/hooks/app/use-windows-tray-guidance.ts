@@ -5,8 +5,15 @@ import {
   saveWindowsTrayGuidanceSeen,
 } from "@/lib/settings"
 
+function detectInitialWindows(): boolean {
+  if (typeof window === "undefined") return false
+  if (!isTauri()) return false
+  return /\bWindows\b/i.test(window.navigator.userAgent)
+}
+
 export function useWindowsTrayGuidance() {
   const [visible, setVisible] = useState(false)
+  const [isWindows, setIsWindows] = useState(detectInitialWindows)
 
   useEffect(() => {
     if (!isTauri()) return
@@ -15,7 +22,11 @@ export function useWindowsTrayGuidance() {
 
     async function loadGuidanceState() {
       const platform = await invoke<string>("get_desktop_platform")
-      if (platform !== "windows") return
+      const isWindowsPlatform = platform === "windows"
+      if (!cancelled) {
+        setIsWindows(isWindowsPlatform)
+      }
+      if (!isWindowsPlatform) return
 
       const seen = await loadWindowsTrayGuidanceSeen()
       if (!cancelled && !seen) {
@@ -39,5 +50,5 @@ export function useWindowsTrayGuidance() {
     })
   }, [])
 
-  return { visible, dismiss }
+  return { visible, dismiss, isWindows }
 }

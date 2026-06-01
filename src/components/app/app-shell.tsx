@@ -9,9 +9,11 @@ import { useAppVersion } from "@/hooks/app/use-app-version"
 import { usePanel } from "@/hooks/app/use-panel"
 import { useWindowsTrayGuidance } from "@/hooks/app/use-windows-tray-guidance"
 import { useAppUpdate } from "@/hooks/use-app-update"
+import { cn } from "@/lib/utils"
 import { useAppUiStore } from "@/stores/app-ui-store"
 
-const ARROW_OVERHEAD_PX = 37
+const MACOS_ARROW_OVERHEAD_PX = 37
+const WINDOWS_ARROW_OVERHEAD_PX = 7
 
 type AppShellProps = {
   onRefreshAll: () => void
@@ -68,17 +70,30 @@ export function AppShell({
   const appVersion = useAppVersion()
   const { updateStatus, triggerInstall, checkForUpdates } = useAppUpdate()
   const windowsTrayGuidance = useWindowsTrayGuidance()
+  const panelArrowOverheadPx = windowsTrayGuidance.isWindows
+    ? WINDOWS_ARROW_OVERHEAD_PX
+    : MACOS_ARROW_OVERHEAD_PX
 
   return (
     <div
       ref={containerRef}
       tabIndex={-1}
-      className="flex flex-col items-center p-6 pt-1.5 bg-transparent outline-none"
+      data-tray-shell={windowsTrayGuidance.isWindows ? "windows" : "default"}
+      className={cn(
+        "flex flex-col bg-transparent outline-none",
+        windowsTrayGuidance.isWindows
+          ? "tray-shell--windows items-stretch p-0 bg-card"
+          : "items-center p-6 pt-1.5"
+      )}
     >
-      <div className="tray-arrow" />
+      {windowsTrayGuidance.isWindows ? null : <div className="tray-arrow tray-arrow--top" />}
       <div
         className="relative bg-card rounded-xl overflow-hidden select-none w-full border shadow-lg flex flex-col"
-        style={maxPanelHeightPx ? { maxHeight: `${maxPanelHeightPx - ARROW_OVERHEAD_PX}px` } : undefined}
+        style={
+          maxPanelHeightPx
+            ? { maxHeight: `${maxPanelHeightPx - panelArrowOverheadPx}px` }
+            : undefined
+        }
       >
         {windowsTrayGuidance.visible ? (
           <WindowsTrayGuidance onDismiss={windowsTrayGuidance.dismiss} />
@@ -120,6 +135,7 @@ export function AppShell({
           </div>
         </div>
       </div>
+      {windowsTrayGuidance.isWindows ? <div className="tray-arrow tray-arrow--bottom" /> : null}
     </div>
   )
 }

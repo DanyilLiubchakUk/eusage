@@ -44,6 +44,7 @@ describe("useWindowsTrayGuidance", () => {
     await waitFor(() => {
       expect(result.current.visible).toBe(true)
     })
+    expect(result.current.isWindows).toBe(true)
   })
 
   it("stays hidden when platform is not Windows", async () => {
@@ -55,6 +56,7 @@ describe("useWindowsTrayGuidance", () => {
     })
 
     expect(result.current.visible).toBe(false)
+    expect(result.current.isWindows).toBe(false)
     expect(loadWindowsTrayGuidanceSeenMock).not.toHaveBeenCalled()
   })
 

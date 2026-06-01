@@ -225,6 +225,10 @@ pub fn init(app_handle: &AppHandle) -> tauri::Result<()> {
     init_windows_outside_click_close(app_handle, &window);
     window.set_skip_taskbar(true)?;
     window.set_always_on_top(true)?;
+    #[cfg(target_os = "windows")]
+    if let Err(error) = window.set_shadow(false) {
+        log::warn!("failed to disable tray popup window shadow: {}", error);
+    }
     Ok(())
 }
 
