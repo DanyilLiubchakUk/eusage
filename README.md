@@ -224,6 +224,7 @@ eusage://connect?url=https://your-eusage.vercel.app&token=eusage_dev_...
 
 It contains only the team URL and developer token.
 The desktop app discovers team name and endpoint paths from `/api/v1/team-config`.
+Use `/developers` later to rotate lost or leaked tokens, revoke developers without deleting history, show inactive developers, and re-enable them with a new connection string.
 
 ## Developer Setup Flow
 

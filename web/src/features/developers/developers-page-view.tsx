@@ -1,6 +1,18 @@
 import { type FormEvent, type ReactNode, useRef, useState } from "react"
 import { buildDeveloperConnectionString } from "../../../../convex/developerTokens"
-import type { CreateDeveloperResult, DevelopersState } from "./developers"
+import { DeveloperTable } from "./developer-table"
+import type {
+  CreateDeveloperResult,
+  DeveloperMutationResult,
+  DevelopersState,
+  ReenableDeveloperResult,
+  RevokeDeveloperTokenResult,
+  RotateDeveloperTokenResult,
+} from "./developers"
+
+type ReadyDevelopersState = Extract<DevelopersState, { status: "ready" }>
+type DeveloperRow = ReadyDevelopersState["developers"][number]
+type DeveloperTokenAction = "rotate" | "revoke" | "reenable"
 
 type DevelopersPageViewProps = {
   state: DevelopersState
@@ -18,6 +30,15 @@ type DevelopersPageViewProps = {
     tokenLabel: string
     metadataNotes?: string
   }) => Promise<CreateDeveloperResult>
+  onRotate: (input: {
+    developerId: string
+    tokenLabel: string
+  }) => Promise<RotateDeveloperTokenResult>
+  onRevoke: (input: { developerId: string }) => Promise<RevokeDeveloperTokenResult>
+  onReenable: (input: {
+    developerId: string
+    tokenLabel: string
+  }) => Promise<ReenableDeveloperResult>
 }
 
 export function DevelopersPageView({
@@ -27,14 +48,25 @@ export function DevelopersPageView({
   userSlot,
   teamUrl,
   onCreate,
+  onRotate,
+  onRevoke,
+  onReenable,
 }: DevelopersPageViewProps) {
   const [displayName, setDisplayName] = useState("")
   const [email, setEmail] = useState("")
   const [tokenLabel, setTokenLabel] = useState("Desktop token")
   const [metadataNotes, setMetadataNotes] = useState("")
-  const [createResult, setCreateResult] = useState<CreateDeveloperResult | null>(null)
+  const [mutationResult, setMutationResult] = useState<DeveloperMutationResult | null>(
+    null
+  )
+  const [showInactive, setShowInactive] = useState(false)
+  const [pendingAction, setPendingAction] = useState<{
+    developerId: string
+    action: DeveloperTokenAction
+  } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const submittingRef = useRef(false)
+  const tokenActionRef = useRef(false)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -48,7 +80,7 @@ export function DevelopersPageView({
       tokenLabel,
       metadataNotes: metadataNotes || undefined,
     })
-    setCreateResult(result)
+    setMutationResult(result)
     submittingRef.current = false
     setIsSubmitting(false)
 
@@ -58,6 +90,24 @@ export function DevelopersPageView({
       setTokenLabel("Desktop token")
       setMetadataNotes("")
     }
+  }
+
+  async function handleTokenAction(action: DeveloperTokenAction, developer: DeveloperRow) {
+    if (tokenActionRef.current) return
+
+    tokenActionRef.current = true
+    setPendingAction({ developerId: developer.id, action })
+    const nextTokenLabel = developer.token?.label ?? "Desktop token"
+    const result =
+      action === "rotate"
+        ? await onRotate({ developerId: developer.id, tokenLabel: nextTokenLabel })
+        : action === "reenable"
+          ? await onReenable({ developerId: developer.id, tokenLabel: nextTokenLabel })
+          : await onRevoke({ developerId: developer.id })
+
+    setMutationResult(result)
+    tokenActionRef.current = false
+    setPendingAction(null)
   }
 
   return (
@@ -143,28 +193,45 @@ export function DevelopersPageView({
             <button className="setup-button" disabled={isSubmitting} type="submit">
               {isSubmitting ? "Creating..." : "Create developer"}
             </button>
-            {createResult ? (
-              <CreateDeveloperMessage result={createResult} teamUrl={teamUrl} />
-            ) : null}
           </form>
 
-          <DeveloperTable state={state} />
+          {mutationResult ? (
+            <DeveloperMutationMessage result={mutationResult} teamUrl={teamUrl} />
+          ) : null}
+
+          <DeveloperTable
+            state={state}
+            showInactive={showInactive}
+            pendingAction={pendingAction}
+            onShowInactiveChange={setShowInactive}
+            onRotate={(developer) => handleTokenAction("rotate", developer)}
+            onRevoke={(developer) => handleTokenAction("revoke", developer)}
+            onReenable={(developer) => handleTokenAction("reenable", developer)}
+          />
         </>
       ) : null}
     </main>
   )
 }
 
-function CreateDeveloperMessage({
+function DeveloperMutationMessage({
   result,
   teamUrl,
 }: {
-  result: CreateDeveloperResult
+  result: DeveloperMutationResult
   teamUrl: string
 }) {
   if (!result.ok) {
     return (
       <div className="setup-message setup-message-error" role="alert">
+        {result.message}
+      </div>
+    )
+  }
+
+  if (!result.rawToken) {
+    return (
+      <div className="setup-message" role="status">
         {result.message}
       </div>
     )
@@ -187,51 +254,6 @@ function CreateDeveloperMessage({
   )
 }
 
-function DeveloperTable({ state }: { state: Extract<DevelopersState, { status: "ready" }> }) {
-  if (state.developers.length === 0) {
-    return (
-      <section className="setup-card" aria-label="Developers">
-        <p>No developers yet.</p>
-      </section>
-    )
-  }
-
-  return (
-    <section className="setup-card developer-table-card" aria-label="Developers">
-      <table className="developer-table">
-        <thead>
-          <tr>
-            <th>Developer</th>
-            <th>Status</th>
-            <th>Token</th>
-            <th>Created</th>
-            <th>Last seen</th>
-            <th>Metadata</th>
-          </tr>
-        </thead>
-        <tbody>
-          {state.developers.map((developer) => (
-            <tr key={developer.id}>
-              <td>
-                <strong>{developer.displayName}</strong>
-                <span>{developer.email ?? "No email"}</span>
-              </td>
-              <td>{developer.status}</td>
-              <td>
-                <strong>{developer.token?.fingerprint ?? "Missing"}</strong>
-                <span>{developer.token?.label ?? "No token"}</span>
-              </td>
-              <td>{formatTimestamp(developer.createdAt)}</td>
-              <td>{formatTimestamp(developer.lastSeenAt)}</td>
-              <td>{developer.metadata?.notes ?? "None"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
-  )
-}
-
 function pageCopy(state: DevelopersState) {
   if (state.status === "ready") {
     return `${state.team.name} developer tokens and connection strings.`
@@ -246,8 +268,4 @@ function pageCopy(state: DevelopersState) {
   }
 
   return "Setup is not complete."
-}
-
-function formatTimestamp(timestamp: number | null) {
-  return timestamp ? new Date(timestamp).toISOString() : "Never"
 }

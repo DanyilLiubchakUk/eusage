@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server"
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
 import type { Id } from "./_generated/dataModel"
 import {
   createDeveloperWithToken,
@@ -7,6 +7,12 @@ import {
   type DeveloperOwnerRecord,
   type DeveloperTeamRecord,
 } from "./developerTokens"
+import {
+  reenableDeveloper,
+  revokeDeveloperToken,
+  rotateDeveloperToken,
+  type DeveloperTokenLifecycleStore,
+} from "./developerTokenLifecycle"
 import { v } from "convex/values"
 
 export const list = query({
@@ -65,14 +71,7 @@ export const list = query({
     const rows: PublicDeveloperRow[] = []
 
     for (const developer of developers) {
-      const activeToken = await ctx.db
-        .query("developerTokens")
-        .withIndex("by_developerId_status", (q) =>
-          q.eq("developerId", developer._id).eq("status", "active")
-        )
-        .first()
-
-      rows.push(publicDeveloperRow(developer, activeToken))
+      rows.push(publicDeveloperRow(developer, await getDisplayToken(ctx, developer._id)))
     }
 
     return {
@@ -82,6 +81,129 @@ export const list = query({
     }
   },
 })
+
+export const rotate = mutation({
+  args: {
+    developerId: v.id("developers"),
+    tokenLabel: v.string(),
+  },
+  handler: async (ctx, input) => {
+    const identity = await ctx.auth.getUserIdentity()
+
+    return rotateDeveloperToken({
+      developerId: input.developerId,
+      tokenLabel: input.tokenLabel,
+      identity: identity ? { clerkUserId: identity.subject } : null,
+      now: Date.now(),
+      store: createLifecycleStore(ctx),
+    })
+  },
+})
+
+export const revoke = mutation({
+  args: {
+    developerId: v.id("developers"),
+  },
+  handler: async (ctx, input) => {
+    const identity = await ctx.auth.getUserIdentity()
+
+    return revokeDeveloperToken({
+      developerId: input.developerId,
+      identity: identity ? { clerkUserId: identity.subject } : null,
+      now: Date.now(),
+      store: createLifecycleStore(ctx),
+    })
+  },
+})
+
+export const reenable = mutation({
+  args: {
+    developerId: v.id("developers"),
+    tokenLabel: v.string(),
+  },
+  handler: async (ctx, input) => {
+    const identity = await ctx.auth.getUserIdentity()
+
+    return reenableDeveloper({
+      developerId: input.developerId,
+      tokenLabel: input.tokenLabel,
+      identity: identity ? { clerkUserId: identity.subject } : null,
+      now: Date.now(),
+      store: createLifecycleStore(ctx),
+    })
+  },
+})
+
+async function getDisplayToken(ctx: QueryCtx, developerId: Id<"developers">) {
+  const activeTokens = await ctx.db
+    .query("developerTokens")
+    .withIndex("by_developerId_status", (q) =>
+      q.eq("developerId", developerId).eq("status", "active")
+    )
+    .collect()
+
+  const activeToken = latestToken(activeTokens)
+  if (activeToken) return activeToken
+
+  const revokedTokens = await ctx.db
+    .query("developerTokens")
+    .withIndex("by_developerId_status", (q) =>
+      q.eq("developerId", developerId).eq("status", "revoked")
+    )
+    .collect()
+
+  return latestToken(revokedTokens)
+}
+
+function latestToken<T extends { createdAt: number }>(tokens: T[]) {
+  return [...tokens].sort((left, right) => right.createdAt - left.createdAt)[0] ?? null
+}
+
+function createLifecycleStore(ctx: MutationCtx): DeveloperTokenLifecycleStore {
+  return {
+    getTeam: async () =>
+      ctx.db.query("teams").first() as Promise<DeveloperTeamRecord | null>,
+    getOwner: async () =>
+      ctx.db.query("admins").first() as Promise<DeveloperOwnerRecord | null>,
+    getDeveloper: async (developerId) =>
+      ctx.db.get(developerId as Id<"developers">),
+    listActiveTokens: async (developerId) =>
+      ctx.db
+        .query("developerTokens")
+        .withIndex("by_developerId_status", (q) =>
+          q.eq("developerId", developerId as Id<"developers">).eq("status", "active")
+        )
+        .collect(),
+    createToken: async (token) => {
+      const id = await ctx.db.insert("developerTokens", {
+        ...token,
+        teamId: token.teamId as Id<"teams">,
+        developerId: token.developerId as Id<"developers">,
+      })
+      const created = await ctx.db.get(id)
+      if (!created) {
+        throw new Error("Created developer token row was not readable.")
+      }
+      return created
+    },
+    updateDeveloper: async (developerId, patch) => {
+      await ctx.db.patch(developerId as Id<"developers">, patch)
+      const updated = await ctx.db.get(developerId as Id<"developers">)
+      if (!updated) {
+        throw new Error("Updated developer row was not readable.")
+      }
+      return updated
+    },
+    updateToken: async (tokenId, patch) => {
+      await ctx.db.patch(tokenId as Id<"developerTokens">, patch)
+      const updated = await ctx.db.get(tokenId as Id<"developerTokens">)
+      if (!updated) {
+        throw new Error("Updated developer token row was not readable.")
+      }
+      return updated
+    },
+  }
+}
 
 export const create = mutation({
   args: {
