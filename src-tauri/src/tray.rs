@@ -1,6 +1,8 @@
 use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::path::BaseDirectory;
+#[cfg(target_os = "windows")]
+use tauri::tray::MouseButton;
 use tauri::tray::{MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_store::StoreExt;
@@ -181,6 +183,33 @@ pub fn create(app_handle: &AppHandle) -> tauri::Result<()> {
         .on_tray_icon_event(|tray, event| {
             let app_handle = tray.app_handle();
 
+            #[cfg(target_os = "windows")]
+            if let TrayIconEvent::Click {
+                button,
+                button_state,
+                rect,
+                ..
+            } = event
+            {
+                if button != MouseButton::Left {
+                    return;
+                }
+
+                match button_state {
+                    MouseButtonState::Down => panel::note_tray_left_mouse_down(),
+                    MouseButtonState::Up => {
+                        if !panel::should_consume_tray_left_mouse_up() {
+                            panel::toggle_panel_at_tray_icon(
+                                app_handle,
+                                rect.position,
+                                rect.size,
+                            );
+                        }
+                    }
+                }
+            }
+
+            #[cfg(not(target_os = "windows"))]
             if let TrayIconEvent::Click {
                 button_state, rect, ..
             } = event

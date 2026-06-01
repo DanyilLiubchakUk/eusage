@@ -1,5 +1,8 @@
 mod position;
 
+#[cfg(any(target_os = "windows", test))]
+mod focus_guard;
+
 #[cfg(target_os = "macos")]
 mod macos;
 

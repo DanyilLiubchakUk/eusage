@@ -1,6 +1,18 @@
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Position, Size};
 use tauri::window::Monitor;
+use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Position, Size};
 
+#[cfg(target_os = "windows")]
+use std::sync::{
+    Mutex, OnceLock,
+    atomic::{AtomicBool, Ordering},
+};
+#[cfg(target_os = "windows")]
+use std::time::Instant;
+#[cfg(target_os = "windows")]
+use tauri::WindowEvent;
+
+#[cfg(target_os = "windows")]
+use super::focus_guard::OutsideClickCloseGuard;
 use super::position::{
     PhysicalPopupSize, PhysicalRect, position_popup_near_tray, rect_contains_point,
     tray_icon_center,
@@ -9,6 +21,86 @@ use super::position::{
 const POPUP_GAP_PX: f64 = 8.0;
 const FALLBACK_PANEL_WIDTH: f64 = 400.0;
 const FALLBACK_PANEL_HEIGHT: f64 = 500.0;
+
+#[cfg(target_os = "windows")]
+static WINDOWS_FOCUS_CLOSE_HANDLER_INSTALLED: AtomicBool = AtomicBool::new(false);
+
+#[cfg(target_os = "windows")]
+static WINDOWS_FOCUS_CLOSE_GUARD: OnceLock<Mutex<OutsideClickCloseGuard>> = OnceLock::new();
+
+#[cfg(target_os = "windows")]
+fn with_windows_focus_close_guard<T>(action: impl FnOnce(&mut OutsideClickCloseGuard) -> T) -> T {
+    let guard = WINDOWS_FOCUS_CLOSE_GUARD.get_or_init(Default::default);
+    let mut guard = guard
+        .lock()
+        .expect("windows tray popup focus guard poisoned");
+    action(&mut guard)
+}
+
+#[cfg(target_os = "windows")]
+fn note_windows_explicit_panel_hide() {
+    with_windows_focus_close_guard(|guard| guard.note_explicit_hide(Instant::now()));
+}
+
+#[cfg(not(target_os = "windows"))]
+fn note_windows_explicit_panel_hide() {}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn note_tray_left_mouse_down() {
+    with_windows_focus_close_guard(|guard| {
+        guard.note_tray_left_mouse_down(Instant::now());
+    });
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn should_consume_tray_left_mouse_up() -> bool {
+    with_windows_focus_close_guard(|guard| guard.should_consume_tray_left_mouse_up(Instant::now()))
+}
+
+#[cfg(target_os = "windows")]
+fn init_windows_outside_click_close(app_handle: &AppHandle, window: &tauri::WebviewWindow) {
+    if WINDOWS_FOCUS_CLOSE_HANDLER_INSTALLED.swap(true, Ordering::AcqRel) {
+        return;
+    }
+
+    let app_handle = app_handle.clone();
+    window.on_window_event(move |event| {
+        if !matches!(event, WindowEvent::Focused(false)) {
+            return;
+        }
+
+        let Some(window) = app_handle.get_webview_window("main") else {
+            log::error!("main window missing while handling tray popup focus loss");
+            return;
+        };
+
+        match window.is_visible() {
+            Ok(true) => {}
+            Ok(false) => return,
+            Err(error) => {
+                log::warn!(
+                    "failed to read tray popup visibility on focus loss: {}",
+                    error
+                );
+                return;
+            }
+        }
+
+        let should_hide =
+            with_windows_focus_close_guard(|guard| guard.should_hide_on_focus_loss(Instant::now()));
+
+        if !should_hide {
+            return;
+        }
+
+        if let Err(error) = window.hide() {
+            log::warn!("failed to hide tray popup on focus loss: {}", error);
+        }
+    });
+}
+
+#[cfg(not(target_os = "windows"))]
+fn init_windows_outside_click_close(_app_handle: &AppHandle, _window: &tauri::WebviewWindow) {}
 
 fn position_to_physical(position: Position) -> (f64, f64) {
     match position {
@@ -130,6 +222,7 @@ pub fn init(app_handle: &AppHandle) -> tauri::Result<()> {
         return Ok(());
     };
 
+    init_windows_outside_click_close(app_handle, &window);
     window.set_skip_taskbar(true)?;
     window.set_always_on_top(true)?;
     Ok(())
@@ -139,6 +232,14 @@ pub fn hide_panel(app_handle: &AppHandle) {
     let Some(window) = app_handle.get_webview_window("main") else {
         return;
     };
+    match window.is_visible() {
+        Ok(true) => note_windows_explicit_panel_hide(),
+        Ok(false) => {}
+        Err(error) => log::warn!(
+            "failed to read tray popup visibility before hide: {}",
+            error
+        ),
+    }
     if let Err(error) = window.hide() {
         log::warn!("failed to hide tray popup: {}", error);
     }
