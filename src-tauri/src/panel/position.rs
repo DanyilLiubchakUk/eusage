@@ -32,6 +32,8 @@ enum NearestEdge {
     Left,
 }
 
+const SCREEN_EDGE_MARGIN_PX: f64 = 12.0;
+
 pub fn rect_contains_point(rect: PhysicalRect, point: PhysicalPoint) -> bool {
     point.x >= rect.x
         && point.x < rect.x + rect.width
@@ -47,6 +49,9 @@ pub fn tray_icon_center(icon: PhysicalRect) -> PhysicalPoint {
 }
 
 fn clamp(value: f64, min: f64, max: f64) -> f64 {
+    if min > max {
+        return min;
+    }
     value.max(min).min(max)
 }
 
@@ -72,8 +77,9 @@ pub fn position_popup_near_tray(
     gap: f64,
 ) -> PhysicalPopupPosition {
     let center = tray_icon_center(icon);
+    let min_y = monitor.y + SCREEN_EDGE_MARGIN_PX;
     let max_x = (monitor.x + monitor.width - popup.width).max(monitor.x);
-    let max_y = (monitor.y + monitor.height - popup.height).max(monitor.y);
+    let max_y = (monitor.y + monitor.height - popup.height - SCREEN_EDGE_MARGIN_PX).max(min_y);
 
     let (x, y) = match nearest_monitor_edge(monitor, center) {
         NearestEdge::Top => (
@@ -96,7 +102,7 @@ pub fn position_popup_near_tray(
 
     PhysicalPopupPosition {
         x: clamp(x, monitor.x, max_x).round() as i32,
-        y: clamp(y, monitor.y, max_y).round() as i32,
+        y: clamp(y, min_y, max_y).round() as i32,
     }
 }
 
@@ -170,6 +176,24 @@ mod tests {
         let position = position_popup_near_tray(MONITOR, icon, POPUP, 8.0);
 
         assert_eq!(position, PhysicalPopupPosition { x: 48, y: 286 });
+    }
+
+    #[test]
+    fn keeps_popup_off_top_screen_edge_when_clamped() {
+        let icon = PhysicalRect {
+            x: 1840.0,
+            y: 1040.0,
+            width: 32.0,
+            height: 32.0,
+        };
+        let tall_popup = PhysicalPopupSize {
+            width: 400.0,
+            height: 1200.0,
+        };
+
+        let position = position_popup_near_tray(MONITOR, icon, tall_popup, 8.0);
+
+        assert_eq!(position.y, 12);
     }
 
     #[test]

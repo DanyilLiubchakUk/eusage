@@ -105,7 +105,7 @@ describe("AppShell", () => {
     })
   })
 
-  it("uses a flush Windows tray frame and bottom caret", () => {
+  it("uses a flush Windows tray frame without a caret", () => {
     useWindowsTrayGuidanceMock.mockReturnValue({
       visible: false,
       dismiss: vi.fn(),
@@ -120,9 +120,9 @@ describe("AppShell", () => {
     expect(shell).not.toHaveClass("bg-card")
     expect(shell).not.toHaveClass("p-6")
     expect(document.querySelector(".tray-arrow--top")).not.toBeInTheDocument()
-    expect(document.querySelector(".tray-arrow--bottom")).toBeInTheDocument()
+    expect(document.querySelector(".tray-arrow--bottom")).not.toBeInTheDocument()
     expect(screen.getByTestId("app-content").closest(".rounded-xl")).toHaveStyle({
-      maxHeight: "493px",
+      maxHeight: "500px",
     })
   })
 })

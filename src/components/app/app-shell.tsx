@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils"
 import { useAppUiStore } from "@/stores/app-ui-store"
 
 const MACOS_ARROW_OVERHEAD_PX = 37
-const WINDOWS_ARROW_OVERHEAD_PX = 7
 
 type AppShellProps = {
   onRefreshAll: () => void
@@ -72,7 +71,7 @@ export function AppShell({
   const appVersion = useAppVersion()
   const { updateStatus, triggerInstall, checkForUpdates } = useAppUpdate()
   const panelArrowOverheadPx = windowsTrayGuidance.isWindows
-    ? WINDOWS_ARROW_OVERHEAD_PX
+    ? 0
     : MACOS_ARROW_OVERHEAD_PX
 
   return (
@@ -136,7 +135,6 @@ export function AppShell({
           </div>
         </div>
       </div>
-      {windowsTrayGuidance.isWindows ? <div className="tray-arrow tray-arrow--bottom" /> : null}
     </div>
   )
 }
