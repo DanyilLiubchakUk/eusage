@@ -15,6 +15,7 @@ type UsePanelArgs = {
   showAbout: boolean
   setShowAbout: (value: boolean) => void
   displayPlugins: DisplayPluginState[]
+  isWindows?: boolean
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -34,6 +35,7 @@ export function usePanel({
   showAbout,
   setShowAbout,
   displayPlugins,
+  isWindows = false,
 }: UsePanelArgs) {
   const containerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -184,7 +186,8 @@ export function usePanel({
       }
 
       const desiredHeightPhysical = Math.ceil(desiredHeightLogical * factor)
-      const height = Math.ceil(Math.min(desiredHeightPhysical, maxHeightPhysical!))
+      const contentHeight = Math.ceil(Math.min(desiredHeightPhysical, maxHeightPhysical!))
+      const height = isWindows ? maxHeightPhysical! : contentHeight
 
       try {
         const currentWindow = getCurrentWindow()
@@ -202,7 +205,7 @@ export function usePanel({
     observer.observe(container)
 
     return () => observer.disconnect()
-  }, [activeView, displayPlugins])
+  }, [activeView, displayPlugins, isWindows])
 
   useEffect(() => {
     const el = scrollRef.current

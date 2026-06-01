@@ -116,7 +116,8 @@ describe("AppShell", () => {
 
     const shell = document.querySelector("[data-tray-shell='windows']")
 
-    expect(shell).toHaveClass("p-0", "bg-card")
+    expect(shell).toHaveClass("p-0")
+    expect(shell).not.toHaveClass("bg-card")
     expect(shell).not.toHaveClass("p-6")
     expect(document.querySelector(".tray-arrow--top")).not.toBeInTheDocument()
     expect(document.querySelector(".tray-arrow--bottom")).toBeInTheDocument()

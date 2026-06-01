@@ -341,4 +341,39 @@ describe("usePanel", () => {
     document.body.removeChild(container)
     requestAnimationFrameSpy.mockRestore()
   })
+
+  it("uses max monitor height on Windows so tray position stays stable", async () => {
+    const setSize = vi.fn().mockResolvedValue(undefined)
+    currentMonitorMock.mockResolvedValue({ size: { height: 1000 } })
+    getCurrentWindowMock.mockReturnValue({ setSize })
+
+    const { result, rerender } = renderHook(
+      ({ activeView }) =>
+        usePanel({
+          activeView,
+          setActiveView: vi.fn(),
+          showAbout: false,
+          setShowAbout: vi.fn(),
+          displayPlugins: [],
+          isWindows: true,
+        }),
+      { initialProps: { activeView: "home" as const } }
+    )
+
+    const container = document.createElement("div")
+    Object.defineProperty(container, "scrollHeight", {
+      configurable: true,
+      value: 120,
+    })
+
+    act(() => {
+      result.current.containerRef.current = container
+    })
+
+    rerender({ activeView: "settings" })
+
+    await waitFor(() => {
+      expect(setSize).toHaveBeenCalledWith(expect.objectContaining({ width: 400, height: 800 }))
+    })
+  })
 })

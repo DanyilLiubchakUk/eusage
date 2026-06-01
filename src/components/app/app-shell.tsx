@@ -54,6 +54,7 @@ export function AppShell({
     }))
   )
 
+  const windowsTrayGuidance = useWindowsTrayGuidance()
   const {
     containerRef,
     scrollRef,
@@ -65,11 +66,11 @@ export function AppShell({
     showAbout,
     setShowAbout,
     displayPlugins,
+    isWindows: windowsTrayGuidance.isWindows,
   })
 
   const appVersion = useAppVersion()
   const { updateStatus, triggerInstall, checkForUpdates } = useAppUpdate()
-  const windowsTrayGuidance = useWindowsTrayGuidance()
   const panelArrowOverheadPx = windowsTrayGuidance.isWindows
     ? WINDOWS_ARROW_OVERHEAD_PX
     : MACOS_ARROW_OVERHEAD_PX
@@ -82,7 +83,7 @@ export function AppShell({
       className={cn(
         "flex flex-col bg-transparent outline-none",
         windowsTrayGuidance.isWindows
-          ? "tray-shell--windows items-stretch p-0 bg-card"
+          ? "tray-shell--windows items-stretch p-0"
           : "items-center p-6 pt-1.5"
       )}
     >
