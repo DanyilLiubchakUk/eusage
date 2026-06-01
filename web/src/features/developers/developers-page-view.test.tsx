@@ -20,6 +20,20 @@ const developer = {
   createdAt: 1780320000000,
   updatedAt: 1780320000000,
   lastSeenAt: null,
+  devices: [
+    {
+      id: "device-row-1",
+      deviceId: "device-1",
+      deviceName: "Alex MacBook",
+      os: "macos",
+      appVersion: "0.6.24",
+      status: "connected" as const,
+      storedStatus: "connected" as const,
+      lastSeenAt: 1780340000000,
+      lastSyncAt: null,
+      updatedAt: 1780340000000,
+    },
+  ],
   token: {
     fingerprint: "2f8a7f04...e2498b5e",
     label: "Alex laptop",
@@ -175,6 +189,21 @@ describe("DevelopersPageView", () => {
     expect(screen.getByText("2f8a7f04...e2498b5e")).toBeInTheDocument()
     expect(screen.getByText("Team lead")).toBeInTheDocument()
     expect(screen.queryByText("eusage_dev_secret_raw_token")).not.toBeInTheDocument()
+  })
+
+  it("shows basic device status under the developer", () => {
+    renderDevelopersPage({
+      state: {
+        ...readyState,
+        developers: [developer],
+      },
+    })
+
+    expect(screen.getByText("Alex MacBook")).toBeInTheDocument()
+    expect(screen.getByText("connected - macos - v0.6.24")).toBeInTheDocument()
+    expect(
+      screen.getByText("Last seen 2026-06-01T18:53:20.000Z")
+    ).toBeInTheDocument()
   })
 
   it("asks signed-out users to sign in before managing developers", () => {

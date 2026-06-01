@@ -222,7 +222,7 @@ select {
 }
 
 .developer-table-card {
-  width: min(100%, 72rem);
+  width: min(100%, 84rem);
   overflow-x: auto;
 }
 
@@ -245,6 +245,14 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.developer-device-list {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
 }
 
 .developer-table {

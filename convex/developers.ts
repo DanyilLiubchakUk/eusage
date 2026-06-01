@@ -3,7 +3,6 @@ import type { Id } from "./_generated/dataModel"
 import {
   createDeveloperWithToken,
   publicDeveloperRow,
-  type PublicDeveloperRow,
   type DeveloperOwnerRecord,
   type DeveloperTeamRecord,
 } from "./developerTokens"
@@ -13,6 +12,11 @@ import {
   rotateDeveloperToken,
   type DeveloperTokenLifecycleStore,
 } from "./developerTokenLifecycle"
+import {
+  listPublicDevicesForDeveloper,
+  publicDeveloperRowWithDevices,
+  type PublicDeveloperRowWithDevices,
+} from "./desktopApi"
 import { v } from "convex/values"
 
 export const list = query({
@@ -68,10 +72,21 @@ export const list = query({
     const developers = [...activeDevelopers, ...inactiveDevelopers].sort(
       (left, right) => right.createdAt - left.createdAt
     )
-    const rows: PublicDeveloperRow[] = []
+    const rows: PublicDeveloperRowWithDevices[] = []
+    const now = Date.now()
 
     for (const developer of developers) {
-      rows.push(publicDeveloperRow(developer, await getDisplayToken(ctx, developer._id)))
+      rows.push(
+        publicDeveloperRowWithDevices(
+          developer,
+          await getDisplayToken(ctx, developer._id),
+          await listPublicDevicesForDeveloper({
+            developerId: developer._id,
+            now,
+            ctx,
+          })
+        )
+      )
     }
 
     return {

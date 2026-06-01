@@ -49,4 +49,26 @@ export default defineSchema({
     .index("by_tokenHash", ["tokenHash"])
     .index("by_developerId_status", ["developerId", "status"])
     .index("by_teamId_status", ["teamId", "status"]),
+  devices: defineTable({
+    teamId: v.id("teams"),
+    developerId: v.id("developers"),
+    deviceId: v.string(),
+    deviceName: v.string(),
+    os: v.string(),
+    appVersion: v.string(),
+    status: v.union(
+      v.literal("connected"),
+      v.literal("stale"),
+      v.literal("disconnected"),
+      v.literal("archived")
+    ),
+    lastSeenAt: v.number(),
+    lastSyncAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_deviceId", ["deviceId"])
+    .index("by_developerId_status", ["developerId", "status"])
+    .index("by_teamId_status", ["teamId", "status"])
+    .index("by_lastSeenAt", ["lastSeenAt"]),
 })

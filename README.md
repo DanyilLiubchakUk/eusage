@@ -54,6 +54,8 @@ Official v1 path:
 - Desktop API routes live under `/api/v1`.
 - Every usage batch includes `uploadSchemaVersion`, separate from `/api/v1`, `summaryVersion`, and `extractorVersion`.
 - `GET /api/v1/team-config` is public and returns only safe metadata: team name, app version, API version, and endpoint paths.
+- `POST /api/v1/device/check-in` requires `Authorization: Bearer ...`, hashes the token, records device status, and updates developer last seen time.
+- `POST /api/v1/device/disconnect` requires `Authorization: Bearer ...` and marks the device disconnected without deleting usage history.
 - `POST /api/v1/usage/batch` returns a small sync result: accepted count, rejected provider IDs, and server time.
 - Usage batch accepts valid provider payloads even when other provider payloads in the same batch are rejected.
 - If a provider payload has invalid or missing source facts, that provider is rejected only; other providers in the batch can still be accepted.
@@ -224,6 +226,7 @@ eusage://connect?url=https://your-eusage.vercel.app&token=eusage_dev_...
 
 It contains only the team URL and developer token.
 The desktop app discovers team name and endpoint paths from `/api/v1/team-config`.
+Authenticated desktop API calls send the raw token only as `Authorization: Bearer ...`; the backend hashes it before matching the active token record.
 Use `/developers` later to rotate lost or leaked tokens, revoke developers without deleting history, show inactive developers, and re-enable them with a new connection string.
 
 ## Developer Setup Flow
@@ -237,7 +240,7 @@ Day one setup for a developer:
 5. Confirm the team name shown by the app.
 6. eUsage starts syncing local usage to the team deployment.
 
-The desktop app uses the app URL from the connection string to discover non-secret team config such as the collector endpoint. The developer does not manually enter Convex URLs.
+The desktop app uses the app URL from the connection string to discover non-secret team config such as endpoint paths. After check-in, Admin shows the device status under the developer. The developer does not manually enter Convex URLs.
 
 ## Development
 

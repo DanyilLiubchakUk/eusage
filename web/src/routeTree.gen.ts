@@ -12,6 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as DevelopersRouteImport } from './routes/developers'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiV1TeamConfigRouteImport } from './routes/api/v1/team-config'
+import { Route as ApiV1DeviceDisconnectRouteImport } from './routes/api/v1/device/disconnect'
+import { Route as ApiV1DeviceCheckInRouteImport } from './routes/api/v1/device/check-in'
 
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
@@ -28,35 +31,81 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1TeamConfigRoute = ApiV1TeamConfigRouteImport.update({
+  id: '/api/v1/team-config',
+  path: '/api/v1/team-config',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1DeviceDisconnectRoute = ApiV1DeviceDisconnectRouteImport.update({
+  id: '/api/v1/device/disconnect',
+  path: '/api/v1/device/disconnect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1DeviceCheckInRoute = ApiV1DeviceCheckInRouteImport.update({
+  id: '/api/v1/device/check-in',
+  path: '/api/v1/device/check-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/developers': typeof DevelopersRoute
   '/setup': typeof SetupRoute
+  '/api/v1/team-config': typeof ApiV1TeamConfigRoute
+  '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
+  '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/developers': typeof DevelopersRoute
   '/setup': typeof SetupRoute
+  '/api/v1/team-config': typeof ApiV1TeamConfigRoute
+  '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
+  '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/developers': typeof DevelopersRoute
   '/setup': typeof SetupRoute
+  '/api/v1/team-config': typeof ApiV1TeamConfigRoute
+  '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
+  '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/developers' | '/setup'
+  fullPaths:
+    | '/'
+    | '/developers'
+    | '/setup'
+    | '/api/v1/team-config'
+    | '/api/v1/device/check-in'
+    | '/api/v1/device/disconnect'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/developers' | '/setup'
-  id: '__root__' | '/' | '/developers' | '/setup'
+  to:
+    | '/'
+    | '/developers'
+    | '/setup'
+    | '/api/v1/team-config'
+    | '/api/v1/device/check-in'
+    | '/api/v1/device/disconnect'
+  id:
+    | '__root__'
+    | '/'
+    | '/developers'
+    | '/setup'
+    | '/api/v1/team-config'
+    | '/api/v1/device/check-in'
+    | '/api/v1/device/disconnect'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DevelopersRoute: typeof DevelopersRoute
   SetupRoute: typeof SetupRoute
+  ApiV1TeamConfigRoute: typeof ApiV1TeamConfigRoute
+  ApiV1DeviceCheckInRoute: typeof ApiV1DeviceCheckInRoute
+  ApiV1DeviceDisconnectRoute: typeof ApiV1DeviceDisconnectRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +131,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/team-config': {
+      id: '/api/v1/team-config'
+      path: '/api/v1/team-config'
+      fullPath: '/api/v1/team-config'
+      preLoaderRoute: typeof ApiV1TeamConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/device/disconnect': {
+      id: '/api/v1/device/disconnect'
+      path: '/api/v1/device/disconnect'
+      fullPath: '/api/v1/device/disconnect'
+      preLoaderRoute: typeof ApiV1DeviceDisconnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/device/check-in': {
+      id: '/api/v1/device/check-in'
+      path: '/api/v1/device/check-in'
+      fullPath: '/api/v1/device/check-in'
+      preLoaderRoute: typeof ApiV1DeviceCheckInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +159,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DevelopersRoute: DevelopersRoute,
   SetupRoute: SetupRoute,
+  ApiV1TeamConfigRoute: ApiV1TeamConfigRoute,
+  ApiV1DeviceCheckInRoute: ApiV1DeviceCheckInRoute,
+  ApiV1DeviceDisconnectRoute: ApiV1DeviceDisconnectRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

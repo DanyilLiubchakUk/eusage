@@ -66,6 +66,7 @@ export function DeveloperTable({
               <th>Developer</th>
               <th>Status</th>
               <th>Token</th>
+              <th>Devices</th>
               <th>Created</th>
               <th>Last seen</th>
               <th>Metadata</th>
@@ -83,6 +84,9 @@ export function DeveloperTable({
                 <td>
                   <strong>{developer.token?.fingerprint ?? "Missing"}</strong>
                   <span>{tokenSummary(developer)}</span>
+                </td>
+                <td>
+                  <DeviceSummary developer={developer} />
                 </td>
                 <td>{formatTimestamp(developer.createdAt)}</td>
                 <td>{formatTimestamp(developer.lastSeenAt)}</td>
@@ -102,6 +106,24 @@ export function DeveloperTable({
         </table>
       )}
     </section>
+  )
+}
+
+function DeviceSummary({ developer }: { developer: DeveloperRow }) {
+  if (developer.devices.length === 0) return <>No devices</>
+
+  return (
+    <ul className="developer-device-list">
+      {developer.devices.map((device) => (
+        <li key={device.id}>
+          <strong>{device.deviceName}</strong>
+          <span>
+            {device.status} - {device.os} - v{device.appVersion}
+          </span>
+          <span>Last seen {formatTimestamp(device.lastSeenAt)}</span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
