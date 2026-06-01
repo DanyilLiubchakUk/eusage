@@ -9,6 +9,7 @@
  */
 
 import type * as setup from "../setup.js";
+import type * as setupClaim from "../setupClaim.js";
 
 import type {
   ApiFromModules,
@@ -18,6 +19,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   setup: typeof setup;
+  setupClaim: typeof setupClaim;
 }>;
 
 /**

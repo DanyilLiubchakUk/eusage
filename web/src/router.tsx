@@ -34,7 +34,7 @@ export function getRouter() {
     context: {
       queryClient,
     },
-    Wrap: ({ children }) => (
+    InnerWrap: ({ children }) => (
       <ClerkProvider>
         <ConvexProviderWithClerk client={convexQueryClient.convexClient} useAuth={useAuth}>
           {children}
