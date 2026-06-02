@@ -41,6 +41,18 @@ export type CursorSummary = {
   [key: string]: unknown
 }
 
+export type CodexSummary = {
+  planType?: string
+  planName?: string
+  sessionUsedPercent?: number
+  weeklyUsedPercent?: number
+  reviewUsedPercent?: number
+  creditsRemaining?: number
+  todayTokens?: number
+  todayEstimatedCostUsd?: number
+  [key: string]: unknown
+}
+
 export type UsageSummarySource = {
   tokensTotal?: number
   estimatedCostUsd?: number
@@ -51,6 +63,7 @@ export type UsageSummarySource = {
   creditsRemaining?: number
   requestsUsed?: number
   provider?: {
+    codex?: CodexSummary
     cursor?: CursorSummary
     [key: string]: unknown
   }

@@ -62,13 +62,14 @@ export function AdminDashboardPlaceholder({ state, now }: DashboardPlaceholderPr
           ["Estimated cost", formatUsd(usage.comparison.current.estimatedCostUsd)],
           ["Token delta", formatPercentDelta(usage.comparison.tokensPercentChange)],
           ["Top provider", usage.comparison.current.topProvider?.providerId ?? "No data yet"],
+          ["Provider breakdown", formatProviderBreakdown(usage.comparison.current.providerTotals)],
           ["Active developers", String(source.activeDeveloperIds.length)],
           ["Cursor pool", formatCursorPool(cursorPool)],
           ["Quota pressure", formatQuota(quota.teamAveragePercent, quota.teamCoverage.label)],
         ]}
       />
 
-      <CursorDeveloperTable developers={state.developers} snapshots={source.snapshots} />
+      <DeveloperProviderTable developers={state.developers} snapshots={source.snapshots} />
 
       <section className="setup-card dashboard-card" aria-label="Team usage series">
         <strong>Chart source rows</strong>
@@ -114,6 +115,7 @@ export function TvDashboardPlaceholder({ state, now }: DashboardPlaceholderProps
             ["Cursor pool", formatCursorPool(cursorPool)],
             ["Quota pressure", formatQuota(quota.teamAveragePercent, quota.teamCoverage.label)],
             ["Top provider", usage.comparison.current.topProvider?.providerId ?? "No data yet"],
+            ["Provider breakdown", formatProviderBreakdown(usage.comparison.current.providerTotals)],
             ["Active developers", String(source.activeDeveloperIds.length)],
           ]}
         />
@@ -147,32 +149,32 @@ function MetricSummaryGrid({ items }: { items: Array<[string, string]> }) {
   )
 }
 
-function CursorDeveloperTable({
+function DeveloperProviderTable({
   developers,
   snapshots,
 }: {
   developers: ReadyDashboardState["developers"]
   snapshots: UsageSnapshotSourceRow[]
 }) {
-  const cursorRows = latestCursorRowsByDeveloper(snapshots)
+  const providerRows = latestProviderRowsByDeveloper(snapshots)
 
   return (
-    <section className="setup-card developer-table-card" aria-label="Cursor developer sync">
+    <section className="setup-card developer-table-card" aria-label="Developer provider sync">
       <div className="developer-table-toolbar">
-        <strong>Cursor developer sync</strong>
+        <strong>Developer provider sync</strong>
       </div>
       <table className="developer-table">
         <thead>
           <tr>
             <th>Developer</th>
-            <th>Cursor budget</th>
+            <th>Provider data</th>
             <th>Token</th>
             <th>Device sync</th>
           </tr>
         </thead>
         <tbody>
           {developers.map((developer) => {
-            const row = cursorRows.get(developer.id)
+            const rows = providerRows.get(developer.id) ?? []
             const device = latestDevice(developer.devices)
             return (
               <tr key={developer.id}>
@@ -180,7 +182,7 @@ function CursorDeveloperTable({
                   <strong>{developer.displayName}</strong>
                   <span>{developer.status}</span>
                 </td>
-                <td>{formatCursorDeveloperBudget(row)}</td>
+                <td>{formatProviderRows(rows)}</td>
                 <td>
                   <strong>{developer.token?.fingerprint ?? "Missing"}</strong>
                   <span>
@@ -254,16 +256,24 @@ function isTokenMetricKey(metricKey: string) {
   return metricKey.includes(".tokens.") || metricKey.endsWith(".tokens.total")
 }
 
-function latestCursorRowsByDeveloper(snapshots: UsageSnapshotSourceRow[]) {
-  const rows = new Map<string, UsageSnapshotSourceRow>()
+function latestProviderRowsByDeveloper(snapshots: UsageSnapshotSourceRow[]) {
+  const rows = new Map<string, Map<string, UsageSnapshotSourceRow>>()
   for (const snapshot of snapshots) {
-    if (snapshot.providerId !== "cursor") continue
-    const current = rows.get(snapshot.developerId)
+    const developerRows = rows.get(snapshot.developerId) ?? new Map<string, UsageSnapshotSourceRow>()
+    const current = developerRows.get(snapshot.providerId)
     if (!current || snapshot.updatedAt > current.updatedAt) {
-      rows.set(snapshot.developerId, snapshot)
+      developerRows.set(snapshot.providerId, snapshot)
+      rows.set(snapshot.developerId, developerRows)
     }
   }
-  return rows
+  return new Map(
+    [...rows.entries()].map(([developerId, providerRows]) => [
+      developerId,
+      [...providerRows.values()].sort((left, right) =>
+        left.providerId.localeCompare(right.providerId)
+      ),
+    ])
+  )
 }
 
 function latestDevice(devices: ReadyDashboardState["developers"][number]["devices"][number][]) {
@@ -271,6 +281,21 @@ function latestDevice(devices: ReadyDashboardState["developers"][number]["device
     (left, right) =>
       (right.lastSyncAt ?? right.lastSeenAt) - (left.lastSyncAt ?? left.lastSeenAt)
   )[0]
+}
+
+function formatProviderRows(rows: UsageSnapshotSourceRow[]) {
+  if (rows.length === 0) return "No data yet"
+  return rows.map(formatProviderRow).join(" | ")
+}
+
+function formatProviderRow(row: UsageSnapshotSourceRow) {
+  if (row.providerId === "cursor") {
+    return `Cursor: ${formatCursorDeveloperBudget(row)}`
+  }
+  if (row.providerId === "codex") {
+    return `Codex: ${formatCodexDeveloperUsage(row)}`
+  }
+  return `${formatProviderName(row.providerId)}: ${formatGenericProviderUsage(row)}`
 }
 
 function formatCursorDeveloperBudget(row: UsageSnapshotSourceRow | undefined) {
@@ -294,6 +319,47 @@ function formatCursorDeveloperBudget(row: UsageSnapshotSourceRow | undefined) {
   }
 
   return "No budget data"
+}
+
+function formatCodexDeveloperUsage(row: UsageSnapshotSourceRow) {
+  const codex = row.summary.provider?.codex
+  if (!codex) return "No data yet"
+
+  const parts = []
+  const session = numberOrNull(codex.sessionUsedPercent)
+  const weekly = numberOrNull(codex.weeklyUsedPercent)
+  const tokens = numberOrNull(row.summary.tokensTotal ?? codex.todayTokens)
+  const credits = numberOrNull(row.summary.creditsRemaining ?? codex.creditsRemaining)
+  if (session !== null) parts.push(`Session ${Math.round(session)}%`)
+  if (weekly !== null) parts.push(`Weekly ${Math.round(weekly)}%`)
+  if (tokens !== null) parts.push(`${formatCount(tokens)} tokens today`)
+  if (credits !== null) parts.push(`${formatCount(credits)} credits`)
+  return parts.length > 0 ? parts.join(", ") : "No usage data"
+}
+
+function formatGenericProviderUsage(row: UsageSnapshotSourceRow) {
+  const tokens = numberOrNull(row.summary.tokensTotal)
+  const cost = numberOrNull(row.summary.estimatedCostUsd)
+  const quota = numberOrNull(row.summary.quotaPercent)
+  if (tokens !== null) return `${formatCount(tokens)} tokens`
+  if (cost !== null) return `${formatUsd(cost)} estimated cost`
+  if (quota !== null) return `${Math.round(quota)}% quota`
+  return "Synced"
+}
+
+function formatProviderBreakdown(
+  providers: ReturnType<typeof calculateDashboardUsage>["comparison"]["current"]["providerTotals"]
+) {
+  if (providers.length === 0) return "No data yet"
+  return providers
+    .map((provider) => `${formatProviderName(provider.providerId)} ${formatCount(provider.tokensTotal)}`)
+    .join(", ")
+}
+
+function formatProviderName(providerId: string) {
+  if (providerId === "codex") return "Codex"
+  if (providerId === "cursor") return "Cursor"
+  return providerId
 }
 
 function numberOrNull(value: unknown) {

@@ -67,6 +67,32 @@ const readyState = {
       capturedAt: now,
       updatedAt: now - 12_000,
     },
+    {
+      id: "snapshot-2",
+      developerId: "alex",
+      developerName: "Alex",
+      deviceId: "device-1",
+      providerId: "codex",
+      periodKey: "codex:2026-06-01",
+      dataIdentity: "codex:daily:2026-06-01",
+      summary: {
+        tokensTotal: 75,
+        estimatedCostUsd: 1.25,
+        quotaPercent: 25,
+        creditsRemaining: 5,
+        provider: {
+          codex: {
+            planName: "Plus",
+            sessionUsedPercent: 25,
+            weeklyUsedPercent: 50,
+            todayTokens: 75,
+          },
+        },
+      },
+      metricFamilies: ["tokens", "estimatedCost", "quotaPressure", "credits"],
+      capturedAt: now,
+      updatedAt: now - 6_000,
+    },
   ],
   metricSamples: [
     {
@@ -75,6 +101,18 @@ const readyState = {
       developerId: "alex",
       metricKey: "cursor.tokens.total",
       value: 100,
+      unit: "tokens",
+      sampleDay: "2026-06-01",
+      source: "providerReported",
+      capturedAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "metric-2",
+      providerId: "codex",
+      developerId: "alex",
+      metricKey: "codex.tokens.total",
+      value: 75,
       unit: "tokens",
       sampleDay: "2026-06-01",
       source: "providerReported",
@@ -91,10 +129,12 @@ describe("dashboard placeholders", () => {
     expect(screen.getByRole("heading", { name: "Acme Team" })).toBeInTheDocument()
     expect(screen.getByText("Team On-Demand Budget: $60.00 remaining (1/2 developers reporting budget data)"))
       .toBeInTheDocument()
-    expect(screen.getByText("82% avg (1/2 reporting)")).toBeInTheDocument()
+    expect(screen.getByText("54% avg (2/4 reporting)")).toBeInTheDocument()
     expect(screen.getByText("1 daily token points from metric samples.")).toBeInTheDocument()
     expect(screen.getByRole("table")).toBeInTheDocument()
-    expect(screen.getByText("Individual $60.00 remaining")).toBeInTheDocument()
+    expect(screen.getByText("Codex: Session 25%, Weekly 50%, 75 tokens today, 5 credits | Cursor: Individual $60.00 remaining"))
+      .toBeInTheDocument()
+    expect(screen.getByText("Cursor 100, Codex 75")).toBeInTheDocument()
     expect(screen.getByText("2f8a7f04...e2498b5e")).toBeInTheDocument()
     expect(screen.getAllByText(/^Last sync /)).toHaveLength(2)
   })
@@ -102,10 +142,11 @@ describe("dashboard placeholders", () => {
   it("renders TV metrics from the same source rows", () => {
     render(<TvDashboardPlaceholder state={readyState} now={now} />)
 
-    expect(screen.getByRole("heading", { name: "100 tokens" })).toBeInTheDocument()
-    expect(screen.getByText("$3.50 estimated cost · No comparison")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "175 tokens" })).toBeInTheDocument()
+    expect(screen.getByText("$4.75 estimated cost · No comparison")).toBeInTheDocument()
     expect(screen.getByText("Team On-Demand Budget: $60.00 remaining (1/2 developers reporting budget data)"))
       .toBeInTheDocument()
+    expect(screen.getByText("Cursor 100, Codex 75")).toBeInTheDocument()
     expect(screen.getByText("Oldest update: 12s ago")).toBeInTheDocument()
   })
 })
