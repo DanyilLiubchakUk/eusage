@@ -22,6 +22,10 @@ export function formatPercentDelta(value: number | null) {
   return `${rounded > 0 ? "+" : ""}${rounded}%`
 }
 
+export function formatPercent(value: number) {
+  return `${Math.round(value)}%`
+}
+
 export function formatProviderBreakdown(providers: ProviderTotalLike[]) {
   if (providers.length === 0) return "No data yet"
   return providers

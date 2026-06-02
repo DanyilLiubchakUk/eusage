@@ -19,6 +19,8 @@ type TvViewSettings = {
   dateRange: unknown
   visibleProviderIds: string[] | null
   visibleDeveloperIds: string[] | null
+  slides?: unknown
+  theme?: string
 }
 
 export function dashboardSource(state: ReadyDashboardState, view: "admin" | "tv") {
@@ -69,6 +71,8 @@ function defaultTvSettings() {
     dateRange: { preset: "last7" as const },
     visibleProviderIds: null,
     visibleDeveloperIds: null,
+    slides: [],
+    theme: "dark",
   } satisfies TvViewSettings
 }
 

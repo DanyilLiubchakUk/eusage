@@ -104,7 +104,7 @@ Official v1 path:
 - TV mode defaults to 10 seconds per slide, with admin-managed slide order and per-slide duration.
 - TV settings use a `dnd-kit` sortable list with enable toggles and per-slide duration inputs.
 - TV mode supports automatic rotation plus pause/resume, previous/next, and exit fullscreen controls.
-- Every TV slide shows `Oldest update: ...` for the oldest visible data used by that slide. Format omits leading zero units: `9d 3h 4m 12s ago`, `3h 4m 12s ago`, `4m 12s ago`, or `12s ago`. Freshness colors appear only on Sync Health.
+- Every TV slide shows `Updates: ...` for the oldest and newest visible data used by that slide. Format omits leading zero units: `9d 3h 4m 12s ago`, `3h 4m 12s ago`, `4m 12s ago`, or `12s ago`. Freshness colors appear only on Sync Health.
 - TV/display mode defaults to last 7 days and supports last 30, last 90, all time, and custom date ranges.
 - TV and admin date comparisons use the previous equal-length range for last 7, last 30, last 90, and custom ranges; all-time has no percent-delta comparison.
 - TV Team Overview leads with team usage/spend and percent change, then also shows Cursor pool, top provider, active developers, and sync health.

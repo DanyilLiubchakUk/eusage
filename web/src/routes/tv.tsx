@@ -1,8 +1,8 @@
-import { convexQuery } from "@convex-dev/react-query"
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { api } from "../../../convex/_generated/api"
-import { TvDashboardPlaceholder } from "../features/dashboard/dashboard-placeholders"
+import { TvDashboard } from "../features/dashboard/tv-dashboard"
 
 const dashboardSourceQuery = convexQuery(api.dashboard.sourceRows, {})
 
@@ -15,5 +15,31 @@ export const Route = createFileRoute("/tv")({
 
 function TvRoute() {
   const { data } = useSuspenseQuery(dashboardSourceQuery)
-  return <TvDashboardPlaceholder state={data} now={Date.now()} />
+  const queryClient = useQueryClient()
+  const updateTvSettings = useConvexMutation(api.dashboard.updateTvSettings)
+
+  if (data.status !== "ready") {
+    return (
+      <main className="setup-page">
+        <section className="setup-card" aria-label="Dashboard unavailable">
+          <strong>Dashboard unavailable</strong>
+          <p>{data.status}</p>
+        </section>
+      </main>
+    )
+  }
+
+  return (
+    <TvDashboard
+      state={data}
+      now={Date.now()}
+      onSettingsChange={async (patch) => {
+        const result = await updateTvSettings(patch)
+        if (result.status !== "ok") {
+          throw new Error(`TV settings update failed: ${result.status}`)
+        }
+        await queryClient.invalidateQueries({ queryKey: dashboardSourceQuery.queryKey })
+      }}
+    />
+  )
 }
