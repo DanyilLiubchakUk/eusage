@@ -1,5 +1,5 @@
 import { useCallback } from "react"
-import { CircleHelp, Settings } from "lucide-react"
+import { CircleHelp, Network, Settings } from "lucide-react"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { invoke } from "@tauri-apps/api/core"
 import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu"
@@ -223,6 +223,14 @@ export function SideNav({
         aria-label="Home"
       >
         <GaugeIcon className="size-6 dark:text-page-accent" />
+      </NavButton>
+
+      <NavButton
+        isActive={activeView === "team"}
+        onClick={() => onViewChange("team")}
+        aria-label="Team"
+      >
+        <Network className="size-6" />
       </NavButton>
 
       {/* Plugin icons */}

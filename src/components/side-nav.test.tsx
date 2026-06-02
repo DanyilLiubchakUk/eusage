@@ -23,9 +23,12 @@ vi.mock("@tauri-apps/api/core", () => ({
 }))
 
 describe("SideNav", () => {
-  it("calls onViewChange for Home and Settings", async () => {
+  it("calls onViewChange for Home, Team, and Settings", async () => {
     const onViewChange = vi.fn()
     render(<SideNav activeView="home" onViewChange={onViewChange} plugins={[]} />)
+
+    await userEvent.click(screen.getByRole("button", { name: "Team" }))
+    expect(onViewChange).toHaveBeenCalledWith("team")
 
     await userEvent.click(screen.getByRole("button", { name: "Settings" }))
     expect(onViewChange).toHaveBeenCalledWith("settings")

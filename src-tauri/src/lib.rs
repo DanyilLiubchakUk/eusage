@@ -4,6 +4,7 @@ mod config;
 mod local_http_api;
 mod panel;
 mod plugin_engine;
+mod team_credentials;
 mod team_sync;
 mod tray;
 #[cfg(target_os = "macos")]
@@ -142,6 +143,21 @@ fn open_devtools(#[allow(unused)] app_handle: tauri::AppHandle) {
             window.open_devtools();
         }
     }
+}
+
+#[tauri::command]
+fn save_team_token(token: String) -> Result<(), String> {
+    team_credentials::save_team_token(&token)
+}
+
+#[tauri::command]
+fn read_team_token() -> Result<Option<String>, String> {
+    team_credentials::read_team_token()
+}
+
+#[tauri::command]
+fn delete_team_token() -> Result<(), String> {
+    team_credentials::delete_team_token()
 }
 
 #[tauri::command]
@@ -458,6 +474,9 @@ pub fn run() {
             hide_panel,
             get_desktop_platform,
             open_devtools,
+            save_team_token,
+            read_team_token,
+            delete_team_token,
             start_probe_batch,
             list_plugins,
             get_log_path,

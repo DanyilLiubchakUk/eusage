@@ -1,10 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { overviewPageMock, providerDetailPageMock, settingsPageMock } = vi.hoisted(() => ({
+const { overviewPageMock, providerDetailPageMock, settingsPageMock, teamPageMock } = vi.hoisted(() => ({
   overviewPageMock: vi.fn(),
   settingsPageMock: vi.fn(),
   providerDetailPageMock: vi.fn(),
+  teamPageMock: vi.fn(),
 }))
 
 vi.mock("@/pages/overview", () => ({
@@ -18,6 +19,13 @@ vi.mock("@/pages/settings", () => ({
   SettingsPage: (props: unknown) => {
     settingsPageMock(props)
     return <div data-testid="settings-page" />
+  },
+}))
+
+vi.mock("@/pages/team", () => ({
+  TeamPage: (props: unknown) => {
+    teamPageMock(props)
+    return <div data-testid="team-page" />
   },
 }))
 
@@ -63,6 +71,13 @@ function createProps(): AppContentProps {
     onDisplayModeChange: vi.fn(),
     onResetTimerDisplayModeChange: vi.fn(),
     onResetTimerDisplayModeToggle: vi.fn(),
+    onTimeFormatModeChange: vi.fn(),
+    onMenubarIconStyleChange: vi.fn(),
+    traySettingsPreview: {
+      bars: [],
+      providerBars: [],
+      providerPercentText: "",
+    },
     onGlobalShortcutChange: vi.fn(),
     onStartOnLoginChange: vi.fn(),
   }
@@ -73,6 +88,7 @@ describe("AppContent", () => {
     overviewPageMock.mockReset()
     settingsPageMock.mockReset()
     providerDetailPageMock.mockReset()
+    teamPageMock.mockReset()
     useAppUiStore.getState().resetState()
     useAppPreferencesStore.getState().resetState()
   })
@@ -91,6 +107,14 @@ describe("AppContent", () => {
 
     expect(screen.getByTestId("settings-page")).toBeInTheDocument()
     expect(settingsPageMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("renders team page for team view", () => {
+    useAppUiStore.getState().setActiveView("team")
+    render(<AppContent {...createProps()} />)
+
+    expect(screen.getByTestId("team-page")).toBeInTheDocument()
+    expect(teamPageMock).toHaveBeenCalledTimes(1)
   })
 
   it("passes retry callback for provider detail view", () => {

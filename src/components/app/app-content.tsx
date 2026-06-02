@@ -2,6 +2,7 @@ import { useShallow } from "zustand/react/shallow"
 import { OverviewPage } from "@/pages/overview"
 import { ProviderDetailPage } from "@/pages/provider-detail"
 import { SettingsPage } from "@/pages/settings"
+import { TeamPage } from "@/pages/team"
 import type { DisplayPluginState } from "@/hooks/app/use-app-plugin-views"
 import type { SettingsPluginState } from "@/hooks/app/use-settings-plugin-list"
 import type { TraySettingsPreview } from "@/hooks/app/use-tray-icon"
@@ -125,6 +126,10 @@ export function AppContent({
         onStartOnLoginChange={onStartOnLoginChange}
       />
     )
+  }
+
+  if (activeView === "team") {
+    return <TeamPage plugins={displayPlugins} />
   }
 
   const handleRetry = selectedPlugin
