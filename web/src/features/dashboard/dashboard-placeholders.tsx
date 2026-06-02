@@ -5,6 +5,7 @@ import {
   formatUpdateFreshnessLabel,
   isSampleDayInWindow,
   resolveMetricDateRange,
+  type MetricDateRangeInput,
   type MetricRangeWindow,
 } from "../../lib/metrics"
 import { AdminOverview } from "./admin-overview"
@@ -22,9 +23,17 @@ type DashboardPlaceholderProps = {
   now: number
 }
 
-export function AdminDashboardPlaceholder({ state, now }: DashboardPlaceholderProps) {
+type AdminDashboardPlaceholderProps = DashboardPlaceholderProps & {
+  onDateRangeChange?: (value: MetricDateRangeInput) => Promise<void> | void
+}
+
+export function AdminDashboardPlaceholder({
+  state,
+  now,
+  onDateRangeChange,
+}: AdminDashboardPlaceholderProps) {
   if (state.status !== "ready") return <DashboardUnavailable state={state} />
-  return <AdminOverview state={state} now={now} />
+  return <AdminOverview state={state} now={now} onDateRangeChange={onDateRangeChange} />
 }
 
 export function TvDashboardPlaceholder({ state, now }: DashboardPlaceholderProps) {
@@ -44,6 +53,7 @@ export function TvDashboardPlaceholder({ state, now }: DashboardPlaceholderProps
   })
   const quota = calculateQuotaPressure({
     snapshots: source.snapshots,
+    metricSamples: source.metricSamples,
     window: range.current,
     visibleDeveloperIds: source.visibleDeveloperIds,
     visibleProviderIds: source.visibleProviderIds,

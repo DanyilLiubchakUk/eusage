@@ -110,6 +110,7 @@ export function buildProviderStatusRows(args: {
   snapshots: UsageSnapshotSourceRow[]
   providerTotals: ProviderTotal[]
   quotaProviders: ReturnType<typeof calculateQuotaPressure>["perProvider"]
+  quotaDetails: ReturnType<typeof calculateQuotaPressure>["details"]
   window: MetricRangeWindow
 }): ProviderStatusRow[] {
   const totals = new Map(args.providerTotals.map((provider) => [provider.providerId, provider]))
@@ -123,12 +124,22 @@ export function buildProviderStatusRows(args: {
       latestByProvider.set(snapshot.providerId, snapshot)
     }
   }
+  const latestQuotaByProvider = new Map<string, number>()
+  for (const detail of args.quotaDetails) {
+    latestQuotaByProvider.set(
+      detail.providerId,
+      Math.max(latestQuotaByProvider.get(detail.providerId) ?? 0, detail.updatedAt)
+    )
+  }
 
   return args.providerIds
     .map((providerId) => {
       const total = totals.get(providerId)
       const quota = quotaByProvider.get(providerId)
       const latest = latestByProvider.get(providerId)
+      const latestQuotaAt = latestQuotaByProvider.get(providerId) ?? null
+      const lastUpdatedAt =
+        latest && latestQuotaAt ? Math.max(latest.updatedAt, latestQuotaAt) : latestQuotaAt ?? latest?.updatedAt ?? null
       return {
         providerId,
         providerName: formatProviderName(providerId),
@@ -137,8 +148,8 @@ export function buildProviderStatusRows(args: {
           quota?.averagePercent === null || !quota
             ? quota?.coverage.label ?? "0 reports"
             : `${Math.round(quota.averagePercent)}% avg · ${quota.coverage.label}`,
-        status: latest ? "Synced" : "No data yet",
-        lastUpdatedAt: latest?.updatedAt ?? null,
+        status: lastUpdatedAt ? "Synced" : "No data yet",
+        lastUpdatedAt,
       }
     })
     .sort((left, right) => left.providerName.localeCompare(right.providerName))
@@ -246,15 +257,15 @@ export function buildAvailableMetricRows(args: {
       "Quota pressure",
       args.quota.teamAveragePercent === null
         ? "No data yet"
-        : `${Math.round(args.quota.teamAveragePercent)}% avg`,
-      "Provider summaries",
-      args.quota.teamCoverage.label,
+        : `${Math.round(args.quota.teamAveragePercent)}% avg · ${formatWorstQuota(args.quota)}`,
+      "Metric samples",
+      `${args.quota.teamCoverage.label} · ${args.quota.highPressureCount} high`,
       metricTooltip({
-        meaning: "Simple average of visible developer-provider quota percentages.",
-        source: "Provider-reported quota percent fields.",
+        meaning: "Average and worst visible quota pressure.",
+        source: "Provider-reported quota metric samples, with snapshot fields only when samples are missing.",
         unit: "percent.",
-        coverage: `${args.quota.teamCoverage.label} in ${args.rangeLabel}.`,
-        status: "Missing reports are excluded from the average.",
+        coverage: `${args.quota.teamCoverage.label} in ${args.rangeLabel}. ${args.quota.perProvider.length} visible providers.`,
+        status: `Worst active pressure: ${formatWorstQuota(args.quota)}. Missing reports are excluded.`,
       })
     ),
     metricRow(
@@ -310,6 +321,11 @@ export function buildAvailableMetricRows(args: {
       })
     ),
   ]
+}
+
+function formatWorstQuota(quota: ReturnType<typeof calculateQuotaPressure>) {
+  if (!quota.worstSingle) return "No worst"
+  return `${Math.round(quota.worstSingle.percent)}% worst`
 }
 
 function providerCountForDeveloper(

@@ -76,6 +76,7 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
 
   return {
     teamName: state.team.name,
+    dateRange: source.dateRange,
     rangeLabel: usage.range.label,
     freshnessLabel,
     filterSummary: buildFilterSummary(source.visibleDeveloperIds, source.visibleProviderIds),
@@ -103,6 +104,7 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
       snapshots: source.snapshots,
       providerTotals: sampledUsage.providerTotals,
       quotaProviders: quota.perProvider,
+      quotaDetails: quota.details,
       window: range.current,
     }),
     recentSyncRows: buildRecentSyncRows(source.developers),

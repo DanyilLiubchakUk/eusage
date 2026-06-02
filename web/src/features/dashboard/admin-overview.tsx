@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react"
 import { Info } from "lucide-react"
 import { DashboardChart } from "./dashboard-chart"
+import { AdminDateRangeControls } from "./admin-date-range-controls"
 import {
   buildAdminOverviewModel,
   formatTimestamp,
@@ -12,15 +13,17 @@ import {
 } from "./admin-overview-data"
 import { formatCount, formatProviderName, formatUsd } from "./dashboard-formatting"
 import type { ReadyDashboardState } from "./dashboard-source"
+import type { MetricDateRangeInput } from "../../lib/metrics"
 import { QuotaPressureTable } from "./admin-overview-quota-table"
 import "./admin-overview.css"
 
 type AdminOverviewProps = {
   state: ReadyDashboardState
   now: number
+  onDateRangeChange?: (value: MetricDateRangeInput) => Promise<void> | void
 }
 
-export function AdminOverview({ state, now }: AdminOverviewProps) {
+export function AdminOverview({ state, now, onDateRangeChange }: AdminOverviewProps) {
   const model = buildAdminOverviewModel(state, now)
   const tokenPoints = model.tokenSeries.points
   const providerRows = model.providerBreakdownRows
@@ -36,6 +39,10 @@ export function AdminOverview({ state, now }: AdminOverviewProps) {
           </p>
         </div>
         <div className="admin-overview-meta" aria-label="Dashboard filters">
+          <AdminDateRangeControls
+            value={model.dateRange}
+            onChange={onDateRangeChange}
+          />
           <span>{model.rangeLabel}</span>
           <span>{model.freshnessLabel}</span>
           <span>{model.filterSummary}</span>
@@ -229,7 +236,17 @@ function CursorPoolPanel({
   const usedPercent = pool.available && pool.limitUsd > 0 ? (pool.usedUsd / pool.limitUsd) * 100 : 0
   const width = `${Math.max(0, Math.min(100, usedPercent))}%`
 
-  if (!pool.available) return <p className="admin-empty-row">No Cursor pool data yet</p>
+  if (!pool.available) {
+    return (
+      <div className="admin-cursor-pool">
+        <p className="admin-empty-row">No Cursor pool data yet</p>
+        <span className="admin-helper-text">
+          {pool.coverage.label}. eUsage uses Cursor pooled fields first, then Team
+          On-Demand limits from synced Cursor rows.
+        </span>
+      </div>
+    )
+  }
 
   return (
     <div className="admin-cursor-pool">

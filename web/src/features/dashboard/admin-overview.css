@@ -44,6 +44,41 @@
   font-weight: 700;
 }
 
+.admin-date-range {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.admin-date-range select,
+.admin-date-range input,
+.admin-date-range button {
+  height: 2rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.admin-date-range select,
+.admin-date-range input {
+  padding: 0 0.55rem;
+}
+
+.admin-date-range button {
+  padding: 0 0.7rem;
+}
+
+.admin-date-range form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .admin-kpi-strip {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -228,6 +263,12 @@
 
 .admin-cursor-pool-values span {
   color: #64748b;
+}
+
+.admin-helper-text {
+  color: #64748b;
+  font-size: 0.86rem;
+  line-height: 1.45;
 }
 
 .admin-compact-table {

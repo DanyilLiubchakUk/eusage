@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
 import {
   AdminDashboardPlaceholder,
@@ -310,7 +311,7 @@ describe("dashboard placeholders", () => {
     expect(screen.getByText("$5.50 · No comparison")).toBeInTheDocument()
     expect(screen.getByText("Default metric: total visible usage")).toBeInTheDocument()
     expect(screen.getAllByText("$60.00 remaining").length).toBeGreaterThan(0)
-    expect(screen.getByText("44% avg")).toBeInTheDocument()
+    expect(screen.getByText("51% avg · 70% worst")).toBeInTheDocument()
     expect(screen.getAllByText("4/8 reporting").length).toBeGreaterThan(0)
     expect(screen.getAllByRole("table")).toHaveLength(6)
     expect(screen.getByText("Available Metrics")).toBeInTheDocument()
@@ -335,6 +336,24 @@ describe("dashboard placeholders", () => {
     expect(screen.getByText("Updates: oldest 12s ago · newest 0s ago")).toBeInTheDocument()
     expect(screen.getAllByText("Alex").length).toBeGreaterThan(0)
     expect(screen.getByText("Alex Mac")).toBeInTheDocument()
+  })
+
+  it("lets Admin persist a different date range", async () => {
+    const user = userEvent.setup()
+    const changes: unknown[] = []
+    render(
+      <AdminDashboardPlaceholder
+        state={readyState}
+        now={now}
+        onDateRangeChange={async (value) => {
+          changes.push(value)
+        }}
+      />
+    )
+
+    await user.selectOptions(screen.getByRole("combobox"), "last30")
+
+    expect(changes).toEqual([{ preset: "last30" }])
   })
 
   it("renders Admin no-data states", () => {

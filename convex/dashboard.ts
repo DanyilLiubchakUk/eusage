@@ -1,4 +1,6 @@
-import { query } from "./_generated/server"
+import { mutation, query, type MutationCtx } from "./_generated/server"
+import type { Id } from "./_generated/dataModel"
+import { v } from "convex/values"
 
 export const sourceRows = query({
   args: {},
@@ -164,6 +166,70 @@ export const sourceRows = query({
   },
 })
 
+export const updateDashboardSettings = mutation({
+  args: {
+    defaultDateRange: v.union(
+      v.object({ preset: v.literal("last7") }),
+      v.object({ preset: v.literal("last30") }),
+      v.object({ preset: v.literal("last90") }),
+      v.object({ preset: v.literal("allTime") }),
+      v.object({
+        preset: v.literal("custom"),
+        startDay: v.string(),
+        endDay: v.string(),
+      })
+    ),
+  },
+  handler: async (ctx, input) => {
+    const ownerState = await getOwnerTeamState(ctx)
+    if (ownerState.status !== "ready") return ownerState
+    if (!isValidDateRange(input.defaultDateRange)) {
+      return {
+        status: "invalid-date-range" as const,
+        message: "Date range is invalid.",
+      }
+    }
+
+    const existing = await ctx.db
+      .query("dashboardSettings")
+      .withIndex("by_teamId", (q) => q.eq("teamId", ownerState.team._id))
+      .first()
+    const now = Date.now()
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        defaultDateRange: input.defaultDateRange,
+        updatedAt: now,
+      })
+    } else {
+      await ctx.db.insert("dashboardSettings", {
+        teamId: ownerState.team._id,
+        defaultDateRange: input.defaultDateRange,
+        hiddenDeveloperIds: [],
+        includeInactiveDevelopers: false,
+        createdAt: now,
+        updatedAt: now,
+      })
+    }
+
+    return { status: "ok" as const }
+  },
+})
+
+async function getOwnerTeamState(ctx: MutationCtx) {
+  const identity = await ctx.auth.getUserIdentity()
+  if (!identity) return { status: "not-authenticated" as const }
+
+  const team = await ctx.db.query("teams").first()
+  const owner = await ctx.db.query("admins").first()
+  if (!team || !owner || owner.teamId !== team._id) {
+    return { status: "setup-state-invalid" as const }
+  }
+  if (owner.clerkUserId !== identity.subject) return { status: "not-owner" as const }
+
+  return { status: "ready" as const, team: team as { _id: Id<"teams"> } }
+}
+
 function defaultDashboardSettings() {
   return {
     defaultDateRange: { preset: "last7" as const },
@@ -234,4 +300,31 @@ function publicToken(
     status: token.status,
     lastUsedAt: token.lastUsedAt ?? null,
   }
+}
+
+function isValidDateRange(value: unknown) {
+  if (!value || typeof value !== "object") return false
+  const range = value as { preset?: unknown; startDay?: unknown; endDay?: unknown }
+  if (
+    range.preset === "last7" ||
+    range.preset === "last30" ||
+    range.preset === "last90" ||
+    range.preset === "allTime"
+  ) {
+    return true
+  }
+  if (
+    range.preset !== "custom" ||
+    typeof range.startDay !== "string" ||
+    typeof range.endDay !== "string"
+  ) {
+    return false
+  }
+  return isValidUtcDay(range.startDay) && isValidUtcDay(range.endDay) && range.endDay >= range.startDay
+}
+
+function isValidUtcDay(day: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false
+  const date = new Date(`${day}T00:00:00.000Z`)
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === day
 }

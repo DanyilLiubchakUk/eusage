@@ -29,6 +29,7 @@ export type QuotaPressurePoint = {
   providerId: string
   percent: number
   status: "normal" | "warning" | "critical"
+  updatedAt?: number
 }
 
 export type DeveloperQuotaAverage = {
@@ -64,7 +65,8 @@ export function calculateQuotaPressure(args: {
   const rows = latestRowsByDeveloperProvider(args.snapshots, args.window)
   const developerIds = new Set(args.visibleDeveloperIds ?? rows.map((row) => row.developerId))
   const providerIds = new Set(args.visibleProviderIds ?? rows.map((row) => row.providerId))
-  const points = quotaPoints(rows, developerIds, providerIds)
+  const details = quotaDetails(rows, args.metricSamples ?? [], args.window, developerIds, providerIds)
+  const points = quotaPoints(details, rows, developerIds, providerIds)
   const totalCount = developerIds.size * providerIds.size
   const teamAveragePercent = average(points.map((point) => point.percent))
   const perDeveloper = [...developerIds].map((developerId) =>
@@ -88,7 +90,7 @@ export function calculateQuotaPressure(args: {
       )[0] ?? null,
     perDeveloper,
     perProvider,
-    details: quotaDetails(rows, args.metricSamples ?? [], args.window, developerIds, providerIds),
+    details,
   }
 }
 
@@ -110,10 +112,34 @@ function latestRowsByDeveloperProvider(
 }
 
 function quotaPoints(
+  details: QuotaPressureDetail[],
   rows: UsageSnapshotSourceRow[],
   developerIds: Set<string>,
   providerIds: Set<string>
 ): QuotaPressurePoint[] {
+  const pointsByPair = new Map<string, QuotaPressurePoint>()
+
+  for (const detail of details) {
+    const key = `${detail.developerId}\u0000${detail.providerId}`
+    const current = pointsByPair.get(key)
+    if (
+      !current ||
+      detail.percent > current.percent ||
+      (detail.percent === current.percent && detail.updatedAt > (current.updatedAt ?? 0))
+    ) {
+      pointsByPair.set(key, {
+        developerId: detail.developerId,
+        developerName: detail.developerName,
+        providerId: detail.providerId,
+        percent: detail.percent,
+        status: detail.status,
+        updatedAt: detail.updatedAt,
+      })
+    }
+  }
+
+  if (pointsByPair.size > 0) return [...pointsByPair.values()]
+
   return rows
     .filter((row) => developerIds.has(row.developerId) && providerIds.has(row.providerId))
     .map((row) => {
@@ -152,7 +178,17 @@ function quotaDetails(
     if (!current || detail.updatedAt > current.updatedAt) byIdentity.set(key, detail)
   }
 
-  return [...byIdentity.values()].sort(
+  const values = [...byIdentity.values()]
+  const pairsWithSpecificDetails = new Set(
+    values
+      .filter((detail) => detail.label !== "Quota")
+      .map((detail) => `${detail.developerId}\u0000${detail.providerId}`)
+  )
+
+  return values.filter((detail) => {
+    if (detail.label !== "Quota") return true
+    return !pairsWithSpecificDetails.has(`${detail.developerId}\u0000${detail.providerId}`)
+  }).sort(
     (left, right) =>
       right.percent - left.percent ||
       left.providerId.localeCompare(right.providerId) ||
@@ -197,7 +233,7 @@ function providerQuotaDetails(row: UsageSnapshotSourceRow): QuotaPressureDetail[
     details.push({ label: "Quota", percent: row.summary.quotaPercent })
   }
 
-  return details
+  const normalized = details
     .map(({ label, percent }) => {
       if (typeof percent !== "number" || !Number.isFinite(percent)) return null
       return quotaDetail({
@@ -210,6 +246,23 @@ function providerQuotaDetails(row: UsageSnapshotSourceRow): QuotaPressureDetail[
       })
     })
     .filter((detail): detail is QuotaPressureDetail => detail !== null)
+
+  if (normalized.length > 0) return normalized
+
+  if (typeof row.summary.quotaPercent === "number" && Number.isFinite(row.summary.quotaPercent)) {
+    return [
+      quotaDetail({
+        developerId: row.developerId,
+        developerName: row.developerName ?? null,
+        providerId: row.providerId,
+        label: "Quota",
+        percent: row.summary.quotaPercent,
+        updatedAt: row.updatedAt,
+      }),
+    ]
+  }
+
+  return []
 }
 
 function quotaDetail(args: {

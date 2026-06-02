@@ -287,6 +287,53 @@ describe("dashboard metrics", () => {
       })
   })
 
+  it("uses quota metric samples for aggregate pressure when snapshots are stale", () => {
+    const range = resolveMetricDateRange({ preset: "last7" }, now)
+
+    const quota = calculateQuotaPressure({
+      snapshots: [
+        snapshot({
+          developerId: "alex",
+          developerName: "Alex",
+          providerId: "codex",
+          quotaPercent: 0,
+        }),
+      ],
+      metricSamples: [
+        sample({
+          developerId: "alex",
+          providerId: "codex",
+          metricKey: "codex.session.percentUsed",
+          unit: "percent",
+          value: 35,
+        }),
+        sample({
+          developerId: "alex",
+          providerId: "codex",
+          metricKey: "codex.weekly.percentUsed",
+          unit: "percent",
+          value: 42,
+        }),
+      ],
+      window: range.current,
+      visibleDeveloperIds: ["alex"],
+      visibleProviderIds: ["codex"],
+    })
+
+    expect(quota.teamAveragePercent).toBe(42)
+    expect(quota.perProvider[0]).toMatchObject({
+      providerId: "codex",
+      averagePercent: 42,
+      coverage: {
+        label: "1/1 developers",
+      },
+    })
+    expect(quota.details.map((detail) => `${detail.label}:${detail.percent}`)).toEqual([
+      "Weekly:42",
+      "Session:35",
+    ])
+  })
+
   it("resolves provider, developer, and inactive visibility before metrics", () => {
     const visible = resolveVisibleMetricSource({
       developers: [
