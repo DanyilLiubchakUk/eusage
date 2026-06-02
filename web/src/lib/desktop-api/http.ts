@@ -11,6 +11,12 @@ export const DESKTOP_API_ENDPOINTS = {
   deviceDisconnect: "/api/v1/device/disconnect",
 }
 
+export const DESKTOP_API_CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+}
+
 type TeamConfigInput = {
   teamName: string
 }
@@ -55,7 +61,7 @@ export function apiJsonError(
   error: DesktopApiError,
   status = statusForDesktopApiError(error.code)
 ) {
-  return Response.json(
+  return desktopApiJson(
     {
       ok: false,
       status: "error",
@@ -64,6 +70,24 @@ export function apiJsonError(
     },
     { status }
   )
+}
+
+export function desktopApiJson(body: unknown, init?: ResponseInit) {
+  return Response.json(body, withDesktopApiHeaders(init))
+}
+
+export function desktopApiOptions() {
+  return new Response(null, withDesktopApiHeaders({ status: 204 }))
+}
+
+function withDesktopApiHeaders(init: ResponseInit = {}): ResponseInit {
+  return {
+    ...init,
+    headers: {
+      ...DESKTOP_API_CORS_HEADERS,
+      ...Object.fromEntries(new Headers(init.headers)),
+    },
+  }
 }
 
 export async function readJsonObject(request: Request) {

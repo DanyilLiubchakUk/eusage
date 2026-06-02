@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   buildTeamConfigResponse,
+  desktopApiJson,
+  desktopApiOptions,
   getBearerToken,
   getBearerTokenHash,
 } from "./http"
@@ -43,5 +45,25 @@ describe("desktop API HTTP helpers", () => {
     expect(
       getBearerToken(new Headers({ authorization: `Bearer ${rawToken} extra` }))
     ).toBeNull()
+  })
+
+  it("adds CORS headers for desktop webview requests", () => {
+    const response = desktopApiJson({ ok: true })
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*")
+    expect(response.headers.get("Access-Control-Allow-Methods")).toContain("OPTIONS")
+    expect(response.headers.get("Access-Control-Allow-Headers")).toContain(
+      "Authorization"
+    )
+  })
+
+  it("builds a preflight response for authenticated desktop requests", () => {
+    const response = desktopApiOptions()
+
+    expect(response.status).toBe(204)
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*")
+    expect(response.headers.get("Access-Control-Allow-Headers")).toContain(
+      "Content-Type"
+    )
   })
 })

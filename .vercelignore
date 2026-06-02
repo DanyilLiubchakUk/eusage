@@ -1,0 +1,14 @@
+.git
+.vercel
+node_modules
+
+# Local desktop/build artifacts are not web deployment inputs.
+src-tauri/target
+src-tauri/gen
+dist
+web/dist
+web/.vercel
+
+# Local data and generated release output.
+collector/data
+*.log

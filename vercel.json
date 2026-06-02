@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "tanstack-start",
+  "installCommand": "bun install",
+  "buildCommand": "bunx convex deploy --cmd-url-env-var-name VITE_CONVEX_URL --cmd 'bun run build:vercel'"
+}

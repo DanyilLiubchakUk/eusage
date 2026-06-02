@@ -3,6 +3,8 @@ import { api } from "../../../../../../convex/_generated/api"
 import { getConvexHttpClient } from "../../../../lib/desktop-api/convex-client"
 import {
   apiJsonError,
+  desktopApiJson,
+  desktopApiOptions,
   getBearerTokenHash,
   optionalStringField,
   readJsonObject,
@@ -12,6 +14,7 @@ import {
 export const Route = createFileRoute("/api/v1/device/check-in")({
   server: {
     handlers: {
+      OPTIONS: () => desktopApiOptions(),
       POST: async ({ request }) => {
         const auth = await getBearerTokenHash(request.headers)
         if (!auth.ok) return apiJsonError(auth)
@@ -28,7 +31,7 @@ export const Route = createFileRoute("/api/v1/device/check-in")({
         })
         if (!result.ok) return apiJsonError(result)
 
-        return Response.json(result)
+        return desktopApiJson(result)
       },
     },
   },
