@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   buildMetricSeries,
+  buildMetricUnitSeries,
   calculateCursorPool,
   calculateDashboardUsage,
   calculateQuotaPressure,
@@ -60,6 +61,37 @@ describe("dashboard metrics", () => {
       { day: "2026-05-30", value: 30 },
       { day: "2026-06-01", value: 70 },
     ])
+  })
+
+  it("builds team metric series by unit across providers", () => {
+    const range = resolveMetricDateRange({ preset: "last7" }, now)
+
+    const series = buildMetricUnitSeries({
+      samples: [
+        sample({ providerId: "cursor", metricKey: "cursor.tokens.total", value: 40 }),
+        sample({ providerId: "codex", metricKey: "codex.tokens.total", value: 60 }),
+        sample({
+          providerId: "claude",
+          metricKey: "claude.cost.estimated",
+          unit: "usd",
+          value: 5,
+        }),
+        sample({
+          providerId: "cursor",
+          metricKey: "cursor.tokens.total",
+          sampleDay: "2026-05-20",
+          value: 999,
+        }),
+      ],
+      unit: "tokens",
+      window: range.current,
+    })
+
+    expect(series).toEqual({
+      metricKey: "tokens.total",
+      unit: "tokens",
+      points: [{ day: "2026-06-01", value: 100 }],
+    })
   })
 
   it("omits comparison deltas for all-time ranges", () => {

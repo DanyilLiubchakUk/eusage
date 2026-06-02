@@ -195,17 +195,52 @@ describe("dashboard placeholders", () => {
     render(<AdminDashboardPlaceholder state={readyState} now={now} />)
 
     expect(screen.getByRole("heading", { name: "Acme Team" })).toBeInTheDocument()
-    expect(screen.getByText("Team On-Demand Budget: $60.00 remaining (1/2 developers reporting budget data)"))
+    expect(screen.getByText("Fixed all-up dashboard for visible team usage, provider health, and sync status."))
       .toBeInTheDocument()
-    expect(screen.getByText("53% avg (4/8 reporting)")).toBeInTheDocument()
-    expect(screen.getByText("1 daily token points from metric samples.")).toBeInTheDocument()
-    expect(screen.getByRole("table")).toBeInTheDocument()
-    expect(screen.getByText("Claude: Session 64%, Weekly 70%, 50 tokens today, $0.75 today, $20.00/$100.00 extra | Codex: Session 25%, Weekly 50%, 75 tokens today, 5 credits | Cursor: Individual $60.00 remaining | JetBrains AI Assistant: 40% quota, 75 credits remaining, 50/125 credits"))
-      .toBeInTheDocument()
-    expect(screen.getByText("Cursor 100, Codex 75, Claude 50, JetBrains AI Assistant 50 credits")).toBeInTheDocument()
+    expect(screen.getAllByText("225 tokens").length).toBeGreaterThan(0)
+    expect(screen.getByText("$5.50 · No comparison")).toBeInTheDocument()
+    expect(screen.getByText("Default metric: total visible usage")).toBeInTheDocument()
+    expect(screen.getAllByText("$60.00 remaining").length).toBeGreaterThan(0)
+    expect(screen.getByText("53% avg")).toBeInTheDocument()
+    expect(screen.getByText("4/8 reporting")).toBeInTheDocument()
+    expect(screen.getAllByRole("table")).toHaveLength(5)
+    expect(screen.getByText("Available Metrics")).toBeInTheDocument()
+    expect(screen.getByText("Provider Status")).toBeInTheDocument()
+    expect(screen.getByText("Recent Syncs")).toBeInTheDocument()
+    expect(screen.getAllByText("Cursor").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("JetBrains AI Assistant").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("50 credits").length).toBeGreaterThan(0)
+    expect(screen.getByLabelText(/Total visible token usage/)).toHaveAttribute(
+      "title",
+      expect.stringContaining("Source: Normalized usage snapshots")
+    )
     expect(screen.getByText("Updates: oldest 12s ago · newest 0s ago")).toBeInTheDocument()
-    expect(screen.getByText("2f8a7f04...e2498b5e")).toBeInTheDocument()
-    expect(screen.getAllByText(/^Last sync /)).toHaveLength(2)
+    expect(screen.getAllByText("Alex").length).toBeGreaterThan(0)
+    expect(screen.getByText("Alex Mac")).toBeInTheDocument()
+  })
+
+  it("renders Admin no-data states", () => {
+    const state = {
+      status: "ready",
+      team: {
+        name: "Quiet Team",
+        slug: "quiet-team",
+      },
+      developers: [],
+      snapshots: [],
+      metricSamples: [],
+      providers: [],
+    } as unknown as DashboardSourceState
+
+    render(<AdminDashboardPlaceholder state={state} now={now} />)
+
+    expect(screen.getByRole("heading", { name: "Quiet Team" })).toBeInTheDocument()
+    expect(screen.getByText("No token samples yet")).toBeInTheDocument()
+    expect(screen.getAllByText("No provider usage yet").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("No developer usage yet").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("No device sync rows yet").length).toBeGreaterThan(0)
+    expect(screen.getByText("No providers visible")).toBeInTheDocument()
+    expect(screen.getByLabelText(/No sample data yet/)).toBeInTheDocument()
   })
 
   it("renders TV metrics from the same source rows", () => {
@@ -240,10 +275,10 @@ describe("dashboard placeholders", () => {
 
     render(<AdminDashboardPlaceholder state={state} now={now} />)
 
-    expect(screen.getByText("175")).toBeInTheDocument()
-    expect(screen.getByText("$4.75")).toBeInTheDocument()
-    expect(screen.getByText("Cursor 100, Codex 75, JetBrains AI Assistant 50 credits")).toBeInTheDocument()
-    expect(screen.queryByText(/Claude:/)).not.toBeInTheDocument()
+    expect(screen.getAllByText("175 tokens").length).toBeGreaterThan(0)
+    expect(screen.getByText("$4.75 · No comparison")).toBeInTheDocument()
+    expect(screen.getAllByText("JetBrains AI Assistant").length).toBeGreaterThan(0)
+    expect(screen.queryByText("Claude")).not.toBeInTheDocument()
   })
 
   it("lets TV hide a globally visible provider only from TV", () => {
@@ -319,8 +354,8 @@ describe("dashboard placeholders", () => {
     } as unknown as DashboardSourceState
 
     render(<AdminDashboardPlaceholder state={reviewState} now={now} />)
-    expect(screen.getByText("255")).toBeInTheDocument()
-    expect(screen.getByText("Lee")).toBeInTheDocument()
-    expect(screen.getByText("inactive")).toBeInTheDocument()
+    expect(screen.getAllByText("255 tokens").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Lee").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("inactive").length).toBeGreaterThan(0)
   })
 })

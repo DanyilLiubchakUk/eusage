@@ -1,0 +1,240 @@
+import {
+  buildMetricUnitSeries,
+  calculateCursorPool,
+  calculateDashboardUsage,
+  calculateQuotaPressure,
+  formatUpdateFreshnessLabel,
+  isSampleDayInWindow,
+  resolveMetricDateRange,
+  type MetricRangeWindow,
+  type ProviderTotal,
+} from "../../lib/metrics"
+import {
+  formatCount,
+  formatPercentDelta,
+  formatProviderName,
+  formatUsd,
+} from "./dashboard-formatting"
+import { dashboardSource, type ReadyDashboardState } from "./dashboard-source"
+import {
+  buildAvailableMetricRows,
+  buildDeveloperLeaderboardRows,
+  buildProviderStatusRows,
+  buildRecentSyncRows,
+} from "./admin-overview-tables"
+
+export type {
+  AvailableMetricRow,
+  DeveloperLeaderboardRow,
+  ProviderStatusRow,
+  RecentSyncRow,
+} from "./admin-overview-tables"
+
+export function buildAdminOverviewModel(state: ReadyDashboardState, now: number) {
+  const source = dashboardSource(state, "admin")
+  const range = resolveMetricDateRange(source.dateRange, now)
+  const usage = calculateDashboardUsage({
+    snapshots: source.snapshots,
+    range: source.dateRange,
+    now,
+  })
+  const cursorPool = calculateCursorPool({
+    snapshots: source.snapshots,
+    window: range.current,
+    visibleDeveloperIds: source.visibleDeveloperIds,
+  })
+  const quota = calculateQuotaPressure({
+    snapshots: source.snapshots,
+    window: range.current,
+    visibleDeveloperIds: source.visibleDeveloperIds,
+    visibleProviderIds: source.visibleProviderIds,
+  })
+  const tokenSeries = buildMetricUnitSeries({
+    samples: source.metricSamples,
+    unit: "tokens",
+    window: range.current,
+  })
+  const syncHealth = buildSyncHealth(source.developers)
+  const freshnessLabel = formatUpdateFreshnessLabel(
+    visibleUpdateTimestamps(source, range.current, usage.comparison.current),
+    now
+  )
+
+  return {
+    teamName: state.team.name,
+    rangeLabel: usage.range.label,
+    freshnessLabel,
+    filterSummary: buildFilterSummary(source.visibleDeveloperIds, source.visibleProviderIds),
+    kpis: buildKpis({
+      activeDeveloperCount: source.developers.filter((developer) => developer.status === "active")
+        .length,
+      visibleDeveloperCount: source.visibleDeveloperIds.length,
+      usage: usage.comparison,
+      cursorPool,
+      syncHealth,
+    }),
+    tokenSeries,
+    providerBreakdownRows: buildProviderBreakdownRows(usage.comparison.current.providerTotals),
+    developerLeaderboardRows: buildDeveloperLeaderboardRows(
+      source.developers,
+      source.snapshots,
+      range.current
+    ),
+    providerStatusRows: buildProviderStatusRows({
+      providerIds: source.visibleProviderIds,
+      snapshots: source.snapshots,
+      providerTotals: usage.comparison.current.providerTotals,
+      quotaProviders: quota.perProvider,
+      window: range.current,
+    }),
+    recentSyncRows: buildRecentSyncRows(source.developers),
+    availableMetricRows: buildAvailableMetricRows({
+      usage: usage.comparison.current,
+      tokenSamples: source.metricSamples.filter((sample) => sample.unit === "tokens"),
+      cursorPool,
+      quota,
+      syncHealth,
+      rangeLabel: usage.range.label,
+    }),
+    cursorPool,
+    quota,
+    syncHealth,
+  }
+}
+
+type DashboardSource = ReturnType<typeof dashboardSource>
+
+function buildFilterSummary(visibleDeveloperIds: string[], visibleProviderIds: string[]) {
+  const providerText =
+    visibleProviderIds.length > 0
+      ? visibleProviderIds.map(formatProviderName).join(", ")
+      : "No providers visible"
+  return `${visibleDeveloperIds.length} developers · ${providerText}`
+}
+
+function buildKpis(args: {
+  activeDeveloperCount: number
+  visibleDeveloperCount: number
+  usage: ReturnType<typeof calculateDashboardUsage>["comparison"]
+  cursorPool: ReturnType<typeof calculateCursorPool>
+  syncHealth: SyncHealth
+}) {
+  const topProvider = args.usage.current.topProvider
+
+  return [
+    {
+      label: "Team usage",
+      value: `${formatCount(args.usage.current.tokensTotal)} tokens`,
+      meta: `${formatUsd(args.usage.current.estimatedCostUsd)} · ${formatPercentDelta(args.usage.tokensPercentChange)}`,
+    },
+    {
+      label: "Active developers",
+      value: String(args.activeDeveloperCount),
+      meta: `${args.visibleDeveloperCount} visible`,
+    },
+    {
+      label: "Top provider",
+      value: topProvider ? formatProviderName(topProvider.providerId) : "No data yet",
+      meta: topProvider ? formatProviderTotal(topProvider) : "Waiting for usage rows",
+    },
+    {
+      label: "Sync health",
+      value: args.syncHealth.label,
+      meta: args.syncHealth.status,
+    },
+    {
+      label: "Cursor pool remaining",
+      value: args.cursorPool.available ? formatUsd(args.cursorPool.remainingUsd) : "No data yet",
+      meta: args.cursorPool.available ? args.cursorPool.coverage.label : "No Cursor pool data",
+    },
+  ]
+}
+
+export type ProviderBreakdownRow = {
+  providerId: string
+  providerName: string
+  value: number
+  unit: string
+  label: string
+}
+
+function buildProviderBreakdownRows(providerTotals: ProviderTotal[]): ProviderBreakdownRow[] {
+  return providerTotals.map((provider) => {
+    const value = provider.tokensTotal > 0 ? provider.tokensTotal : provider.creditsUsed
+    const unit = provider.tokensTotal > 0 ? "tokens" : "credits"
+    return {
+      providerId: provider.providerId,
+      providerName: formatProviderName(provider.providerId),
+      value,
+      unit,
+      label: formatProviderTotal(provider),
+    }
+  })
+}
+
+function visibleUpdateTimestamps(
+  source: DashboardSource,
+  window: MetricRangeWindow,
+  totals: ReturnType<typeof calculateDashboardUsage>["comparison"]["current"]
+) {
+  const snapshotTimestamps = [totals.oldestUpdatedAt, totals.newestUpdatedAt].filter(
+    (timestamp): timestamp is number => timestamp !== null
+  )
+  const sampleTimestamps = source.metricSamples
+    .filter((sample) => isSampleDayInWindow(sample.sampleDay, window))
+    .map((sample) => sample.updatedAt)
+
+  return [...snapshotTimestamps, ...sampleTimestamps]
+}
+
+type SyncHealth = {
+  connectedDevices: number
+  totalDevices: number
+  label: string
+  status: string
+  latestContactAt: number | null
+}
+
+function buildSyncHealth(developers: ReadyDashboardState["developers"]): SyncHealth {
+  const devices = developers.flatMap((developer) => developer.devices)
+  const connectedDevices = devices.filter((device) => device.status === "connected").length
+  const latestContactAt = devices.reduce<number | null>((latest, device) => {
+    const contactAt = device.lastSyncAt ?? device.lastSeenAt ?? null
+    if (contactAt === null) return latest
+    return latest === null ? contactAt : Math.max(latest, contactAt)
+  }, null)
+
+  if (devices.length === 0) {
+    return {
+      connectedDevices: 0,
+      totalDevices: 0,
+      label: "No devices",
+      status: "No sync data yet",
+      latestContactAt: null,
+    }
+  }
+
+  return {
+    connectedDevices,
+    totalDevices: devices.length,
+    label: `${connectedDevices}/${devices.length} connected`,
+    status: `Latest ${formatTimestamp(latestContactAt)}`,
+    latestContactAt,
+  }
+}
+
+export function formatTimestamp(value: number | null | undefined) {
+  if (!value) return "Never"
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(value)
+}
+
+function formatProviderTotal(provider: Pick<ProviderTotal, "tokensTotal" | "creditsUsed">) {
+  if (provider.tokensTotal > 0) return `${formatCount(provider.tokensTotal)} tokens`
+  if (provider.creditsUsed > 0) return `${formatCount(provider.creditsUsed)} credits`
+  return "Synced"
+}

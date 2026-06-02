@@ -168,6 +168,29 @@ export function buildMetricSeries(args: {
   }
 }
 
+export function buildMetricUnitSeries(args: {
+  samples: UsageMetricSampleSourceRow[]
+  unit: string
+  window: MetricRangeWindow
+}): MetricSeries {
+  const valuesByDay = new Map<string, number>()
+
+  for (const sample of args.samples) {
+    if (sample.unit !== args.unit) continue
+    if (!isSampleDayInWindow(sample.sampleDay, args.window)) continue
+
+    valuesByDay.set(sample.sampleDay, (valuesByDay.get(sample.sampleDay) ?? 0) + sample.value)
+  }
+
+  return {
+    metricKey: `${args.unit}.total`,
+    unit: args.unit,
+    points: [...valuesByDay.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([day, value]) => ({ day, value })),
+  }
+}
+
 export function dedupeLatestDeviceSnapshots(rows: UsageSnapshotSourceRow[]) {
   const rowsByIdentity = new Map<string, UsageSnapshotSourceRow>()
 
