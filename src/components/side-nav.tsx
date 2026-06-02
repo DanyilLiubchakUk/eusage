@@ -225,14 +225,6 @@ export function SideNav({
         <GaugeIcon className="size-6 dark:text-page-accent" />
       </NavButton>
 
-      <NavButton
-        isActive={activeView === "team"}
-        onClick={() => onViewChange("team")}
-        aria-label="Team"
-      >
-        <Network className="size-6" />
-      </NavButton>
-
       {/* Plugin icons */}
       <DndContext
         sensors={sensors}
@@ -269,6 +261,15 @@ export function SideNav({
         aria-label="Help"
       >
         <CircleHelp className="size-6" />
+      </NavButton>
+
+      {/* Team */}
+      <NavButton
+        isActive={activeView === "team"}
+        onClick={() => onViewChange("team")}
+        aria-label="Team"
+      >
+        <Network className="size-6" />
       </NavButton>
 
       {/* Settings */}

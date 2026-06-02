@@ -38,11 +38,11 @@ export function TeamPage({ plugins }: TeamPageProps) {
   }
 
   return (
-    <div className="space-y-4 p-1">
-      <header className="flex items-start justify-between gap-3">
+    <div className="py-3 pb-5 space-y-4">
+      <header className="flex items-start justify-between gap-3 mb-2">
         <div>
-          <h1 className="text-base font-semibold tracking-normal">Team</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="text-lg font-semibold">Team</h1>
+          <p className="text-sm text-muted-foreground">
             {state.connection ? state.connection.teamName : "No team connected"}
           </p>
         </div>
