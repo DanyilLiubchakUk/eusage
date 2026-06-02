@@ -55,9 +55,31 @@ export const sourceRows = query({
       .query("metricSamples")
       .withIndex("by_team_metric_day", (q) => q.eq("teamId", team._id))
       .collect()
+    const developerTokens = await ctx.db
+      .query("developerTokens")
+      .withIndex("by_teamId_status", (q) => q.eq("teamId", team._id))
+      .collect()
+    const devices = await ctx.db
+      .query("devices")
+      .withIndex("by_teamId_status", (q) => q.eq("teamId", team._id))
+      .collect()
 
     const developerNames = new Map(
       developers.map((developer) => [developer._id, developer.displayName])
+    )
+    const latestTokensByDeveloper = new Map(
+      developers.map((developer) => [
+        developer._id,
+        latestByCreatedAt(
+          developerTokens.filter((token) => token.developerId === developer._id)
+        ),
+      ])
+    )
+    const devicesByDeveloper = new Map(
+      developers.map((developer) => [
+        developer._id,
+        devices.filter((device) => device.developerId === developer._id),
+      ])
     )
 
     return {
@@ -67,6 +89,15 @@ export const sourceRows = query({
         id: developer._id,
         displayName: developer.displayName,
         status: developer.status,
+        token: publicToken(latestTokensByDeveloper.get(developer._id) ?? null),
+        devices: (devicesByDeveloper.get(developer._id) ?? []).map((device) => ({
+          deviceId: device.deviceId,
+          deviceName: device.deviceName,
+          os: device.os,
+          status: device.status,
+          lastSeenAt: device.lastSeenAt,
+          lastSyncAt: device.lastSyncAt ?? null,
+        })),
       })),
       snapshots: snapshots.map((snapshot) => ({
         id: snapshot._id,
@@ -98,3 +129,24 @@ export const sourceRows = query({
     }
   },
 })
+
+function latestByCreatedAt<T extends { createdAt: number }>(rows: T[]) {
+  return [...rows].sort((left, right) => right.createdAt - left.createdAt)[0] ?? null
+}
+
+function publicToken(
+  token: {
+    fingerprint: string
+    label: string
+    status: string
+    lastUsedAt?: number
+  } | null
+) {
+  if (!token) return null
+  return {
+    fingerprint: token.fingerprint,
+    label: token.label,
+    status: token.status,
+    lastUsedAt: token.lastUsedAt ?? null,
+  }
+}

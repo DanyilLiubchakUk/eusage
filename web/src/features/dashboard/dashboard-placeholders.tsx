@@ -14,6 +14,7 @@ type DashboardPlaceholderProps = {
   state: DashboardSourceState
   now: number
 }
+type ReadyDashboardState = Extract<DashboardSourceState, { status: "ready" }>
 
 export function AdminDashboardPlaceholder({ state, now }: DashboardPlaceholderProps) {
   if (state.status !== "ready") return <DashboardUnavailable state={state} />
@@ -66,6 +67,8 @@ export function AdminDashboardPlaceholder({ state, now }: DashboardPlaceholderPr
           ["Quota pressure", formatQuota(quota.teamAveragePercent, quota.teamCoverage.label)],
         ]}
       />
+
+      <CursorDeveloperTable developers={state.developers} snapshots={source.snapshots} />
 
       <section className="setup-card dashboard-card" aria-label="Team usage series">
         <strong>Chart source rows</strong>
@@ -144,7 +147,62 @@ function MetricSummaryGrid({ items }: { items: Array<[string, string]> }) {
   )
 }
 
-function dashboardSource(state: Extract<DashboardSourceState, { status: "ready" }>) {
+function CursorDeveloperTable({
+  developers,
+  snapshots,
+}: {
+  developers: ReadyDashboardState["developers"]
+  snapshots: UsageSnapshotSourceRow[]
+}) {
+  const cursorRows = latestCursorRowsByDeveloper(snapshots)
+
+  return (
+    <section className="setup-card developer-table-card" aria-label="Cursor developer sync">
+      <div className="developer-table-toolbar">
+        <strong>Cursor developer sync</strong>
+      </div>
+      <table className="developer-table">
+        <thead>
+          <tr>
+            <th>Developer</th>
+            <th>Cursor budget</th>
+            <th>Token</th>
+            <th>Device sync</th>
+          </tr>
+        </thead>
+        <tbody>
+          {developers.map((developer) => {
+            const row = cursorRows.get(developer.id)
+            const device = latestDevice(developer.devices)
+            return (
+              <tr key={developer.id}>
+                <td>
+                  <strong>{developer.displayName}</strong>
+                  <span>{developer.status}</span>
+                </td>
+                <td>{formatCursorDeveloperBudget(row)}</td>
+                <td>
+                  <strong>{developer.token?.fingerprint ?? "Missing"}</strong>
+                  <span>
+                    {developer.token
+                      ? `${developer.token.label} (${developer.token.status})`
+                      : "No token"}
+                  </span>
+                </td>
+                <td>
+                  <strong>{device?.status ?? "No device"}</strong>
+                  <span>Last sync {formatTimestamp(device?.lastSyncAt)}</span>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
+function dashboardSource(state: ReadyDashboardState) {
   const snapshots = state.snapshots as UsageSnapshotSourceRow[]
   const metricSamples = state.metricSamples as UsageMetricSampleSourceRow[]
   const activeDeveloperIds = state.developers
@@ -178,7 +236,7 @@ function formatPercentDelta(value: number | null) {
 
 function formatCursorPool(pool: ReturnType<typeof calculateCursorPool>) {
   if (!pool.available) return "No data yet"
-  return `${formatUsd(pool.remainingUsd)} remaining (${pool.coverage.label})`
+  return `${pool.label}: ${formatUsd(pool.remainingUsd)} remaining (${pool.coverage.label})`
 }
 
 function formatQuota(value: number | null, coverage: string) {
@@ -194,4 +252,60 @@ function firstTokenMetricKey(samples: UsageMetricSampleSourceRow[]) {
 
 function isTokenMetricKey(metricKey: string) {
   return metricKey.includes(".tokens.") || metricKey.endsWith(".tokens.total")
+}
+
+function latestCursorRowsByDeveloper(snapshots: UsageSnapshotSourceRow[]) {
+  const rows = new Map<string, UsageSnapshotSourceRow>()
+  for (const snapshot of snapshots) {
+    if (snapshot.providerId !== "cursor") continue
+    const current = rows.get(snapshot.developerId)
+    if (!current || snapshot.updatedAt > current.updatedAt) {
+      rows.set(snapshot.developerId, snapshot)
+    }
+  }
+  return rows
+}
+
+function latestDevice(devices: ReadyDashboardState["developers"][number]["devices"][number][]) {
+  return [...devices].sort(
+    (left, right) =>
+      (right.lastSyncAt ?? right.lastSeenAt) - (left.lastSyncAt ?? left.lastSeenAt)
+  )[0]
+}
+
+function formatCursorDeveloperBudget(row: UsageSnapshotSourceRow | undefined) {
+  const cursor = row?.summary.provider?.cursor
+  if (!cursor) return "No data yet"
+
+  const pooledLimit = numberOrNull(cursor.pooledLimitUsd)
+  if (pooledLimit !== null && pooledLimit > 0) {
+    const used = numberOrNull(cursor.pooledUsedUsd) ?? 0
+    const remaining = numberOrNull(cursor.pooledRemainingUsd) ?? pooledLimit - used
+    return `Shared ${formatUsd(remaining)} remaining`
+  }
+
+  const individualLimit = numberOrNull(cursor.individualLimitUsd)
+  if (individualLimit !== null && individualLimit > 0) {
+    const used = numberOrNull(cursor.individualUsedUsd)
+    const remaining =
+      numberOrNull(cursor.individualRemainingUsd) ??
+      (used === null ? null : individualLimit - used)
+    return `Individual ${formatUsd(remaining ?? 0)} remaining`
+  }
+
+  return "No budget data"
+}
+
+function numberOrNull(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function formatTimestamp(value: number | null | undefined) {
+  if (!value) return "Never"
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(value)
 }

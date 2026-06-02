@@ -14,8 +14,34 @@ const readyState = {
     slug: "acme-team",
   },
   developers: [
-    { id: "alex", displayName: "Alex", status: "active" },
-    { id: "sam", displayName: "Sam", status: "active" },
+    {
+      id: "alex",
+      displayName: "Alex",
+      status: "active",
+      token: {
+        fingerprint: "2f8a7f04...e2498b5e",
+        label: "Alex laptop",
+        status: "active",
+        lastUsedAt: now - 12_000,
+      },
+      devices: [
+        {
+          deviceId: "device-1",
+          deviceName: "Alex Mac",
+          os: "macos",
+          status: "connected",
+          lastSeenAt: now - 12_000,
+          lastSyncAt: now - 12_000,
+        },
+      ],
+    },
+    {
+      id: "sam",
+      displayName: "Sam",
+      status: "active",
+      token: null,
+      devices: [],
+    },
   ],
   snapshots: [
     {
@@ -63,10 +89,14 @@ describe("dashboard placeholders", () => {
     render(<AdminDashboardPlaceholder state={readyState} now={now} />)
 
     expect(screen.getByRole("heading", { name: "Acme Team" })).toBeInTheDocument()
-    expect(screen.getByText("$60.00 remaining (1/2 developers reporting budget data)"))
+    expect(screen.getByText("Team On-Demand Budget: $60.00 remaining (1/2 developers reporting budget data)"))
       .toBeInTheDocument()
     expect(screen.getByText("82% avg (1/2 reporting)")).toBeInTheDocument()
     expect(screen.getByText("1 daily token points from metric samples.")).toBeInTheDocument()
+    expect(screen.getByRole("table")).toBeInTheDocument()
+    expect(screen.getByText("Individual $60.00 remaining")).toBeInTheDocument()
+    expect(screen.getByText("2f8a7f04...e2498b5e")).toBeInTheDocument()
+    expect(screen.getAllByText(/^Last sync /)).toHaveLength(2)
   })
 
   it("renders TV metrics from the same source rows", () => {
@@ -74,6 +104,8 @@ describe("dashboard placeholders", () => {
 
     expect(screen.getByRole("heading", { name: "100 tokens" })).toBeInTheDocument()
     expect(screen.getByText("$3.50 estimated cost · No comparison")).toBeInTheDocument()
+    expect(screen.getByText("Team On-Demand Budget: $60.00 remaining (1/2 developers reporting budget data)"))
+      .toBeInTheDocument()
     expect(screen.getByText("Oldest update: 12s ago")).toBeInTheDocument()
   })
 })
