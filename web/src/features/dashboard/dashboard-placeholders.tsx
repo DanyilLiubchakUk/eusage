@@ -9,6 +9,13 @@ import {
   type UsageSnapshotSourceRow,
 } from "../../lib/metrics"
 import type { DashboardSourceState } from "./dashboard"
+import {
+  formatCount,
+  formatPercentDelta,
+  formatProviderBreakdown,
+  formatProviderRows,
+  formatUsd,
+} from "./dashboard-formatting"
 
 type DashboardPlaceholderProps = {
   state: DashboardSourceState
@@ -218,24 +225,6 @@ function dashboardSource(state: ReadyDashboardState) {
   }
 }
 
-function formatCount(value: number) {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value)
-}
-
-function formatUsd(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  }).format(value)
-}
-
-function formatPercentDelta(value: number | null) {
-  if (value === null) return "No comparison"
-  const rounded = Math.round(value * 10) / 10
-  return `${rounded > 0 ? "+" : ""}${rounded}%`
-}
-
 function formatCursorPool(pool: ReturnType<typeof calculateCursorPool>) {
   if (!pool.available) return "No data yet"
   return `${pool.label}: ${formatUsd(pool.remainingUsd)} remaining (${pool.coverage.label})`
@@ -281,89 +270,6 @@ function latestDevice(devices: ReadyDashboardState["developers"][number]["device
     (left, right) =>
       (right.lastSyncAt ?? right.lastSeenAt) - (left.lastSyncAt ?? left.lastSeenAt)
   )[0]
-}
-
-function formatProviderRows(rows: UsageSnapshotSourceRow[]) {
-  if (rows.length === 0) return "No data yet"
-  return rows.map(formatProviderRow).join(" | ")
-}
-
-function formatProviderRow(row: UsageSnapshotSourceRow) {
-  if (row.providerId === "cursor") {
-    return `Cursor: ${formatCursorDeveloperBudget(row)}`
-  }
-  if (row.providerId === "codex") {
-    return `Codex: ${formatCodexDeveloperUsage(row)}`
-  }
-  return `${formatProviderName(row.providerId)}: ${formatGenericProviderUsage(row)}`
-}
-
-function formatCursorDeveloperBudget(row: UsageSnapshotSourceRow | undefined) {
-  const cursor = row?.summary.provider?.cursor
-  if (!cursor) return "No data yet"
-
-  const pooledLimit = numberOrNull(cursor.pooledLimitUsd)
-  if (pooledLimit !== null && pooledLimit > 0) {
-    const used = numberOrNull(cursor.pooledUsedUsd) ?? 0
-    const remaining = numberOrNull(cursor.pooledRemainingUsd) ?? pooledLimit - used
-    return `Shared ${formatUsd(remaining)} remaining`
-  }
-
-  const individualLimit = numberOrNull(cursor.individualLimitUsd)
-  if (individualLimit !== null && individualLimit > 0) {
-    const used = numberOrNull(cursor.individualUsedUsd)
-    const remaining =
-      numberOrNull(cursor.individualRemainingUsd) ??
-      (used === null ? null : individualLimit - used)
-    return `Individual ${formatUsd(remaining ?? 0)} remaining`
-  }
-
-  return "No budget data"
-}
-
-function formatCodexDeveloperUsage(row: UsageSnapshotSourceRow) {
-  const codex = row.summary.provider?.codex
-  if (!codex) return "No data yet"
-
-  const parts = []
-  const session = numberOrNull(codex.sessionUsedPercent)
-  const weekly = numberOrNull(codex.weeklyUsedPercent)
-  const tokens = numberOrNull(row.summary.tokensTotal ?? codex.todayTokens)
-  const credits = numberOrNull(row.summary.creditsRemaining ?? codex.creditsRemaining)
-  if (session !== null) parts.push(`Session ${Math.round(session)}%`)
-  if (weekly !== null) parts.push(`Weekly ${Math.round(weekly)}%`)
-  if (tokens !== null) parts.push(`${formatCount(tokens)} tokens today`)
-  if (credits !== null) parts.push(`${formatCount(credits)} credits`)
-  return parts.length > 0 ? parts.join(", ") : "No usage data"
-}
-
-function formatGenericProviderUsage(row: UsageSnapshotSourceRow) {
-  const tokens = numberOrNull(row.summary.tokensTotal)
-  const cost = numberOrNull(row.summary.estimatedCostUsd)
-  const quota = numberOrNull(row.summary.quotaPercent)
-  if (tokens !== null) return `${formatCount(tokens)} tokens`
-  if (cost !== null) return `${formatUsd(cost)} estimated cost`
-  if (quota !== null) return `${Math.round(quota)}% quota`
-  return "Synced"
-}
-
-function formatProviderBreakdown(
-  providers: ReturnType<typeof calculateDashboardUsage>["comparison"]["current"]["providerTotals"]
-) {
-  if (providers.length === 0) return "No data yet"
-  return providers
-    .map((provider) => `${formatProviderName(provider.providerId)} ${formatCount(provider.tokensTotal)}`)
-    .join(", ")
-}
-
-function formatProviderName(providerId: string) {
-  if (providerId === "codex") return "Codex"
-  if (providerId === "cursor") return "Cursor"
-  return providerId
-}
-
-function numberOrNull(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
 function formatTimestamp(value: number | null | undefined) {

@@ -53,6 +53,26 @@ export type CodexSummary = {
   [key: string]: unknown
 }
 
+export type ClaudeSummary = {
+  planName?: string
+  subscriptionType?: string
+  rateLimitTier?: string
+  sessionUsedPercent?: number
+  weeklyUsedPercent?: number
+  extraUsageUsedUsd?: number
+  extraUsageMonthlyLimitUsd?: number
+  todayTokens?: number
+  todayEstimatedCostUsd?: number
+  modelWindows?: Array<{
+    key?: string
+    name?: string
+    usedPercent?: number
+    resetAt?: number
+    windowSeconds?: number
+  }>
+  [key: string]: unknown
+}
+
 export type UsageSummarySource = {
   tokensTotal?: number
   estimatedCostUsd?: number
@@ -63,6 +83,7 @@ export type UsageSummarySource = {
   creditsRemaining?: number
   requestsUsed?: number
   provider?: {
+    claude?: ClaudeSummary
     codex?: CodexSummary
     cursor?: CursorSummary
     [key: string]: unknown
