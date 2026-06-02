@@ -38,6 +38,18 @@ From nested quota buckets:
 | Used      | Detail   | Used quota amount |
 | Remaining | Detail   | Remaining quota |
 
+## Source facts uploaded to team sync
+
+JetBrains AI Assistant source facts are extracted on desktop before upload:
+
+- `summaryVersion`: `1.0.0`
+- `extractorVersion["jetbrains-ai-assistant"]`: `1.0.0`
+- Period key: `jetbrains-ai-assistant:quota:YYYY-MM-DD` when reset is known, otherwise `jetbrains-ai-assistant:YYYY-MM-DD`
+- Provider fields: quota used, limit, remaining, percent, reset timestamp, period seconds when present, normalized credit values, and raw quota values.
+- Top-level summary fields: quota percent, credits used, and credits remaining.
+- Metric samples: quota used, limit, remaining, and percent used.
+- Raw payload shape: quotaInfo, nextRefill, and source metadata, with secret-shaped fields replaced by `[REDACTED]`.
+
 ## Errors
 
 | Condition | Message |

@@ -43,6 +43,7 @@ describe("jetbrains-ai-assistant plugin", () => {
           current: "75",
           maximum: "100",
           available: "25",
+          accessToken: "secret-token",
           until: "2099-01-31T00:00:00Z",
         },
         nextRefill: {
@@ -66,6 +67,42 @@ describe("jetbrains-ai-assistant plugin", () => {
     expect(quota && quota.periodDurationMs).toBe(2592000000)
     expect(used && used.value).toBe("75")
     expect(remaining && remaining.value).toBe("25")
+    expect(result.sourceFacts.summaryVersion).toBe("1.0.0")
+    expect(result.sourceFacts.extractorVersion).toEqual({ "jetbrains-ai-assistant": "1.0.0" })
+    expect(result.sourceFacts.periodStart).toBe(Date.parse("2098-12-02T00:00:00.000Z"))
+    expect(result.sourceFacts.periodEnd).toBe(Date.parse("2099-01-01T00:00:00.000Z"))
+    expect(result.sourceFacts.periodKey).toBe("jetbrains-ai-assistant:quota:2099-01-01")
+    expect(result.sourceFacts.metricFamilies).toEqual(["quotaPressure", "credits"])
+    expect(result.sourceFacts.summary).toMatchObject({
+      quotaPercent: 75,
+      creditsUsed: 75,
+      creditsRemaining: 25,
+      provider: {
+        "jetbrains-ai-assistant": {
+          quotaUsed: 75,
+          quotaLimit: 100,
+          quotaRemaining: 25,
+          quotaUsedPercent: 75,
+          quotaResetAt: Date.parse("2099-01-01T00:00:00.000Z"),
+          quotaPeriodSeconds: 2592000,
+        },
+      },
+    })
+    expect(result.sourceFacts.metricSamples.map((sample) => [sample.metricKey, sample.value, sample.unit]))
+      .toEqual([
+        ["jetbrains-ai-assistant.quota.used", 75, "credits"],
+        ["jetbrains-ai-assistant.quota.limit", 100, "credits"],
+        ["jetbrains-ai-assistant.quota.remaining", 25, "credits"],
+        ["jetbrains-ai-assistant.quota.percentUsed", 75, "percent"],
+      ])
+    expect(result.sourceFacts.metricSamples[0]).toMatchObject({
+      sampleDay: "2026-02-02",
+      source: "providerReported",
+      periodStart: Date.parse("2098-12-02T00:00:00.000Z"),
+      periodEnd: Date.parse("2099-01-01T00:00:00.000Z"),
+    })
+    expect(result.rawPayload.quotaInfo.accessToken).toBe("[REDACTED]")
+    expect(JSON.stringify(result.rawPayload)).not.toContain("secret-token")
   })
 
   it("falls back to quota until when nextRefill is missing", async () => {
@@ -240,6 +277,12 @@ describe("jetbrains-ai-assistant plugin", () => {
 
     expect(used && used.value).toBe("19.82 / 23.68 credits")
     expect(remaining && remaining.value).toBe("3.86 credits")
+    const facts = result.sourceFacts.summary.provider["jetbrains-ai-assistant"]
+    expect(facts.quotaUsed).toBeCloseTo(19.8168492)
+    expect(facts.quotaLimit).toBeCloseTo(23.67648941)
+    expect(facts.quotaRemaining).toBeCloseTo(3.8596421)
+    expect(facts.quotaUsedRaw).toBe(1981684.92)
+    expect(facts.quotaScale).toBe(100000)
   })
 
   it("throws when no quota file is detected", async () => {
