@@ -59,6 +59,7 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
   })
   const quota = calculateQuotaPressure({
     snapshots: source.snapshots,
+    metricSamples: source.metricSamples,
     window: range.current,
     visibleDeveloperIds: source.visibleDeveloperIds,
     visibleProviderIds: source.visibleProviderIds,

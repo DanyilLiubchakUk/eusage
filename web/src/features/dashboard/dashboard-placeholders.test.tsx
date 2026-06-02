@@ -55,14 +55,11 @@ const readyState = {
       summary: {
         tokensTotal: 100,
         estimatedCostUsd: 3.5,
-        quotaPercent: 82,
+        quotaPercent: 45,
         provider: {
           cursor: {
             individualLimitUsd: 100,
             individualUsedUsd: 40,
-            planTotalPercentUsed: 21,
-            autoPercentUsed: 14,
-            apiPercentUsed: 45,
           },
         },
       },
@@ -181,6 +178,42 @@ const readyState = {
     },
     {
       id: "metric-3",
+      providerId: "cursor",
+      developerId: "alex",
+      metricKey: "cursor.plan.percentUsed",
+      value: 21,
+      unit: "percent",
+      sampleDay: "2026-06-01",
+      source: "providerReported",
+      capturedAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "metric-4",
+      providerId: "cursor",
+      developerId: "alex",
+      metricKey: "cursor.auto.percentUsed",
+      value: 14,
+      unit: "percent",
+      sampleDay: "2026-06-01",
+      source: "providerReported",
+      capturedAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "metric-5",
+      providerId: "cursor",
+      developerId: "alex",
+      metricKey: "cursor.api.percentUsed",
+      value: 45,
+      unit: "percent",
+      sampleDay: "2026-06-01",
+      source: "providerReported",
+      capturedAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "metric-6",
       providerId: "codex",
       developerId: "alex",
       metricKey: "codex.tokens.total",
@@ -192,7 +225,7 @@ const readyState = {
       updatedAt: now,
     },
     {
-      id: "metric-4",
+      id: "metric-7",
       providerId: "codex",
       developerId: "alex",
       metricKey: "codex.cost.estimated",
@@ -204,7 +237,43 @@ const readyState = {
       updatedAt: now,
     },
     {
-      id: "metric-5",
+      id: "metric-8",
+      providerId: "codex",
+      developerId: "alex",
+      metricKey: "codex.session.percentUsed",
+      value: 25,
+      unit: "percent",
+      sampleDay: "2026-06-01",
+      source: "providerReported",
+      capturedAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "metric-9",
+      providerId: "codex",
+      developerId: "alex",
+      metricKey: "codex.weekly.percentUsed",
+      value: 50,
+      unit: "percent",
+      sampleDay: "2026-06-01",
+      source: "providerReported",
+      capturedAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "metric-10",
+      providerId: "codex",
+      developerId: "alex",
+      metricKey: "codex.reviews.percentUsed",
+      value: 18,
+      unit: "percent",
+      sampleDay: "2026-06-01",
+      source: "providerReported",
+      capturedAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "metric-11",
       providerId: "claude",
       developerId: "alex",
       metricKey: "claude.tokens.total",
@@ -216,7 +285,7 @@ const readyState = {
       updatedAt: now,
     },
     {
-      id: "metric-6",
+      id: "metric-12",
       providerId: "claude",
       developerId: "alex",
       metricKey: "claude.cost.estimated",
@@ -241,7 +310,7 @@ describe("dashboard placeholders", () => {
     expect(screen.getByText("$5.50 · No comparison")).toBeInTheDocument()
     expect(screen.getByText("Default metric: total visible usage")).toBeInTheDocument()
     expect(screen.getAllByText("$60.00 remaining").length).toBeGreaterThan(0)
-    expect(screen.getByText("53% avg")).toBeInTheDocument()
+    expect(screen.getByText("44% avg")).toBeInTheDocument()
     expect(screen.getAllByText("4/8 reporting").length).toBeGreaterThan(0)
     expect(screen.getAllByRole("table")).toHaveLength(6)
     expect(screen.getByText("Available Metrics")).toBeInTheDocument()
@@ -251,6 +320,8 @@ describe("dashboard placeholders", () => {
     expect(screen.getByText("API usage")).toBeInTheDocument()
     expect(screen.getAllByText("Weekly").length).toBeGreaterThan(0)
     expect(screen.getByText("Reviews")).toBeInTheDocument()
+    expect(screen.getByText("21%")).toBeInTheDocument()
+    expect(screen.getByText("14%")).toBeInTheDocument()
     expect(screen.getByText("45%")).toBeInTheDocument()
     expect(screen.getByText("Provider Status")).toBeInTheDocument()
     expect(screen.getByText("Recent Syncs")).toBeInTheDocument()

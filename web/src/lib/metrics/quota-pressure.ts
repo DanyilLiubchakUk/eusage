@@ -1,6 +1,6 @@
-import { isTimestampInWindow } from "./date-ranges"
+import { isSampleDayInWindow, isTimestampInWindow } from "./date-ranges"
 import { dedupeLatestDeviceSnapshots, snapshotRangeTimestamp } from "./usage-metrics"
-import type { MetricRangeWindow, UsageSnapshotSourceRow } from "./types"
+import type { MetricRangeWindow, UsageMetricSampleSourceRow, UsageSnapshotSourceRow } from "./types"
 
 const WARNING_THRESHOLD = 80
 const CRITICAL_THRESHOLD = 95
@@ -56,6 +56,7 @@ export type QuotaPressureDetail = {
 
 export function calculateQuotaPressure(args: {
   snapshots: UsageSnapshotSourceRow[]
+  metricSamples?: UsageMetricSampleSourceRow[]
   window: MetricRangeWindow
   visibleDeveloperIds?: string[]
   visibleProviderIds?: string[]
@@ -87,7 +88,7 @@ export function calculateQuotaPressure(args: {
       )[0] ?? null,
     perDeveloper,
     perProvider,
-    details: quotaDetails(rows, developerIds, providerIds),
+    details: quotaDetails(rows, args.metricSamples ?? [], args.window, developerIds, providerIds),
   }
 }
 
@@ -132,19 +133,32 @@ function quotaPoints(
 
 function quotaDetails(
   rows: UsageSnapshotSourceRow[],
+  samples: UsageMetricSampleSourceRow[],
+  window: MetricRangeWindow,
   developerIds: Set<string>,
   providerIds: Set<string>
 ): QuotaPressureDetail[] {
-  return rows
+  const details = [
+    ...rows
     .filter((row) => developerIds.has(row.developerId) && providerIds.has(row.providerId))
-    .flatMap((row) => providerQuotaDetails(row))
-    .sort(
-      (left, right) =>
-        right.percent - left.percent ||
-        left.providerId.localeCompare(right.providerId) ||
-        left.label.localeCompare(right.label) ||
-        left.developerId.localeCompare(right.developerId)
-    )
+    .flatMap((row) => providerQuotaDetails(row)),
+    ...sampleQuotaDetails(samples, window, rows, developerIds, providerIds),
+  ]
+  const byIdentity = new Map<string, QuotaPressureDetail>()
+
+  for (const detail of details) {
+    const key = `${detail.developerId}\u0000${detail.providerId}\u0000${detail.label}`
+    const current = byIdentity.get(key)
+    if (!current || detail.updatedAt > current.updatedAt) byIdentity.set(key, detail)
+  }
+
+  return [...byIdentity.values()].sort(
+    (left, right) =>
+      right.percent - left.percent ||
+      left.providerId.localeCompare(right.providerId) ||
+      left.label.localeCompare(right.label) ||
+      left.developerId.localeCompare(right.developerId)
+  )
 }
 
 function providerQuotaDetails(row: UsageSnapshotSourceRow): QuotaPressureDetail[] {
@@ -186,17 +200,90 @@ function providerQuotaDetails(row: UsageSnapshotSourceRow): QuotaPressureDetail[
   return details
     .map(({ label, percent }) => {
       if (typeof percent !== "number" || !Number.isFinite(percent)) return null
-      return {
+      return quotaDetail({
         developerId: row.developerId,
         developerName: row.developerName ?? null,
         providerId: row.providerId,
         label,
         percent,
-        status: quotaStatus(percent),
         updatedAt: row.updatedAt,
-      }
+      })
     })
     .filter((detail): detail is QuotaPressureDetail => detail !== null)
+}
+
+function quotaDetail(args: {
+  developerId: string
+  developerName: string | null
+  providerId: string
+  label: string
+  percent: number
+  updatedAt: number
+}): QuotaPressureDetail {
+  return {
+    ...args,
+    status: quotaStatus(args.percent),
+  }
+}
+
+function sampleQuotaDetails(
+  samples: UsageMetricSampleSourceRow[],
+  window: MetricRangeWindow,
+  rows: UsageSnapshotSourceRow[],
+  developerIds: Set<string>,
+  providerIds: Set<string>
+): QuotaPressureDetail[] {
+  const names = new Map(
+    rows.map((row) => [`${row.developerId}\u0000${row.providerId}`, row.developerName ?? null])
+  )
+
+  return samples
+    .filter((sample) => sample.unit === "percent")
+    .filter((sample) => isSampleDayInWindow(sample.sampleDay, window))
+    .filter((sample) => {
+      if (!sample.developerId) return false
+      return developerIds.has(sample.developerId) && providerIds.has(sample.providerId)
+    })
+    .map((sample) => {
+      const label = quotaSampleLabel(sample.metricKey)
+      if (!label) return null
+      return quotaDetail({
+        developerId: sample.developerId ?? "",
+        developerName: names.get(`${sample.developerId}\u0000${sample.providerId}`) ?? null,
+        providerId: sample.providerId,
+        label,
+        percent: sample.value,
+        updatedAt: sample.updatedAt,
+      })
+    })
+    .filter((detail): detail is QuotaPressureDetail => detail !== null)
+}
+
+function quotaSampleLabel(metricKey: string) {
+  if (metricKey === "cursor.plan.percentUsed") return "Total usage"
+  if (metricKey === "cursor.auto.percentUsed") return "Auto + composer"
+  if (metricKey === "cursor.api.percentUsed") return "API usage"
+  if (metricKey === "codex.session.percentUsed") return "Session"
+  if (metricKey === "codex.weekly.percentUsed") return "Weekly"
+  if (metricKey === "codex.reviews.percentUsed") return "Reviews"
+  if (metricKey === "claude.session.percentUsed") return "Session"
+  if (metricKey === "claude.weekly.percentUsed") return "Weekly"
+  if (metricKey === "jetbrains-ai-assistant.quota.percentUsed") return "Quota"
+
+  const codexWindow = metricKey.match(/^codex\.rateLimit\.(.+)\.(session|weekly)\.percentUsed$/)
+  if (codexWindow) return `${humanizeSegment(codexWindow[1])} ${codexWindow[2]}`
+
+  const claudeModel = metricKey.match(/^claude\.model\.(.+)\.percentUsed$/)
+  if (claudeModel) return humanizeSegment(claudeModel[1])
+
+  return null
+}
+
+function humanizeSegment(value: string) {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[-_.]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
 function developerAverage(
