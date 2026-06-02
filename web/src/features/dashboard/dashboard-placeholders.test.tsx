@@ -124,6 +124,31 @@ const readyState = {
       capturedAt: now,
       updatedAt: now - 3_000,
     },
+    {
+      id: "snapshot-4",
+      developerId: "alex",
+      developerName: "Alex",
+      deviceId: "device-1",
+      providerId: "jetbrains-ai-assistant",
+      periodKey: "jetbrains-ai-assistant:quota:2026-06-30",
+      dataIdentity: "jetbrains-ai-assistant:quota:2026-06-30",
+      summary: {
+        quotaPercent: 40,
+        creditsUsed: 50,
+        creditsRemaining: 75,
+        provider: {
+          "jetbrains-ai-assistant": {
+            quotaUsed: 50,
+            quotaLimit: 125,
+            quotaRemaining: 75,
+            quotaUsedPercent: 40,
+          },
+        },
+      },
+      metricFamilies: ["quotaPressure", "credits"],
+      capturedAt: now,
+      updatedAt: now - 2_000,
+    },
   ],
   metricSamples: [
     {
@@ -172,12 +197,12 @@ describe("dashboard placeholders", () => {
     expect(screen.getByRole("heading", { name: "Acme Team" })).toBeInTheDocument()
     expect(screen.getByText("Team On-Demand Budget: $60.00 remaining (1/2 developers reporting budget data)"))
       .toBeInTheDocument()
-    expect(screen.getByText("57% avg (3/6 reporting)")).toBeInTheDocument()
+    expect(screen.getByText("53% avg (4/8 reporting)")).toBeInTheDocument()
     expect(screen.getByText("1 daily token points from metric samples.")).toBeInTheDocument()
     expect(screen.getByRole("table")).toBeInTheDocument()
-    expect(screen.getByText("Claude: Session 64%, Weekly 70%, 50 tokens today, $0.75 today, $20.00/$100.00 extra | Codex: Session 25%, Weekly 50%, 75 tokens today, 5 credits | Cursor: Individual $60.00 remaining"))
+    expect(screen.getByText("Claude: Session 64%, Weekly 70%, 50 tokens today, $0.75 today, $20.00/$100.00 extra | Codex: Session 25%, Weekly 50%, 75 tokens today, 5 credits | Cursor: Individual $60.00 remaining | JetBrains AI Assistant: 40% quota, 75 credits remaining, 50/125 credits"))
       .toBeInTheDocument()
-    expect(screen.getByText("Cursor 100, Codex 75, Claude 50")).toBeInTheDocument()
+    expect(screen.getByText("Cursor 100, Codex 75, Claude 50, JetBrains AI Assistant 50 credits")).toBeInTheDocument()
     expect(screen.getByText("2f8a7f04...e2498b5e")).toBeInTheDocument()
     expect(screen.getAllByText(/^Last sync /)).toHaveLength(2)
   })
@@ -189,7 +214,7 @@ describe("dashboard placeholders", () => {
     expect(screen.getByText("$5.50 estimated cost · No comparison")).toBeInTheDocument()
     expect(screen.getByText("Team On-Demand Budget: $60.00 remaining (1/2 developers reporting budget data)"))
       .toBeInTheDocument()
-    expect(screen.getByText("Cursor 100, Codex 75, Claude 50")).toBeInTheDocument()
+    expect(screen.getByText("Cursor 100, Codex 75, Claude 50, JetBrains AI Assistant 50 credits")).toBeInTheDocument()
     expect(screen.getByText("Oldest update: 12s ago")).toBeInTheDocument()
   })
 })

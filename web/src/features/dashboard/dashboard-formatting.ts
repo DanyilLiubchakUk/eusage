@@ -3,6 +3,7 @@ import type { UsageSnapshotSourceRow } from "../../lib/metrics"
 type ProviderTotalLike = {
   providerId: string
   tokensTotal: number
+  creditsUsed?: number
 }
 
 export function formatCount(value: number) {
@@ -31,8 +32,15 @@ export function formatProviderRows(rows: UsageSnapshotSourceRow[]) {
 export function formatProviderBreakdown(providers: ProviderTotalLike[]) {
   if (providers.length === 0) return "No data yet"
   return providers
-    .map((provider) => `${formatProviderName(provider.providerId)} ${formatCount(provider.tokensTotal)}`)
+    .map((provider) => `${formatProviderName(provider.providerId)} ${formatProviderTotal(provider)}`)
     .join(", ")
+}
+
+function formatProviderTotal(provider: ProviderTotalLike) {
+  if (provider.tokensTotal > 0) return formatCount(provider.tokensTotal)
+  const credits = numberOrNull(provider.creditsUsed)
+  if (credits !== null && credits > 0) return `${formatCount(credits)} credits`
+  return "synced"
 }
 
 function formatProviderRow(row: UsageSnapshotSourceRow) {
@@ -44,6 +52,9 @@ function formatProviderRow(row: UsageSnapshotSourceRow) {
   }
   if (row.providerId === "codex") {
     return `Codex: ${formatCodexDeveloperUsage(row)}`
+  }
+  if (row.providerId === "jetbrains-ai-assistant") {
+    return `JetBrains AI Assistant: ${formatJetBrainsDeveloperUsage(row)}`
   }
   return `${formatProviderName(row.providerId)}: ${formatGenericProviderUsage(row)}`
 }
@@ -110,6 +121,21 @@ function formatCodexDeveloperUsage(row: UsageSnapshotSourceRow) {
   return parts.length > 0 ? parts.join(", ") : "No usage data"
 }
 
+function formatJetBrainsDeveloperUsage(row: UsageSnapshotSourceRow) {
+  const jetbrains = row.summary.provider?.["jetbrains-ai-assistant"]
+  if (!jetbrains) return "No data yet"
+
+  const parts = []
+  const quota = numberOrNull(row.summary.quotaPercent ?? jetbrains.quotaUsedPercent)
+  const remaining = numberOrNull(row.summary.creditsRemaining ?? jetbrains.quotaRemaining)
+  const used = numberOrNull(row.summary.creditsUsed ?? jetbrains.quotaUsed)
+  const limit = numberOrNull(jetbrains.quotaLimit)
+  if (quota !== null) parts.push(`${Math.round(quota)}% quota`)
+  if (remaining !== null) parts.push(`${formatCount(remaining)} credits remaining`)
+  if (used !== null && limit !== null) parts.push(`${formatCount(used)}/${formatCount(limit)} credits`)
+  return parts.length > 0 ? parts.join(", ") : "No quota data"
+}
+
 function formatGenericProviderUsage(row: UsageSnapshotSourceRow) {
   const tokens = numberOrNull(row.summary.tokensTotal)
   const cost = numberOrNull(row.summary.estimatedCostUsd)
@@ -124,6 +150,7 @@ function formatProviderName(providerId: string) {
   if (providerId === "claude") return "Claude"
   if (providerId === "codex") return "Codex"
   if (providerId === "cursor") return "Cursor"
+  if (providerId === "jetbrains-ai-assistant") return "JetBrains AI Assistant"
   return providerId
 }
 

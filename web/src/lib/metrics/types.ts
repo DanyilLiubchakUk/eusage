@@ -73,6 +73,17 @@ export type ClaudeSummary = {
   [key: string]: unknown
 }
 
+export type JetBrainsSummary = {
+  quotaUsed?: number
+  quotaLimit?: number
+  quotaRemaining?: number
+  quotaUsedPercent?: number
+  quotaResetAt?: number
+  quotaPeriodSeconds?: number
+  quotaUnit?: string
+  [key: string]: unknown
+}
+
 export type UsageSummarySource = {
   tokensTotal?: number
   estimatedCostUsd?: number
@@ -86,6 +97,7 @@ export type UsageSummarySource = {
     claude?: ClaudeSummary
     codex?: CodexSummary
     cursor?: CursorSummary
+    "jetbrains-ai-assistant"?: JetBrainsSummary
     [key: string]: unknown
   }
 }

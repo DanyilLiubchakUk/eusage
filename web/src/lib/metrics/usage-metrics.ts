@@ -27,6 +27,7 @@ export type ProviderTotal = {
   providerId: string
   tokensTotal: number
   estimatedCostUsd: number
+  creditsUsed: number
   snapshotCount: number
 }
 
@@ -107,10 +108,12 @@ export function calculateUsageTotals(
       providerId: row.providerId,
       tokensTotal: 0,
       estimatedCostUsd: 0,
+      creditsUsed: 0,
       snapshotCount: 0,
     }
     provider.tokensTotal += tokens
     provider.estimatedCostUsd += cost
+    provider.creditsUsed += finiteNumber(row.summary.creditsUsed)
     provider.snapshotCount += 1
     providerTotals.set(row.providerId, provider)
   }
