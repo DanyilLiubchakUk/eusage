@@ -1,5 +1,5 @@
 use crate::local_http_api::cache::CachedPluginSnapshot;
-use crate::plugin_engine::runtime::{MetricLine, ProgressFormat};
+use crate::plugin_engine::runtime::{MetricLine, ProgressFormat, ProviderMetricSample};
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
@@ -22,7 +22,7 @@ pub(super) struct TeamUsageProvider {
     period_key: String,
     data_identity: String,
     summary: Value,
-    summary_version: &'static str,
+    summary_version: String,
     extractor_version: BTreeMap<String, String>,
     metric_families: Vec<String>,
     metric_samples: Vec<TeamUsageMetricSample>,
@@ -35,20 +35,58 @@ struct TeamUsageMetricSample {
     value: f64,
     unit: String,
     sample_day: String,
-    source: &'static str,
+    source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    period_start: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    period_end: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    coverage: Option<Value>,
 }
 
 pub(super) fn build_provider_upload(snapshot: &CachedPluginSnapshot) -> TeamUsageProvider {
     let captured_at = timestamp_millis(&snapshot.fetched_at);
     let sample_day = sample_day(captured_at);
-    let metric_samples = metric_samples_for_snapshot(snapshot, &sample_day);
-    let summary = summary_for_snapshot(snapshot);
-    let payload = redact_json_value(serde_json::to_value(snapshot).unwrap_or_else(|_| json!({})));
-    let mut extractor_version = BTreeMap::new();
-    extractor_version.insert(
-        snapshot.provider_id.clone(),
-        GENERIC_EXTRACTOR_VERSION.to_string(),
-    );
+    let source_facts = snapshot.source_facts.as_ref();
+    let metric_samples = source_facts
+        .map(|facts| {
+            facts
+                .metric_samples
+                .iter()
+                .cloned()
+                .map(TeamUsageMetricSample::from)
+                .collect()
+        })
+        .unwrap_or_else(|| metric_samples_for_snapshot(snapshot, &sample_day));
+    let summary = source_facts
+        .map(|facts| facts.summary.clone())
+        .unwrap_or_else(|| summary_for_snapshot(snapshot));
+    let payload = snapshot
+        .raw_payload
+        .clone()
+        .unwrap_or_else(|| serde_json::to_value(snapshot).unwrap_or_else(|_| json!({})));
+    let payload = redact_json_value(payload);
+    let extractor_version = source_facts
+        .map(|facts| facts.extractor_version.clone())
+        .unwrap_or_else(|| generic_extractor_version(&snapshot.provider_id));
+    let period_start = source_facts
+        .and_then(|facts| facts.period_start)
+        .unwrap_or(captured_at);
+    let period_end = source_facts
+        .and_then(|facts| facts.period_end)
+        .unwrap_or(period_start);
+    let period_key = source_facts
+        .and_then(|facts| facts.period_key.clone())
+        .unwrap_or_else(|| sample_day.clone());
+    let data_identity = source_facts
+        .and_then(|facts| facts.data_identity.clone())
+        .unwrap_or_else(|| format!("{}:{}", snapshot.provider_id, sample_day));
+    let summary_version = source_facts
+        .map(|facts| facts.summary_version.clone())
+        .unwrap_or_else(|| GENERIC_EXTRACTOR_VERSION.to_string());
+    let metric_families = source_facts
+        .map(|facts| facts.metric_families.clone())
+        .unwrap_or_else(|| vec!["pluginOutput".to_string()]);
 
     TeamUsageProvider {
         provider_id: snapshot.provider_id.clone(),
@@ -56,16 +94,25 @@ pub(super) fn build_provider_upload(snapshot: &CachedPluginSnapshot) -> TeamUsag
         payload_version: GENERIC_PAYLOAD_VERSION,
         redaction_version: GENERIC_REDACTION_VERSION,
         captured_at,
-        period_start: captured_at,
-        period_end: captured_at,
-        period_key: sample_day.clone(),
-        data_identity: format!("{}:{}", snapshot.provider_id, sample_day),
+        period_start,
+        period_end,
+        period_key,
+        data_identity,
         summary,
-        summary_version: GENERIC_EXTRACTOR_VERSION,
+        summary_version,
         extractor_version,
-        metric_families: vec!["pluginOutput".to_string()],
+        metric_families,
         metric_samples,
     }
+}
+
+fn generic_extractor_version(provider_id: &str) -> BTreeMap<String, String> {
+    let mut extractor_version = BTreeMap::new();
+    extractor_version.insert(
+        provider_id.to_string(),
+        GENERIC_EXTRACTOR_VERSION.to_string(),
+    );
+    extractor_version
 }
 
 fn summary_for_snapshot(snapshot: &CachedPluginSnapshot) -> Value {
@@ -115,7 +162,10 @@ fn metric_samples_for_snapshot(
         value: 1.0,
         unit: "count".to_string(),
         sample_day: sample_day.to_string(),
-        source: "normalized",
+        source: "normalized".to_string(),
+        period_start: None,
+        period_end: None,
+        coverage: None,
     }];
 
     for line in &snapshot.lines {
@@ -134,19 +184,40 @@ fn metric_samples_for_snapshot(
                 value: *used,
                 unit: unit.clone(),
                 sample_day: sample_day.to_string(),
-                source: "providerReported",
+                source: "providerReported".to_string(),
+                period_start: None,
+                period_end: None,
+                coverage: None,
             });
             samples.push(TeamUsageMetricSample {
                 metric_key: format!("{}.{}.limit", snapshot.provider_id, label),
                 value: *limit,
                 unit,
                 sample_day: sample_day.to_string(),
-                source: "providerReported",
+                source: "providerReported".to_string(),
+                period_start: None,
+                period_end: None,
+                coverage: None,
             });
         }
     }
 
     samples
+}
+
+impl From<ProviderMetricSample> for TeamUsageMetricSample {
+    fn from(sample: ProviderMetricSample) -> Self {
+        Self {
+            metric_key: sample.metric_key,
+            value: sample.value,
+            unit: sample.unit,
+            sample_day: sample.sample_day,
+            source: sample.source,
+            period_start: sample.period_start,
+            period_end: sample.period_end,
+            coverage: sample.coverage,
+        }
+    }
 }
 
 fn progress_unit(format: &ProgressFormat) -> String {
@@ -249,7 +320,9 @@ fn is_sensitive_key(key: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::plugin_engine::runtime::ProgressFormat;
+    use crate::plugin_engine::runtime::{
+        ProgressFormat, ProviderMetricSample, ProviderSourceFacts,
+    };
 
     fn make_snapshot(provider_id: &str, used: f64) -> CachedPluginSnapshot {
         CachedPluginSnapshot {
@@ -265,6 +338,8 @@ mod tests {
                 period_duration_ms: None,
                 color: None,
             }],
+            source_facts: None,
+            raw_payload: None,
             fetched_at: "2026-06-01T12:00:00Z".to_string(),
         }
     }
@@ -284,6 +359,69 @@ mod tests {
                 .metric_samples
                 .iter()
                 .any(|sample| sample.metric_key == "cursor.session.used")
+        );
+    }
+
+    #[test]
+    fn provider_upload_prefers_plugin_source_facts_and_redacts_raw_payload() {
+        let mut extractor_version = BTreeMap::new();
+        extractor_version.insert("cursor".to_string(), "1.0.0".to_string());
+        let mut snapshot = make_snapshot("cursor", 42.0);
+        snapshot.raw_payload = Some(json!({
+            "usage": {
+                "planUsage": { "apiPercentUsed": 17.0 },
+                "accessToken": "secret-token"
+            }
+        }));
+        snapshot.source_facts = Some(ProviderSourceFacts {
+            period_start: Some(1_770_000_000_000),
+            period_end: Some(1_772_592_000_000),
+            period_key: Some("cursor:2026-02-02:2026-03-04".to_string()),
+            data_identity: Some("cursor:billing-cycle".to_string()),
+            summary: json!({
+                "provider": {
+                    "cursor": {
+                        "apiPercentUsed": 17.0,
+                        "individualLimitUsd": 100.0,
+                        "individualUsedUsd": 40.0,
+                        "pooledLimitUsd": 500.0,
+                        "pooledUsedUsd": 120.0
+                    }
+                }
+            }),
+            summary_version: "1.0.0".to_string(),
+            extractor_version,
+            metric_families: vec!["cursorPool".to_string()],
+            metric_samples: vec![ProviderMetricSample {
+                metric_key: "cursor.api.percentUsed".to_string(),
+                value: 17.0,
+                unit: "percent".to_string(),
+                sample_day: "2026-06-01".to_string(),
+                source: "providerReported".to_string(),
+                period_start: Some(1_770_000_000_000),
+                period_end: Some(1_772_592_000_000),
+                coverage: None,
+            }],
+        });
+
+        let provider = build_provider_upload(&snapshot);
+
+        assert_eq!(provider.period_key, "cursor:2026-02-02:2026-03-04");
+        assert_eq!(provider.summary_version, "1.0.0");
+        assert_eq!(provider.metric_families, vec!["cursorPool"]);
+        assert_eq!(
+            provider.summary["provider"]["cursor"]["pooledLimitUsd"],
+            500.0
+        );
+        assert_eq!(
+            provider.metric_samples[0].metric_key,
+            "cursor.api.percentUsed"
+        );
+        assert_eq!(provider.payload["usage"]["accessToken"], REDACTED_VALUE);
+        assert!(
+            !serde_json::to_string(&provider.payload)
+                .unwrap()
+                .contains("secret-token")
         );
     }
 

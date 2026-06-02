@@ -1,7 +1,9 @@
 use crate::plugin_engine::host_api;
 use crate::plugin_engine::manifest::LoadedPlugin;
-use rquickjs::{Array, Context, Ctx, Error, Object, Promise, Runtime, Value};
+use rquickjs::{Array, Context, Ctx, Error, Function, Object, Promise, Runtime, Value};
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -50,7 +52,36 @@ pub struct PluginOutput {
     pub display_name: String,
     pub plan: Option<String>,
     pub lines: Vec<MetricLine>,
+    pub source_facts: Option<ProviderSourceFacts>,
+    pub raw_payload: Option<JsonValue>,
     pub icon_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderSourceFacts {
+    pub period_start: Option<i64>,
+    pub period_end: Option<i64>,
+    pub period_key: Option<String>,
+    pub data_identity: Option<String>,
+    pub summary: JsonValue,
+    pub summary_version: String,
+    pub extractor_version: BTreeMap<String, String>,
+    pub metric_families: Vec<String>,
+    pub metric_samples: Vec<ProviderMetricSample>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderMetricSample {
+    pub metric_key: String,
+    pub value: f64,
+    pub unit: String,
+    pub sample_day: String,
+    pub source: String,
+    pub period_start: Option<i64>,
+    pub period_end: Option<i64>,
+    pub coverage: Option<JsonValue>,
 }
 
 pub fn run_probe(plugin: &LoadedPlugin, app_data_dir: &PathBuf, app_version: &str) -> PluginOutput {
@@ -211,9 +242,51 @@ fn run_probe_with_timeout(
             display_name,
             plan,
             lines,
+            source_facts: parse_source_facts(&result),
+            raw_payload: parse_optional_json_property(&result, "rawPayload"),
             icon_url,
         }
     })
+}
+
+fn parse_source_facts(result: &Object<'_>) -> Option<ProviderSourceFacts> {
+    let value = parse_optional_json_property(result, "sourceFacts")?;
+    match serde_json::from_value(value) {
+        Ok(facts) => Some(facts),
+        Err(error) => {
+            log::warn!("plugin sourceFacts ignored: {}", error);
+            None
+        }
+    }
+}
+
+fn parse_optional_json_property(result: &Object<'_>, key: &str) -> Option<JsonValue> {
+    let value: Value = result.get(key).ok()?;
+    if value.is_null() || value.is_undefined() {
+        return None;
+    }
+
+    let json = stringify_js_value(value).ok()?;
+    serde_json::from_str(&json)
+        .map_err(|error| {
+            log::warn!("plugin {} ignored: {}", key, error);
+            error
+        })
+        .ok()
+}
+
+fn stringify_js_value(value: Value<'_>) -> Result<String, String> {
+    let ctx = value.ctx().clone();
+    let json: Object = ctx
+        .globals()
+        .get("JSON")
+        .map_err(|_| "missing JSON global".to_string())?;
+    let stringify: Function = json
+        .get("stringify")
+        .map_err(|_| "missing JSON.stringify".to_string())?;
+    stringify
+        .call((value,))
+        .map_err(|_| "JSON.stringify failed".to_string())
 }
 
 fn parse_lines(result: &Object) -> Result<Vec<MetricLine>, String> {
@@ -505,6 +578,8 @@ fn error_output(plugin: &LoadedPlugin, message: String) -> PluginOutput {
         display_name: plugin.manifest.name.clone(),
         plan: None,
         lines: vec![error_line(message)],
+        source_facts: None,
+        raw_payload: None,
         icon_url: plugin.icon_data_url.clone(),
     }
 }
@@ -655,6 +730,74 @@ mod tests {
         assert!(
             obj.get("resets_at").is_none(),
             "did not expect resets_at key"
+        );
+    }
+
+    #[test]
+    fn run_probe_preserves_source_facts_and_raw_payload() {
+        let plugin = test_plugin(
+            r#"
+            globalThis.__openusage_plugin = {
+                probe() {
+                    return {
+                        plan: "Team",
+                        lines: [{
+                            type: "progress",
+                            label: "API usage",
+                            used: 17,
+                            limit: 100,
+                            format: { kind: "percent" }
+                        }],
+                        sourceFacts: {
+                            periodStart: 1770000000000,
+                            periodEnd: 1772592000000,
+                            periodKey: "cursor:2026-02-02:2026-03-04",
+                            dataIdentity: "cursor:billing-cycle",
+                            summary: {
+                                provider: {
+                                    cursor: {
+                                        apiPercentUsed: 17,
+                                        pooledLimitUsd: 500
+                                    }
+                                }
+                            },
+                            summaryVersion: "1.0.0",
+                            extractorVersion: { test: "1.0.0" },
+                            metricFamilies: ["cursorPool"],
+                            metricSamples: [{
+                                metricKey: "cursor.api.percentUsed",
+                                value: 17,
+                                unit: "percent",
+                                sampleDay: "2026-06-01",
+                                source: "providerReported",
+                                periodStart: 1770000000000,
+                                periodEnd: 1772592000000
+                            }]
+                        },
+                        rawPayload: {
+                            usage: {
+                                planUsage: {
+                                    apiPercentUsed: 17
+                                }
+                            }
+                        }
+                    };
+                }
+            };
+            "#,
+        );
+
+        let output = run_probe(&plugin, &temp_app_dir("source-facts"), "0.0.0");
+        let facts = output.source_facts.expect("source facts");
+
+        assert_eq!(facts.summary_version, "1.0.0");
+        assert_eq!(facts.extractor_version["test"], "1.0.0");
+        assert_eq!(facts.metric_families, vec!["cursorPool"]);
+        assert_eq!(facts.metric_samples[0].metric_key, "cursor.api.percentUsed");
+        assert_eq!(facts.summary["provider"]["cursor"]["pooledLimitUsd"], 500.0);
+        assert_eq!(
+            output.raw_payload.unwrap()["usage"]["planUsage"]["apiPercentUsed"],
+            17.0
         );
     }
 }

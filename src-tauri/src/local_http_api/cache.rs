@@ -1,5 +1,6 @@
-use crate::plugin_engine::runtime::{MetricLine, PluginOutput};
+use crate::plugin_engine::runtime::{MetricLine, PluginOutput, ProviderSourceFacts};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
@@ -26,6 +27,8 @@ pub struct CachedPluginSnapshot {
     pub display_name: String,
     pub plan: Option<String>,
     pub lines: Vec<MetricLine>,
+    pub source_facts: Option<ProviderSourceFacts>,
+    pub raw_payload: Option<Value>,
     pub fetched_at: String,
 }
 
@@ -236,6 +239,8 @@ pub fn cache_successful_output(output: &PluginOutput) {
         display_name: output.display_name.clone(),
         plan: output.plan.clone(),
         lines: output.lines.clone(),
+        source_facts: output.source_facts.clone(),
+        raw_payload: output.raw_payload.clone(),
         fetched_at,
     };
 
@@ -342,6 +347,8 @@ mod tests {
             display_name: name.to_string(),
             plan: Some("Pro".to_string()),
             lines: vec![],
+            source_facts: None,
+            raw_payload: None,
             fetched_at: "2026-03-26T08:15:30Z".to_string(),
         }
     }
@@ -357,6 +364,8 @@ mod tests {
                 color: None,
                 subtitle: None,
             }],
+            source_facts: None,
+            raw_payload: None,
             icon_url: String::new(),
         }
     }
@@ -589,6 +598,8 @@ mod tests {
                 period_duration_ms: Some(14400000),
                 color: None,
             }],
+            source_facts: None,
+            raw_payload: None,
             fetched_at: "2026-03-26T08:00:00Z".to_string(),
         };
 

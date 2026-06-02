@@ -15,6 +15,8 @@
   const CLIENT_ID = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB"
   const REFRESH_BUFFER_MS = 5 * 60 * 1000 // refresh 5 minutes before expiration
   const LOGIN_HINT = "Sign in via Cursor app or run `agent login`."
+  const SUMMARY_VERSION = "1.0.0"
+  const CURSOR_EXTRACTOR_VERSION = "1.0.0"
 
   function readEnvText(ctx, name) {
     if (!ctx.host.env || typeof ctx.host.env.get !== "function") return null
@@ -404,6 +406,229 @@
     }
   }
 
+  function finiteNumber(value) {
+    return typeof value === "number" && Number.isFinite(value) ? value : null
+  }
+
+  function centsToUsd(value) {
+    const cents = finiteNumber(value)
+    return cents === null ? null : cents / 100
+  }
+
+  function setNumber(target, key, value) {
+    const n = finiteNumber(value)
+    if (n !== null) target[key] = n
+  }
+
+  function setUsdFromCents(target, key, value) {
+    const usd = centsToUsd(value)
+    if (usd !== null) target[key] = usd
+  }
+
+  function sampleDay(ctx) {
+    const parsed = ctx.util.parseDateMs(ctx.nowIso)
+    const date = new Date(Number.isFinite(parsed) ? parsed : Date.now())
+    return date.toISOString().slice(0, 10)
+  }
+
+  function dayFromMs(value) {
+    const n = finiteNumber(value)
+    if (n === null) return null
+    return new Date(n).toISOString().slice(0, 10)
+  }
+
+  function cursorPeriod(usage, fallbackDay) {
+    const start = finiteNumber(Number(usage && usage.billingCycleStart))
+    const end = finiteNumber(Number(usage && usage.billingCycleEnd))
+    if (start !== null && end !== null && end > start) {
+      return {
+        start,
+        end,
+        key: "cursor:" + dayFromMs(start) + ":" + dayFromMs(end),
+      }
+    }
+    return {
+      start: null,
+      end: null,
+      key: "cursor:" + fallbackDay,
+    }
+  }
+
+  function addMetricSample(samples, metricKey, value, unit, day, period, source) {
+    const n = finiteNumber(value)
+    if (n === null) return
+    const sample = {
+      metricKey,
+      value: n,
+      unit,
+      sampleDay: day,
+      source: source || "providerReported",
+    }
+    if (period.start !== null) sample.periodStart = period.start
+    if (period.end !== null) sample.periodEnd = period.end
+    samples.push(sample)
+  }
+
+  function extractorVersion() {
+    return { cursor: CURSOR_EXTRACTOR_VERSION }
+  }
+
+  function metricFamilies(summary) {
+    const families = []
+    if (summary.tokensTotal !== undefined) families.push("tokens")
+    if (summary.estimatedCostUsd !== undefined) families.push("estimatedCost")
+    if (summary.budgetUsedUsd !== undefined || summary.budgetLimitUsd !== undefined) families.push("budget")
+    if (summary.quotaPercent !== undefined) families.push("quotaPressure")
+    if (summary.creditsUsed !== undefined || summary.creditsRemaining !== undefined) families.push("credits")
+    if (summary.requestsUsed !== undefined) families.push("requests")
+    if (summary.provider && summary.provider.cursor) families.push("cursorPool")
+    return families.length > 0 ? families : ["cursor"]
+  }
+
+  function buildRequestSourceFacts(ctx, requestUsage, planName) {
+    const day = sampleDay(ctx)
+    const start = requestUsage && requestUsage.startOfMonth
+      ? ctx.util.parseDateMs(requestUsage.startOfMonth)
+      : null
+    const period = Number.isFinite(start)
+      ? {
+        start,
+        end: start + 30 * 24 * 60 * 60 * 1000,
+        key: "cursor:requests:" + dayFromMs(start),
+      }
+      : { start: null, end: null, key: "cursor:requests:" + day }
+    const gpt4 = requestUsage && requestUsage["gpt-4"]
+    const used = gpt4 && finiteNumber(gpt4.numRequests) !== null ? gpt4.numRequests : 0
+    const limit = gpt4 && finiteNumber(gpt4.maxRequestUsage) !== null ? gpt4.maxRequestUsage : null
+    const summary = {
+      requestsUsed: used,
+      provider: {
+        cursor: {},
+      },
+    }
+    if (planName) summary.provider.cursor.planName = planName
+    setNumber(summary.provider.cursor, "requestLimit", limit)
+
+    const samples = []
+    addMetricSample(samples, "cursor.requests.used", used, "requests", day, period)
+    addMetricSample(samples, "cursor.requests.limit", limit, "requests", day, period)
+
+    return {
+      periodStart: period.start,
+      periodEnd: period.end,
+      periodKey: period.key,
+      dataIdentity: period.key,
+      summary,
+      summaryVersion: SUMMARY_VERSION,
+      extractorVersion: extractorVersion(),
+      metricFamilies: metricFamilies(summary),
+      metricSamples: samples,
+    }
+  }
+
+  function buildCursorSourceFacts(ctx, usage, planName, creditInfo) {
+    const day = sampleDay(ctx)
+    const period = cursorPeriod(usage, day)
+    const pu = usage.planUsage || {}
+    const su = usage.spendLimitUsage || {}
+    const planUsedUsd = centsToUsd(typeof pu.totalSpend === "number"
+      ? pu.totalSpend
+      : typeof pu.limit === "number"
+        ? pu.limit - (pu.remaining || 0)
+        : null)
+    const planLimitUsd = centsToUsd(pu.limit)
+    const planRemainingUsd = centsToUsd(pu.remaining)
+    const totalPercentUsed = finiteNumber(pu.totalPercentUsed) !== null
+      ? pu.totalPercentUsed
+      : planUsedUsd !== null && planLimitUsd !== null && planLimitUsd > 0
+        ? (planUsedUsd / planLimitUsd) * 100
+        : null
+    const individualLimitUsd = centsToUsd(su.individualLimit)
+    const individualUsedUsd = centsToUsd(su.individualUsed)
+    const individualRemainingUsd = centsToUsd(su.individualRemaining)
+    const pooledLimitUsd = centsToUsd(su.pooledLimit)
+    const pooledUsedUsd = centsToUsd(su.pooledUsed)
+    const pooledRemainingUsd = centsToUsd(su.pooledRemaining)
+    const onDemandLimitUsd = individualLimitUsd !== null ? individualLimitUsd : pooledLimitUsd
+    const onDemandRemainingUsd = individualRemainingUsd !== null ? individualRemainingUsd : pooledRemainingUsd
+    const onDemandUsedUsd = centsToUsd(su.totalSpend) !== null
+      ? centsToUsd(su.totalSpend)
+      : individualUsedUsd !== null
+        ? individualUsedUsd
+        : onDemandLimitUsd !== null && onDemandRemainingUsd !== null
+          ? onDemandLimitUsd - onDemandRemainingUsd
+          : pooledUsedUsd
+
+    const cursor = {}
+    if (planName) cursor.planName = planName
+    setNumber(cursor, "planUsedUsd", planUsedUsd)
+    setUsdFromCents(cursor, "planLimitUsd", pu.limit)
+    setUsdFromCents(cursor, "planRemainingUsd", pu.remaining)
+    setNumber(cursor, "planTotalPercentUsed", totalPercentUsed)
+    setNumber(cursor, "autoPercentUsed", pu.autoPercentUsed)
+    setNumber(cursor, "apiPercentUsed", pu.apiPercentUsed)
+    if (typeof su.limitType === "string") cursor.limitType = su.limitType
+    setNumber(cursor, "onDemandUsedUsd", onDemandUsedUsd)
+    setNumber(cursor, "onDemandLimitUsd", onDemandLimitUsd)
+    setNumber(cursor, "onDemandRemainingUsd", onDemandRemainingUsd)
+    setNumber(cursor, "individualUsedUsd", individualUsedUsd)
+    setNumber(cursor, "individualLimitUsd", individualLimitUsd)
+    setNumber(cursor, "individualRemainingUsd", individualRemainingUsd)
+    setNumber(cursor, "pooledUsedUsd", pooledUsedUsd)
+    setNumber(cursor, "pooledLimitUsd", pooledLimitUsd)
+    setNumber(cursor, "pooledRemainingUsd", pooledRemainingUsd)
+    if (period.start !== null) cursor.billingCycleStart = period.start
+    if (period.end !== null) cursor.billingCycleEnd = period.end
+
+    const summary = {
+      provider: { cursor },
+    }
+    setNumber(summary, "estimatedCostUsd", planUsedUsd)
+    setNumber(summary, "budgetUsedUsd", onDemandUsedUsd !== null ? onDemandUsedUsd : planUsedUsd)
+    setNumber(summary, "budgetLimitUsd", onDemandLimitUsd !== null ? onDemandLimitUsd : planLimitUsd)
+    setNumber(summary, "quotaPercent", totalPercentUsed)
+    if (creditInfo && creditInfo.totalUsd !== null && creditInfo.totalUsd > 0) {
+      summary.creditsUsed = creditInfo.usedUsd || 0
+      summary.creditsRemaining = Math.max(creditInfo.totalUsd - summary.creditsUsed, 0)
+    }
+
+    const samples = []
+    addMetricSample(samples, "cursor.plan.used", planUsedUsd, "usd", day, period)
+    addMetricSample(samples, "cursor.plan.limit", planLimitUsd, "usd", day, period)
+    addMetricSample(samples, "cursor.plan.remaining", planRemainingUsd, "usd", day, period)
+    addMetricSample(samples, "cursor.plan.percentUsed", totalPercentUsed, "percent", day, period)
+    addMetricSample(samples, "cursor.api.percentUsed", pu.apiPercentUsed, "percent", day, period)
+    addMetricSample(samples, "cursor.auto.percentUsed", pu.autoPercentUsed, "percent", day, period)
+    addMetricSample(samples, "cursor.onDemand.used", onDemandUsedUsd, "usd", day, period)
+    addMetricSample(samples, "cursor.onDemand.limit", onDemandLimitUsd, "usd", day, period)
+    addMetricSample(samples, "cursor.onDemand.remaining", onDemandRemainingUsd, "usd", day, period)
+    addMetricSample(samples, "cursor.onDemand.individual.used", individualUsedUsd, "usd", day, period)
+    addMetricSample(samples, "cursor.onDemand.individual.limit", individualLimitUsd, "usd", day, period)
+    addMetricSample(samples, "cursor.onDemand.individual.remaining", individualRemainingUsd, "usd", day, period)
+    addMetricSample(samples, "cursor.onDemand.pooled.used", pooledUsedUsd, "usd", day, period)
+    addMetricSample(samples, "cursor.onDemand.pooled.limit", pooledLimitUsd, "usd", day, period)
+    addMetricSample(samples, "cursor.onDemand.pooled.remaining", pooledRemainingUsd, "usd", day, period)
+    if (individualLimitUsd === null && pooledLimitUsd === null) {
+      addMetricSample(samples, "cursor.onDemand.missingLimit", 1, "count", day, period, "normalized")
+    }
+    if (creditInfo && creditInfo.totalUsd !== null && creditInfo.totalUsd > 0) {
+      addMetricSample(samples, "cursor.credits.used", creditInfo.usedUsd || 0, "usd", day, period)
+      addMetricSample(samples, "cursor.credits.remaining", summary.creditsRemaining, "usd", day, period)
+    }
+
+    return {
+      periodStart: period.start,
+      periodEnd: period.end,
+      periodKey: period.key,
+      dataIdentity: period.key,
+      summary,
+      summaryVersion: SUMMARY_VERSION,
+      extractorVersion: extractorVersion(),
+      metricFamilies: metricFamilies(summary),
+      metricSamples: samples,
+    }
+  }
+
   function buildRequestBasedResult(ctx, accessToken, planName, unavailableMessage) {
     var requestUsage = fetchRequestBasedUsage(ctx, accessToken)
     var lines = []
@@ -442,7 +667,15 @@
       if (planLabel) plan = planLabel
     }
 
-    return { plan: plan, lines: lines }
+    return {
+      plan: plan,
+      lines: lines,
+      sourceFacts: buildRequestSourceFacts(ctx, requestUsage, planName),
+      rawPayload: {
+        requestUsage: requestUsage,
+        planName: planName || null,
+      },
+    }
   }
 
   function buildEnterpriseResult(ctx, accessToken, planName) {
@@ -765,7 +998,20 @@
       }
     }
 
-    return { plan: plan, lines: lines }
+    return {
+      plan: plan,
+      lines: lines,
+      sourceFacts: buildCursorSourceFacts(ctx, usage, planName, {
+        usedUsd: centsToUsd(hasValidGrantData ? grantUsedCents : 0),
+        totalUsd: centsToUsd(combinedTotalCents),
+      }),
+      rawPayload: {
+        usage: usage,
+        planName: planName || null,
+        creditGrants: creditGrants,
+        stripeBalanceCents: stripeBalanceCents,
+      },
+    }
   }
 
   globalThis.__openusage_plugin = { id: "cursor", probe }

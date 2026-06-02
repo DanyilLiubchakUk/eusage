@@ -1298,6 +1298,193 @@ describe("cursor plugin", () => {
     expect(apiLine.format).toEqual({ kind: "percent" })
   })
 
+  it("emits normalized Cursor source facts and metric samples", async () => {
+    const ctx = makeCtx()
+    const accessToken = makeJwt({ sub: "google-oauth2|user_abc123", exp: 9999999999 })
+    const periodStart = Date.UTC(2026, 1, 2)
+    const periodEnd = Date.UTC(2026, 2, 4)
+    ctx.nowIso = "2026-06-01T12:00:00.000Z"
+    ctx.host.sqlite.query.mockReturnValue(JSON.stringify([{ value: accessToken }]))
+    ctx.host.http.request.mockImplementation((opts) => {
+      const url = String(opts.url)
+      if (url.includes("GetCurrentPeriodUsage")) {
+        return {
+          status: 200,
+          bodyText: JSON.stringify({
+            enabled: true,
+            billingCycleStart: String(periodStart),
+            billingCycleEnd: String(periodEnd),
+            planUsage: {
+              totalSpend: 1200,
+              limit: 2400,
+              remaining: 1200,
+              totalPercentUsed: 50,
+              autoPercentUsed: 12.5,
+              apiPercentUsed: 7.5,
+            },
+            spendLimitUsage: {
+              limitType: "team",
+              individualLimit: 10000,
+              individualUsed: 4000,
+              individualRemaining: 6000,
+              pooledLimit: 50000,
+              pooledUsed: 12000,
+              pooledRemaining: 38000,
+            },
+          }),
+        }
+      }
+      if (url.includes("GetPlanInfo")) {
+        return { status: 200, bodyText: JSON.stringify({ planInfo: { planName: "Team" } }) }
+      }
+      if (url.includes("GetCreditGrantsBalance")) {
+        return {
+          status: 200,
+          bodyText: JSON.stringify({
+            hasCreditGrants: true,
+            totalCents: "20000",
+            usedCents: "5000",
+          }),
+        }
+      }
+      return { status: 200, bodyText: "{}" }
+    })
+
+    const plugin = await loadPlugin()
+    const result = plugin.probe(ctx)
+    const cursor = result.sourceFacts.summary.provider.cursor
+
+    expect(result.sourceFacts.summaryVersion).toBe("1.0.0")
+    expect(result.sourceFacts.extractorVersion).toEqual({ cursor: "1.0.0" })
+    expect(result.sourceFacts.periodStart).toBe(periodStart)
+    expect(result.sourceFacts.periodEnd).toBe(periodEnd)
+    expect(result.sourceFacts.metricFamilies).toContain("cursorPool")
+    expect(result.sourceFacts.metricSamples).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          metricKey: "cursor.api.percentUsed",
+          value: 7.5,
+          unit: "percent",
+          sampleDay: "2026-06-01",
+        }),
+        expect.objectContaining({
+          metricKey: "cursor.onDemand.pooled.limit",
+          value: 500,
+          unit: "usd",
+        }),
+      ])
+    )
+    expect(result.sourceFacts.summary).toMatchObject({
+      estimatedCostUsd: 12,
+      budgetUsedUsd: 40,
+      budgetLimitUsd: 100,
+      quotaPercent: 50,
+      creditsUsed: 50,
+      creditsRemaining: 150,
+    })
+    expect(cursor).toMatchObject({
+      planName: "Team",
+      planUsedUsd: 12,
+      planLimitUsd: 24,
+      planRemainingUsd: 12,
+      apiPercentUsed: 7.5,
+      individualLimitUsd: 100,
+      individualUsedUsd: 40,
+      individualRemainingUsd: 60,
+      pooledLimitUsd: 500,
+      pooledUsedUsd: 120,
+      pooledRemainingUsd: 380,
+      limitType: "team",
+    })
+    expect(result.rawPayload.usage.planUsage.totalSpend).toBe(1200)
+    expect(JSON.stringify(result.rawPayload)).not.toContain(accessToken)
+  })
+
+  it("marks missing Cursor on-demand limits without faking zero budget", async () => {
+    const ctx = makeCtx()
+    ctx.nowIso = "2026-06-01T12:00:00.000Z"
+    ctx.host.sqlite.query.mockReturnValue(JSON.stringify([{ value: "token" }]))
+    ctx.host.http.request.mockImplementation((opts) => {
+      if (String(opts.url).includes("GetCurrentPeriodUsage")) {
+        return {
+          status: 200,
+          bodyText: JSON.stringify({
+            enabled: true,
+            planUsage: {
+              totalPercentUsed: 21,
+            },
+          }),
+        }
+      }
+      return { status: 200, bodyText: "{}" }
+    })
+
+    const plugin = await loadPlugin()
+    const result = plugin.probe(ctx)
+    const cursor = result.sourceFacts.summary.provider.cursor
+
+    expect(cursor.individualLimitUsd).toBeUndefined()
+    expect(cursor.pooledLimitUsd).toBeUndefined()
+    expect(result.sourceFacts.summary.budgetLimitUsd).toBeUndefined()
+    expect(result.sourceFacts.metricSamples).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          metricKey: "cursor.onDemand.missingLimit",
+          value: 1,
+          source: "normalized",
+        }),
+      ])
+    )
+  })
+
+  it("emits request-based Cursor source facts for enterprise accounts", async () => {
+    const ctx = makeCtx()
+    const accessToken = makeJwt({ sub: "google-oauth2|user_abc123", exp: 9999999999 })
+    ctx.nowIso = "2026-06-01T12:00:00.000Z"
+    ctx.host.sqlite.query.mockReturnValue(JSON.stringify([{ value: accessToken }]))
+    ctx.host.http.request.mockImplementation((opts) => {
+      const url = String(opts.url)
+      if (url.includes("GetCurrentPeriodUsage")) {
+        return { status: 200, bodyText: JSON.stringify({ billingCycleStart: "1770539602363" }) }
+      }
+      if (url.includes("GetPlanInfo")) {
+        return { status: 200, bodyText: JSON.stringify({ planInfo: { planName: "Enterprise" } }) }
+      }
+      if (url.includes("cursor.com/api/usage")) {
+        return {
+          status: 200,
+          bodyText: JSON.stringify({
+            "gpt-4": {
+              numRequests: 42,
+              maxRequestUsage: 500,
+            },
+            startOfMonth: "2026-02-01T06:12:57.000Z",
+          }),
+        }
+      }
+      return { status: 200, bodyText: "{}" }
+    })
+
+    const plugin = await loadPlugin()
+    const result = plugin.probe(ctx)
+
+    expect(result.sourceFacts.summary.requestsUsed).toBe(42)
+    expect(result.sourceFacts.summary.provider.cursor).toMatchObject({
+      planName: "Enterprise",
+      requestLimit: 500,
+    })
+    expect(result.sourceFacts.metricSamples).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          metricKey: "cursor.requests.used",
+          value: 42,
+          unit: "requests",
+        }),
+      ])
+    )
+    expect(result.rawPayload.requestUsage["gpt-4"].maxRequestUsage).toBe(500)
+  })
+
   it("falls back to computed percent when totalPercentUsed is not finite", async () => {
     const ctx = makeCtx()
     ctx.host.sqlite.query.mockReturnValue(JSON.stringify([{ value: "token" }]))
