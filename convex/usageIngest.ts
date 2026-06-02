@@ -122,19 +122,34 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
       return updated as UsageSnapshotRecord
     },
     getMetricSample: async (sample) =>
-      (await ctx.db
-        .query("metricSamples")
-        .withIndex("by_sample_identity", (q) =>
-          q
-            .eq("teamId", sample.teamId as Id<"teams">)
-            .eq("providerId", sample.providerId)
-            .eq("developerId", sample.developerId as Id<"developers">)
-            .eq("metricKey", sample.metricKey)
-            .eq("sampleDay", sample.sampleDay)
-            .eq("periodStart", sample.periodStart)
-            .eq("periodEnd", sample.periodEnd)
-        )
-        .first()) as MetricSampleRecord | null,
+      (sample.deviceId
+        ? ((await ctx.db
+            .query("metricSamples")
+            .withIndex("by_sample_identity_device", (q) =>
+              q
+                .eq("teamId", sample.teamId as Id<"teams">)
+                .eq("providerId", sample.providerId)
+                .eq("developerId", sample.developerId as Id<"developers">)
+                .eq("deviceId", sample.deviceId)
+                .eq("metricKey", sample.metricKey)
+                .eq("sampleDay", sample.sampleDay)
+                .eq("periodStart", sample.periodStart)
+                .eq("periodEnd", sample.periodEnd)
+            )
+            .first()) as MetricSampleRecord | null)
+        : ((await ctx.db
+            .query("metricSamples")
+            .withIndex("by_sample_identity", (q) =>
+              q
+                .eq("teamId", sample.teamId as Id<"teams">)
+                .eq("providerId", sample.providerId)
+                .eq("developerId", sample.developerId as Id<"developers">)
+                .eq("metricKey", sample.metricKey)
+                .eq("sampleDay", sample.sampleDay)
+                .eq("periodStart", sample.periodStart)
+                .eq("periodEnd", sample.periodEnd)
+            )
+            .first()) as MetricSampleRecord | null)),
     createMetricSample: async (sample) => {
       const id = await ctx.db.insert("metricSamples", metricSampleFields(sample))
       const created = await ctx.db.get(id)
@@ -201,6 +216,7 @@ function metricSampleFields(sample: NewMetricSampleRecord) {
     ...(sample.developerId
       ? { developerId: sample.developerId as Id<"developers"> }
       : {}),
+    ...(sample.deviceId ? { deviceId: sample.deviceId } : {}),
     metricKey: sample.metricKey,
     value: sample.value,
     unit: sample.unit,

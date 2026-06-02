@@ -227,6 +227,7 @@ These are source measurements for over-time charts, not precomputed chart aggreg
 - `teamId`
 - `providerId`
 - `developerId` optional
+- `deviceId` optional, used only for local consumed usage samples that must be summed across devices
 - `metricKey`
 - `value`
 - `unit`
@@ -335,6 +336,12 @@ teamId + developerId + deviceId + providerId + periodKey + dataIdentity
 
 ```text
 teamId + providerId + developerId? + metricKey + sampleDay + periodStart? + periodEnd?
+```
+
+Local consumed usage samples use device-scoped upsert key:
+
+```text
+teamId + providerId + developerId? + deviceId + metricKey + sampleDay + periodStart? + periodEnd?
 ```
 
 ## Keep v1 Simple

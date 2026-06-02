@@ -81,7 +81,7 @@ Official v1 path:
 - Usage snapshots are upserted by developer, device, provider, and usage period/data identity. Same data overwrites latest snapshot.
 - Usage snapshots are the dashboard source of truth. v1 does not store every usage upload as immutable history.
 - Daily `metricSamples` store small source metric history for over-time charts. Admin/TV calculate burn, pace, projection, and comparisons from those samples.
-- For overlapping snapshots from multiple devices, v1 dashboard totals use the latest device snapshot. Provider-specific merge rules are future work.
+- For overlapping account-level provider snapshots from multiple devices, v1 dashboard totals use the latest device snapshot. Local consumed usage samples such as Codex/Claude ccusage token and cost rows are device-scoped and summed across devices.
 - If provider period is missing, usage snapshots fall back to one day bucket per developer and provider.
 - Admin Overview is a dense analytics dashboard; TV mode is separate fullscreen slides.
 - Dashboard customization includes developer visibility, provider checkboxes, date ranges, compare modes, TV slide order, slide duration, and theme/display mode.

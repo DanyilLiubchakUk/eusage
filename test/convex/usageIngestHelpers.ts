@@ -128,6 +128,7 @@ export async function createUsageIngestTestStore() {
           row.teamId === sample.teamId &&
           row.providerId === sample.providerId &&
           row.developerId === sample.developerId &&
+          row.deviceId === sample.deviceId &&
           row.metricKey === sample.metricKey &&
           row.sampleDay === sample.sampleDay &&
           row.periodStart === sample.periodStart &&

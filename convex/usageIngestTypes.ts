@@ -95,6 +95,7 @@ export type MetricSampleRecord = {
   teamId: string
   providerId: string
   developerId?: string
+  deviceId?: string
   metricKey: string
   value: number
   unit: string
@@ -159,6 +160,7 @@ export type UsageIngestStore = Pick<
       | "teamId"
       | "providerId"
       | "developerId"
+      | "deviceId"
       | "metricKey"
       | "sampleDay"
       | "periodStart"

@@ -158,6 +158,7 @@ async function upsertMetricSamples(args: {
   provider: UsageProviderInput
   teamId: string
   developerId: string
+  deviceId: string
   now: number
   store: UsageIngestStore
 }) {
@@ -166,6 +167,9 @@ async function upsertMetricSamples(args: {
       teamId: args.teamId,
       providerId: args.provider.providerId,
       developerId: args.developerId,
+      ...(isDeviceScopedUsageSample(args.provider.providerId, sampleInput)
+        ? { deviceId: args.deviceId }
+        : {}),
       metricKey: sampleInput.metricKey,
       value: sampleInput.value,
       unit: sampleInput.unit,
@@ -202,5 +206,16 @@ function isConsumedUsageSample(sample: { metricKey: string; unit: string }) {
   return (
     (sample.unit === "tokens" && sample.metricKey.endsWith(".tokens.total")) ||
     (sample.unit === "usd" && sample.metricKey.endsWith(".cost.estimated"))
+  )
+}
+
+function isDeviceScopedUsageSample(
+  providerId: string,
+  sample: { metricKey: string; unit: string }
+) {
+  if (providerId !== "codex" && providerId !== "claude") return false
+  return (
+    (sample.unit === "tokens" && sample.metricKey.startsWith(`${providerId}.tokens.`)) ||
+    (sample.unit === "usd" && sample.metricKey === `${providerId}.cost.estimated`)
   )
 }

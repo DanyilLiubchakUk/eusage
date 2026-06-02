@@ -118,6 +118,11 @@ Codex source facts are extracted on desktop before upload:
 - Metric samples: session percent, weekly percent, review percent, optional credits remaining, daily total/input/output/cached tokens, daily estimated cost, and additional rate-limit windows
 - Raw payload shape: usage body, selected response headers, and ccusage daily rows, with secret-shaped fields replaced by `[REDACTED]`
 
+Dashboard merge scope:
+
+- Rate-limit percentages and credits come from the ChatGPT/Codex cloud account and should not be summed across devices.
+- Daily token and estimated-cost samples come from local ccusage history on the reporting device and should be summed across devices for the same developer.
+
 ### Token Refresh
 
 Access tokens are short-lived JWTs. Refreshed when `last_refresh` is older than 8 days, or on 401/403.

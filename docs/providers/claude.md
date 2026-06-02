@@ -119,6 +119,11 @@ Claude source facts are extracted on desktop before upload:
 - Metric samples: session percent, weekly percent, optional model-window percents, extra usage spent/monthly limit, daily total/input/output/cache creation/cache read tokens, and daily estimated cost.
 - Raw payload shape: usage body, auth metadata, and ccusage daily rows, with secret-shaped fields replaced by `[REDACTED]`.
 
+Dashboard merge scope:
+
+- Rate-limit percentages, model windows, and extra-usage budget values come from the Claude cloud account and should not be summed across devices.
+- Daily token and estimated-cost samples come from local ccusage history on the reporting device and should be summed across devices for the same developer.
+
 ### Token Refresh
 
 Access tokens are short-lived JWTs. Refreshed proactively 5 minutes before expiration, or reactively on 401/403.

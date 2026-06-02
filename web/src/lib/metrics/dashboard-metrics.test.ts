@@ -119,6 +119,52 @@ describe("dashboard metrics", () => {
     expect(series.points).toEqual([{ day: "2026-06-01", value: 19_000_000 }])
   })
 
+  it("sums device-scoped consumed samples and ignores legacy unscoped duplicates", () => {
+    const range = resolveMetricDateRange({ preset: "last7" }, now)
+    const samples = [
+      sample({ providerId: "codex", metricKey: "codex.tokens.total", value: 19_000_000 }),
+      sample({
+        providerId: "codex",
+        metricKey: "codex.tokens.total",
+        deviceId: "mac",
+        value: 19_000_000,
+      }),
+      sample({
+        providerId: "codex",
+        metricKey: "codex.tokens.total",
+        deviceId: "windows",
+        value: 4_000_000,
+      }),
+      sample({
+        providerId: "codex",
+        metricKey: "codex.cost.estimated",
+        unit: "usd",
+        value: 23.2,
+      }),
+      sample({
+        providerId: "codex",
+        metricKey: "codex.cost.estimated",
+        unit: "usd",
+        deviceId: "mac",
+        value: 23.2,
+      }),
+      sample({
+        providerId: "codex",
+        metricKey: "codex.cost.estimated",
+        unit: "usd",
+        deviceId: "windows",
+        value: 5,
+      }),
+    ]
+
+    const usage = calculateSampledUsage({ samples, window: range.current })
+    const series = buildTotalTokenSeries({ samples, window: range.current })
+
+    expect(usage.tokensTotal).toBe(23_000_000)
+    expect(usage.estimatedCostUsd).toBe(28.2)
+    expect(series.points).toEqual([{ day: "2026-06-01", value: 23_000_000 }])
+  })
+
   it("omits comparison deltas for all-time ranges", () => {
     const metrics = calculateDashboardUsage({
       snapshots: [snapshot({ tokensTotal: 200, capturedAt: currentDay })],

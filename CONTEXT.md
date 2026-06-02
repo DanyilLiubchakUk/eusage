@@ -98,6 +98,14 @@ Consumed usage for one developer/provider account, independent of which device r
 - Do not use for: Device sync health, per-device troubleshooting, or quota pressure.
 - Related terms: Provider, Device, Team Usage.
 
+### Local Consumed Usage
+
+Consumed usage measured from one device's local provider history.
+
+- Use when: Talking about Codex or Claude token/cost rows read from local ccusage history on macOS or Windows.
+- Do not use for: Cloud account quota, provider budgets, credits, pool values, or percent-used windows.
+- Related terms: Device, Tokens Burned, Estimated Cost.
+
 ### Tokens Burned
 
 Provider-reported or normalized token consumption in the selected dashboard range.

@@ -3,10 +3,10 @@ import {
   calculateDashboardUsage,
   calculateQuotaPressure,
   calculateSampledUsage,
+  canonicalConsumedSamples,
   dedupeLatestDeviceSnapshots,
   finiteNumber,
   isEstimatedCostSample,
-  isSampleDayInWindow,
   isTotalTokenSample,
   isTimestampInWindow,
   snapshotRangeTimestamp,
@@ -43,9 +43,7 @@ export function buildDeveloperLeaderboardRows(
   )
   const rows = new Map<string, DeveloperLeaderboardRow>()
 
-  for (const sample of metricSamples) {
-    if (!isSampleDayInWindow(sample.sampleDay, window)) continue
-    if (!isTotalTokenSample(sample) && !isEstimatedCostSample(sample)) continue
+  for (const sample of canonicalConsumedSamples(metricSamples, window)) {
     const developerId = sample.developerId
     if (!developerId) continue
     const row = rows.get(developerId) ?? {

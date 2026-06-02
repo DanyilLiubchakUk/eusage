@@ -205,11 +205,9 @@ export function calculateSampledUsage(args: {
   let oldestUpdatedAt: number | null = null
   let newestUpdatedAt: number | null = null
 
-  for (const sample of args.samples) {
-    if (!isSampleDayInWindow(sample.sampleDay, args.window)) continue
+  for (const sample of canonicalConsumedSamples(args.samples, args.window)) {
     const isTokens = isTotalTokenSample(sample)
     const isCost = isEstimatedCostSample(sample)
-    if (!isTokens && !isCost) continue
 
     oldestUpdatedAt =
       oldestUpdatedAt === null ? sample.updatedAt : Math.min(oldestUpdatedAt, sample.updatedAt)
@@ -267,10 +265,7 @@ export function buildTotalTokenSeries(args: {
 }): MetricSeries {
   const valuesByDay = new Map<string, number>()
 
-  for (const sample of args.samples) {
-    if (!isTotalTokenSample(sample)) continue
-    if (!isSampleDayInWindow(sample.sampleDay, args.window)) continue
-
+  for (const sample of canonicalConsumedSamples(args.samples, args.window).filter(isTotalTokenSample)) {
     valuesByDay.set(sample.sampleDay, (valuesByDay.get(sample.sampleDay) ?? 0) + sample.value)
   }
 
@@ -289,6 +284,33 @@ export function isTotalTokenSample(sample: UsageMetricSampleSourceRow) {
 
 export function isEstimatedCostSample(sample: UsageMetricSampleSourceRow) {
   return sample.unit === "usd" && sample.metricKey.endsWith(".cost.estimated")
+}
+
+export function canonicalConsumedSamples(
+  samples: UsageMetricSampleSourceRow[],
+  window: MetricRangeWindow
+) {
+  const groups = new Map<string, UsageMetricSampleSourceRow[]>()
+
+  for (const sample of samples) {
+    if (!isSampleDayInWindow(sample.sampleDay, window)) continue
+    if (!isTotalTokenSample(sample) && !isEstimatedCostSample(sample)) continue
+
+    const key = [
+      sample.providerId,
+      sample.developerId ?? "",
+      sample.metricKey,
+      sample.sampleDay,
+      sample.periodStart ?? "",
+      sample.periodEnd ?? "",
+    ].join("\u0000")
+    groups.set(key, [...(groups.get(key) ?? []), sample])
+  }
+
+  return [...groups.values()].flatMap((rows) => {
+    const deviceRows = rows.filter((row) => row.deviceId)
+    return deviceRows.length > 0 ? deviceRows : rows
+  })
 }
 
 export function dedupeLatestDeviceSnapshots(rows: UsageSnapshotSourceRow[]) {

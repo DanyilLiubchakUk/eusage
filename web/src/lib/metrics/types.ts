@@ -124,10 +124,13 @@ export type UsageMetricSampleSourceRow = {
   id?: string
   providerId: string
   developerId?: string
+  deviceId?: string
   metricKey: string
   value: number
   unit: string
   sampleDay: string
+  periodStart?: number
+  periodEnd?: number
   source: MetricSource
   capturedAt: number
   updatedAt: number

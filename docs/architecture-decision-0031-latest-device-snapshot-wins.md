@@ -24,10 +24,10 @@ Device-level data is still stored for sync health and debugging.
 
 If one device has stale provider data and another has fresh data, the fresh upload wins.
 
-Future work should add provider-specific merge rules:
+Provider-specific metric-sample merge rules now apply where source scope is known:
 
 - Account-level providers may keep latest-wins behavior.
-- Device-local providers may need summing or another merge rule.
+- Device-local consumed samples, such as Codex and Claude ccusage token/cost rows, are stored with `deviceId` and summed across devices.
 
 ## Alternatives Considered
 
