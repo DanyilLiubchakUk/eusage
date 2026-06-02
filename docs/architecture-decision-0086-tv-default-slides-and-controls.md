@@ -46,10 +46,11 @@ TV controls:
 
 Controls should be available on hover or keyboard, without cluttering the wall display.
 
-Every TV slide shows `Oldest update: ...` for the oldest visible data used by that slide.
+Every TV slide shows `Updates: ...` for the oldest and newest visible data used by that slide.
 The label uses days, hours, minutes, and seconds, omitting leading zero units.
 Examples:
 
+- `oldest 12m ago · newest 4s ago`
 - `9d 3h 4m 12s ago`
 - `3h 4m 12s ago`
 - `4m 12s ago`

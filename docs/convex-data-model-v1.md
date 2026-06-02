@@ -319,7 +319,7 @@ TV display preferences.
 Do not store temporary freshness rows.
 Use normal row timestamps.
 
-TV slide queries return the oldest visible timestamp used by that slide.
+TV slide queries return the visible timestamps used by that slide.
 The browser keeps only `now` in memory for the ticking label.
 
 ## Upsert Keys

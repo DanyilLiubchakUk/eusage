@@ -188,10 +188,10 @@ Metric Engine -> TV Slides
 - Inactive developer: hidden from TV by default, reviewable in Admin.
 - Provider globally disabled: hidden everywhere, still stored.
 - Provider TV-disabled only: hidden on TV, visible in Admin.
-- TV has no data for slide: show no-data state and `Oldest update: No data yet`.
-- Slide has mixed data timestamps: oldest visible timestamp is used.
-- Oldest age under one minute: show seconds only.
-- Oldest age over one day: show days, hours, minutes, seconds.
+- TV has no data for slide: show no-data state and `Updates: No data yet`.
+- Slide has mixed data timestamps: oldest and newest visible timestamps are used.
+- Freshness age under one minute: show seconds only.
+- Freshness age over one day: show days, hours, minutes, seconds.
 - Freshness colors only on Sync Health; other slides show plain freshness text.
 - TV controls hidden until hover/keyboard: should remain accessible.
 - Slide duration too low: enforce sane minimum.

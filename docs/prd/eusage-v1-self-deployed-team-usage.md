@@ -107,11 +107,11 @@ The web app stores source facts in Convex and calculates dashboard metrics in sh
 - Data model: use normalized tables for teams, admins, developers, developer tokens, devices, providers, usage snapshots, raw payloads, metric samples, audit events, sync errors, dashboard settings, and TV settings.
 - Usage snapshot policy: usage snapshots are upserted by team, developer, device, provider, period key, and data identity. Same data overwrites the latest row. v1 does not store immutable upload history.
 - Metric sample policy: daily source metric samples power trends, burn, pace, comparisons, and charts. They are source measurements, not precomputed chart aggregates.
-- Metric engine: shared pure TypeScript functions calculate totals, averages, date comparisons, Cursor pool fallback, quota pressure, projections, chart aggregates, and oldest-update labels.
+- Metric engine: shared pure TypeScript functions calculate totals, averages, date comparisons, Cursor pool fallback, quota pressure, projections, chart aggregates, and update freshness labels.
 - Date logic: last 7, last 30, last 90, and custom compare with previous equal-length range. All-time has no percent delta.
 - Visibility logic: provider disable hides from all views but still collects data. TV visibility is an extra layer over global visibility. Admin can always review developers, including inactive when selected.
 - Admin UI: top navigation is Overview, Developers, Providers, TV, Settings. Overview is dense and fixed. Focused pages contain controls.
-- TV UI: default slides are Team Overview, Developer Leaderboard, Provider Breakdown, Cursor Pool, and Sync Health. Slides auto-rotate and show oldest visible update age.
+- TV UI: default slides are Team Overview, Developer Leaderboard, Provider Breakdown, Cursor Pool, and Sync Health. Slides auto-rotate and show oldest and newest visible update ages.
 - Chart catalog: support developer over-time comparison, team total over time, provider breakdown, provider trends, leaderboard, usage-limit pressure, and Cursor pool.
 - Cursor pool: use provider-reported pooled fields when present. Otherwise fallback to summed per-developer on-demand limits and usage. Exclude missing limit data and show coverage.
 - Quota pressure: support per developer per provider, per developer average, per provider average, team average, worst active pressure, and high-pressure count. Warning is 80 percent. Critical is 95 percent.
@@ -137,13 +137,13 @@ The web app stores source facts in Convex and calculates dashboard metrics in sh
 - Date Range Comparator: normalizes presets, custom ranges, previous-range comparison, and all-time behavior.
 - Visibility Resolver: applies global provider visibility, TV provider visibility, developer filters, inactive rules, and selected date range.
 - Cursor Pool Calculator: handles pooled source fields, fallback per-developer on-demand sum, missing limit coverage, and labels.
-- TV Slide Engine: resolves enabled slides, order, duration, playback state, and oldest-update timestamp per slide.
+- TV Slide Engine: resolves enabled slides, order, duration, playback state, and visible update timestamps per slide.
 - Freshness Formatter: formats ages as seconds, minutes/seconds, hours/minutes/seconds, or days/hours/minutes/seconds.
 
 ## Testing Decisions
 
 - Tests should verify external behavior and contracts, not internal implementation details.
-- Metric engine tests are required from day one for Cursor pool, quota averages and coverage, date range comparison, and oldest-update formatting.
+- Metric engine tests are required from day one for Cursor pool, quota averages and coverage, date range comparison, and update freshness formatting.
 - Upload validator tests should prove valid providers are accepted, invalid providers are rejected independently, and sync errors contain no secrets.
 - Token auth tests should prove raw token is shown once, only the hash is stored, bearer auth maps to the correct developer, and revoked/inactive tokens fail.
 - Connection parser tests should accept valid production and localhost connection strings and reject missing URL, missing token, wrong scheme, and unsafe URLs.
@@ -152,7 +152,7 @@ The web app stores source facts in Convex and calculates dashboard metrics in sh
 - Provider extractor tests are required per v1 provider for normalized source facts, metric samples, summary version, extractor version, upload schema version, and redacted payload shape.
 - Cursor tests should cover plan usage, on-demand fields, pooled fields, per-user fallback, missing on-demand limit, and Windows path candidate handling where practical.
 - Date and visibility tests should cover hidden providers still being stored, inactive developers hidden from TV by default, Admin show-inactive behavior, and all-time no-delta behavior.
-- TV tests should cover slide ordering, enable/disable, per-slide duration, pause/resume, oldest-update source, and no-data labels.
+- TV tests should cover slide ordering, enable/disable, per-slide duration, pause/resume, update freshness source, and no-data labels.
 - Convex/backend tests should cover snapshot upsert keys, metric sample upsert keys, raw payload expiry fields, sync error expiry fields, and safe team-config response.
 - Windows release proof still needs manual checks. Automated tests cannot prove real tray behavior, Windows Credential Manager, provider app login state, or real provider path availability.
 

@@ -16,7 +16,7 @@ AFK
 
 ## What to build
 
-Build the protected TV display mode with default slides, date range settings, slide order/duration controls, playback controls, oldest-update labels, and readable no-data states.
+Build the protected TV display mode with default slides, date range settings, slide order/duration controls, playback controls, update freshness labels, and readable no-data states.
 
 ## Acceptance criteria
 
@@ -24,7 +24,8 @@ Build the protected TV display mode with default slides, date range settings, sl
 - [ ] Admin TV settings can enable/disable slides, reorder them with dnd-kit, and set per-slide duration with 10 seconds as default.
 - [ ] TV supports last 7, last 30, last 90, all time, and custom date ranges with the approved comparison behavior.
 - [ ] Playback supports auto-rotate, pause/resume, previous, next, and exit fullscreen controls without cluttering the display.
-- [ ] Every slide shows Oldest update using the oldest visible data used by that slide, or No data yet.
+- [ ] Every slide shows Updates using the oldest and newest visible data used by that slide, or No data yet.
+- [ ] Freshness uses visible persisted row timestamps only: Team Overview uses visible snapshots and chart samples; Developer Leaderboard uses visible developer/provider snapshots; Provider Breakdown uses visible provider snapshots; Cursor Pool uses visible Cursor snapshots; Sync Health uses visible device `lastSyncAt ?? lastSeenAt`.
 - [ ] Tests cover slide config persistence, order, duration validation, playback state, date range behavior, no-data rows, and freshness formatting.
 
 ## Blocked by

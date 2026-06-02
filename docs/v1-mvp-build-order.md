@@ -30,7 +30,7 @@ The first milestone creates the web/backend target that desktop clients will tal
    - Very plain UI only.
 7. Add minimal TV.
    - Team Overview slide shell.
-   - Oldest update label.
+   - Update freshness label.
    - Very plain UI only.
 
 ## Milestone 2: Windows Shell
