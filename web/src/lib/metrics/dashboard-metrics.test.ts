@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
   buildMetricSeries,
+  buildTotalTokenSeries,
   buildMetricUnitSeries,
+  calculateSampledUsage,
   calculateCursorPool,
   calculateDashboardUsage,
   calculateQuotaPressure,
@@ -92,6 +94,29 @@ describe("dashboard metrics", () => {
       unit: "tokens",
       points: [{ day: "2026-06-01", value: 100 }],
     })
+  })
+
+  it("builds burned token totals only from canonical total-token samples", () => {
+    const range = resolveMetricDateRange({ preset: "last7" }, now)
+    const samples = [
+      sample({ providerId: "codex", metricKey: "codex.tokens.total", value: 19_000_000 }),
+      sample({ providerId: "codex", metricKey: "codex.tokens.input", value: 12_000_000 }),
+      sample({ providerId: "codex", metricKey: "codex.tokens.output", value: 7_000_000 }),
+      sample({ providerId: "codex", metricKey: "codex.tokens.cachedInput", value: 11_000_000 }),
+      sample({
+        providerId: "codex",
+        metricKey: "codex.cost.estimated",
+        unit: "usd",
+        value: 23.2,
+      }),
+    ]
+
+    const usage = calculateSampledUsage({ samples, window: range.current })
+    const series = buildTotalTokenSeries({ samples, window: range.current })
+
+    expect(usage.tokensTotal).toBe(19_000_000)
+    expect(usage.estimatedCostUsd).toBe(23.2)
+    expect(series.points).toEqual([{ day: "2026-06-01", value: 19_000_000 }])
   })
 
   it("omits comparison deltas for all-time ranges", () => {

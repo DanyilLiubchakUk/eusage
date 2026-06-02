@@ -82,6 +82,70 @@ The web UI used by admins and TV displays to view team usage.
 - Do not use for: The desktop tray/menu bar UI.
 - Related terms: Team Deployment.
 
+### Team Usage
+
+Consumed provider usage by visible developers in the selected dashboard range.
+
+- Use when: Talking about tokens burned and estimated cost shown in Admin or TV.
+- Do not use for: Provider quota percentages, rate-limit pressure, Cursor API usage percent, Codex session percent, or sync health.
+- Related terms: Dashboard, Provider, Quota Pressure.
+
+### Provider Account Usage
+
+Consumed usage for one developer/provider account, independent of which device reported it.
+
+- Use when: Comparing the same developer/provider usage reported from macOS and Windows devices.
+- Do not use for: Device sync health, per-device troubleshooting, or quota pressure.
+- Related terms: Provider, Device, Team Usage.
+
+### Tokens Burned
+
+Provider-reported or normalized token consumption in the selected dashboard range.
+
+- Use when: Talking about actual token volume consumed by visible developers.
+- Do not use for: Percent-used limits, credits, requests, or budget dollars.
+- Related terms: Team Usage, Provider.
+
+### Estimated Cost
+
+Approximate USD cost derived from consumed provider usage in the selected dashboard range.
+
+- Use when: Talking about cost of tokens or other consumed usage that providers report directly or eUsage can estimate from a documented formula.
+- Do not use for: Provider plan spend, quota pressure, credits, requests, or missing data shown as zero.
+- Related terms: Team Usage, Tokens Burned, Provider Budget.
+
+### Provider Budget
+
+Provider-reported dollar budget, spend, or remaining allowance for an account or plan.
+
+- Use when: Talking about plan spend, budget limits, on-demand allowance, or shared pool money.
+- Do not use for: Estimated Cost, Tokens Burned, or Quota Pressure.
+- Related terms: Estimated Cost, Cursor Pool, Provider.
+
+### Cursor Pool
+
+Shared Cursor dollar allowance available to a team.
+
+- Use when: Talking about pooled Cursor budget values shared across developers.
+- Do not use for: Cursor percent-used limits, per-developer on-demand budget, tokens burned, or estimated cost.
+- Related terms: Provider Budget, Cursor On-Demand Budget, Quota Pressure.
+
+### Cursor On-Demand Budget
+
+Per-developer Cursor dollar allowance.
+
+- Use when: Talking about individual Cursor budget values for one developer.
+- Do not use for: Shared Cursor Pool, Cursor percent-used limits, tokens burned, or estimated cost.
+- Related terms: Provider Budget, Cursor Pool, Quota Pressure.
+
+### Quota Pressure
+
+How close visible developers are to provider limits.
+
+- Use when: Talking about percent-used values such as Cursor API usage percent or Codex session and weekly percent.
+- Do not use for: Tokens burned, estimated cost, credits, or requests.
+- Related terms: Team Usage, Provider.
+
 ### Desktop App
 
 The macOS or Windows app installed by each developer to collect and sync local usage.

@@ -12,6 +12,7 @@ import {
 } from "./admin-overview-data"
 import { formatCount, formatProviderName, formatUsd } from "./dashboard-formatting"
 import type { ReadyDashboardState } from "./dashboard-source"
+import { QuotaPressureTable } from "./admin-overview-quota-table"
 import "./admin-overview.css"
 
 type AdminOverviewProps = {
@@ -101,6 +102,10 @@ export function AdminOverview({ state, now }: AdminOverviewProps) {
 
         <DashboardPanel title="Sync health" meta={model.syncHealth.status}>
           <SyncHealthPanel rows={model.recentSyncRows} />
+        </DashboardPanel>
+
+        <DashboardPanel title="Quota pressure" meta={model.quota.teamCoverage.label}>
+          <QuotaPressureTable rows={model.quotaPressureRows} />
         </DashboardPanel>
       </section>
 

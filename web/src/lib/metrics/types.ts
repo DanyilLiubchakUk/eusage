@@ -37,6 +37,8 @@ export type CursorSummary = {
   pooledUsedUsd?: number
   pooledLimitUsd?: number
   pooledRemainingUsd?: number
+  planTotalPercentUsed?: number
+  autoPercentUsed?: number
   apiPercentUsed?: number
   [key: string]: unknown
 }

@@ -151,6 +151,105 @@ describe("usage ingest", () => {
       })
   })
 
+  it("does not let a later partial device lower consumed metric samples", async () => {
+    const fake = await createUsageIngestTestStore()
+    fake.devices.push({
+      _id: "device-row-2",
+      teamId: "team-1",
+      developerId: "developer-1",
+      deviceId: "device-2",
+      deviceName: "Alex Windows",
+      os: "windows",
+      appVersion: "0.6.24",
+      status: "connected",
+      lastSeenAt: now - 5_000,
+      createdAt: now - 5_000,
+      updatedAt: now - 5_000,
+    })
+
+    await ingestUsageBatch({
+      input: {
+        tokenHash: fake.tokenHash,
+        batch: usageBatch([
+          mockUsageProvider({
+            metricSamples: [
+              {
+                metricKey: "mock.tokens.total",
+                value: 19_000_000,
+                unit: "tokens",
+                sampleDay: "2026-06-01",
+                source: "providerReported",
+              },
+              {
+                metricKey: "mock.cost.estimated",
+                value: 23.2,
+                unit: "usd",
+                sampleDay: "2026-06-01",
+                source: "estimated",
+              },
+            ],
+          }),
+        ]),
+      },
+      now,
+      store: fake.store,
+    })
+    await ingestUsageBatch({
+      input: {
+        tokenHash: fake.tokenHash,
+        batch: {
+          ...usageBatch([
+            mockUsageProvider({
+              metricSamples: [
+                {
+                  metricKey: "mock.tokens.total",
+                  value: 4_000_000,
+                  unit: "tokens",
+                  sampleDay: "2026-06-01",
+                  source: "providerReported",
+                },
+                {
+                  metricKey: "mock.cost.estimated",
+                  value: 5,
+                  unit: "usd",
+                  sampleDay: "2026-06-01",
+                  source: "estimated",
+                },
+                {
+                  metricKey: "mock.api.percentUsed",
+                  value: 45,
+                  unit: "percent",
+                  sampleDay: "2026-06-01",
+                  source: "providerReported",
+                },
+              ],
+            }),
+          ]),
+          deviceId: "device-2",
+        },
+      },
+      now: now + 1_000,
+      store: fake.store,
+    })
+
+    expect(fake.usageSnapshots).toHaveLength(2)
+    expect(fake.metricSamples.find((sample) => sample.metricKey === "mock.tokens.total"))
+      .toMatchObject({
+        value: 19_000_000,
+        updatedAt: now + 1_000,
+      })
+    expect(fake.metricSamples.find((sample) => sample.metricKey === "mock.cost.estimated"))
+      .toMatchObject({
+        value: 23.2,
+        updatedAt: now + 1_000,
+      })
+    expect(fake.metricSamples.find((sample) => sample.metricKey === "mock.api.percentUsed"))
+      .toMatchObject({
+        value: 45,
+        updatedAt: now + 1_000,
+      })
+  })
+
   it("accepts valid providers and rejects invalid source facts without raw-only rows", async () => {
     const fake = await createUsageIngestTestStore()
     const invalidProvider = mockUsageProvider({

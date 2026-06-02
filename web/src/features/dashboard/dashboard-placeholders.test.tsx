@@ -60,6 +60,9 @@ const readyState = {
           cursor: {
             individualLimitUsd: 100,
             individualUsedUsd: 40,
+            planTotalPercentUsed: 21,
+            autoPercentUsed: 14,
+            apiPercentUsed: 45,
           },
         },
       },
@@ -85,6 +88,7 @@ const readyState = {
             planName: "Plus",
             sessionUsedPercent: 25,
             weeklyUsedPercent: 50,
+            reviewUsedPercent: 18,
             todayTokens: 75,
           },
         },
@@ -165,6 +169,18 @@ const readyState = {
     },
     {
       id: "metric-2",
+      providerId: "cursor",
+      developerId: "alex",
+      metricKey: "cursor.cost.estimated",
+      value: 3.5,
+      unit: "usd",
+      sampleDay: "2026-06-01",
+      source: "estimated",
+      capturedAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "metric-3",
       providerId: "codex",
       developerId: "alex",
       metricKey: "codex.tokens.total",
@@ -176,7 +192,19 @@ const readyState = {
       updatedAt: now,
     },
     {
-      id: "metric-3",
+      id: "metric-4",
+      providerId: "codex",
+      developerId: "alex",
+      metricKey: "codex.cost.estimated",
+      value: 1.25,
+      unit: "usd",
+      sampleDay: "2026-06-01",
+      source: "estimated",
+      capturedAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "metric-5",
       providerId: "claude",
       developerId: "alex",
       metricKey: "claude.tokens.total",
@@ -184,6 +212,18 @@ const readyState = {
       unit: "tokens",
       sampleDay: "2026-06-01",
       source: "providerReported",
+      capturedAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "metric-6",
+      providerId: "claude",
+      developerId: "alex",
+      metricKey: "claude.cost.estimated",
+      value: 0.75,
+      unit: "usd",
+      sampleDay: "2026-06-01",
+      source: "estimated",
       capturedAt: now,
       updatedAt: now,
     },
@@ -202,17 +242,24 @@ describe("dashboard placeholders", () => {
     expect(screen.getByText("Default metric: total visible usage")).toBeInTheDocument()
     expect(screen.getAllByText("$60.00 remaining").length).toBeGreaterThan(0)
     expect(screen.getByText("53% avg")).toBeInTheDocument()
-    expect(screen.getByText("4/8 reporting")).toBeInTheDocument()
-    expect(screen.getAllByRole("table")).toHaveLength(5)
+    expect(screen.getAllByText("4/8 reporting").length).toBeGreaterThan(0)
+    expect(screen.getAllByRole("table")).toHaveLength(6)
     expect(screen.getByText("Available Metrics")).toBeInTheDocument()
+    expect(screen.getAllByText("Quota pressure").length).toBeGreaterThan(0)
+    expect(screen.getByText("Total usage")).toBeInTheDocument()
+    expect(screen.getByText("Auto + composer")).toBeInTheDocument()
+    expect(screen.getByText("API usage")).toBeInTheDocument()
+    expect(screen.getAllByText("Weekly").length).toBeGreaterThan(0)
+    expect(screen.getByText("Reviews")).toBeInTheDocument()
+    expect(screen.getByText("45%")).toBeInTheDocument()
     expect(screen.getByText("Provider Status")).toBeInTheDocument()
     expect(screen.getByText("Recent Syncs")).toBeInTheDocument()
     expect(screen.getAllByText("Cursor").length).toBeGreaterThan(0)
     expect(screen.getAllByText("JetBrains AI Assistant").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("50 credits").length).toBeGreaterThan(0)
+    expect(screen.getByText("Credits")).toBeInTheDocument()
     expect(screen.getByLabelText(/Total visible token usage/)).toHaveAttribute(
       "title",
-      expect.stringContaining("Source: Normalized usage snapshots")
+      expect.stringContaining("Source: Canonical provider token samples")
     )
     expect(screen.getByText("Updates: oldest 12s ago · newest 0s ago")).toBeInTheDocument()
     expect(screen.getAllByText("Alex").length).toBeGreaterThan(0)
@@ -240,7 +287,7 @@ describe("dashboard placeholders", () => {
     expect(screen.getAllByText("No developer usage yet").length).toBeGreaterThan(0)
     expect(screen.getAllByText("No device sync rows yet").length).toBeGreaterThan(0)
     expect(screen.getByText("No providers visible")).toBeInTheDocument()
-    expect(screen.getByLabelText(/No sample data yet/)).toBeInTheDocument()
+    expect(screen.getAllByLabelText(/No sample data yet/).length).toBeGreaterThan(0)
   })
 
   it("renders TV metrics from the same source rows", () => {
@@ -335,6 +382,33 @@ describe("dashboard placeholders", () => {
           metricFamilies: ["tokens", "estimatedCost", "quotaPressure", "cursorPool"],
           capturedAt: now,
           updatedAt: now - 1_000,
+        },
+      ],
+      metricSamples: [
+        ...(readyState as Extract<DashboardSourceState, { status: "ready" }>).metricSamples,
+        {
+          id: "metric-lee-1",
+          providerId: "cursor",
+          developerId: "lee",
+          metricKey: "cursor.tokens.total",
+          value: 30,
+          unit: "tokens",
+          sampleDay: "2026-06-01",
+          source: "providerReported",
+          capturedAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "metric-lee-2",
+          providerId: "cursor",
+          developerId: "lee",
+          metricKey: "cursor.cost.estimated",
+          value: 0.5,
+          unit: "usd",
+          sampleDay: "2026-06-01",
+          source: "estimated",
+          capturedAt: now,
+          updatedAt: now,
         },
       ],
     } as unknown as DashboardSourceState

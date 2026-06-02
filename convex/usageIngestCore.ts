@@ -181,9 +181,26 @@ async function upsertMetricSamples(args: {
     }
     const existing = await args.store.getMetricSample(sample)
     if (existing) {
-      await args.store.updateMetricSample(existing._id, sample)
+      await args.store.updateMetricSample(existing._id, mergeMetricSample(existing, sample))
     } else {
       await args.store.createMetricSample(sample)
     }
   }
+}
+
+function mergeMetricSample<T extends { metricKey: string; unit: string; value: number }>(
+  existing: { value: number },
+  next: T
+): T {
+  if (isConsumedUsageSample(next) && existing.value > next.value) {
+    return { ...next, value: existing.value }
+  }
+  return next
+}
+
+function isConsumedUsageSample(sample: { metricKey: string; unit: string }) {
+  return (
+    (sample.unit === "tokens" && sample.metricKey.endsWith(".tokens.total")) ||
+    (sample.unit === "usd" && sample.metricKey.endsWith(".cost.estimated"))
+  )
 }

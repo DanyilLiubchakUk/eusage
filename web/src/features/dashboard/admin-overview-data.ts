@@ -1,10 +1,12 @@
 import {
-  buildMetricUnitSeries,
+  buildTotalTokenSeries,
   calculateCursorPool,
   calculateDashboardUsage,
   calculateQuotaPressure,
+  calculateSampledUsage,
   formatUpdateFreshnessLabel,
   isSampleDayInWindow,
+  percentChange,
   resolveMetricDateRange,
   type MetricRangeWindow,
   type ProviderTotal,
@@ -21,6 +23,7 @@ import {
   buildDeveloperLeaderboardRows,
   buildProviderStatusRows,
   buildRecentSyncRows,
+  type QuotaPressureRow,
 } from "./admin-overview-tables"
 
 export type {
@@ -28,6 +31,7 @@ export type {
   DeveloperLeaderboardRow,
   ProviderStatusRow,
   RecentSyncRow,
+  QuotaPressureRow,
 } from "./admin-overview-tables"
 
 export function buildAdminOverviewModel(state: ReadyDashboardState, now: number) {
@@ -38,6 +42,16 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
     range: source.dateRange,
     now,
   })
+  const sampledUsage = calculateSampledUsage({
+    samples: source.metricSamples,
+    window: range.current,
+  })
+  const previousSampledUsage = range.comparison
+    ? calculateSampledUsage({
+        samples: source.metricSamples,
+        window: range.comparison,
+      })
+    : null
   const cursorPool = calculateCursorPool({
     snapshots: source.snapshots,
     window: range.current,
@@ -49,9 +63,8 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
     visibleDeveloperIds: source.visibleDeveloperIds,
     visibleProviderIds: source.visibleProviderIds,
   })
-  const tokenSeries = buildMetricUnitSeries({
+  const tokenSeries = buildTotalTokenSeries({
     samples: source.metricSamples,
-    unit: "tokens",
     window: range.current,
   })
   const syncHealth = buildSyncHealth(source.developers)
@@ -69,28 +82,42 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
       activeDeveloperCount: source.developers.filter((developer) => developer.status === "active")
         .length,
       visibleDeveloperCount: source.visibleDeveloperIds.length,
-      usage: usage.comparison,
+      tokensPercentChange: previousSampledUsage
+        ? percentChange(sampledUsage.tokensTotal, previousSampledUsage.tokensTotal)
+        : null,
+      sampledUsage,
       cursorPool,
       syncHealth,
     }),
     tokenSeries,
-    providerBreakdownRows: buildProviderBreakdownRows(usage.comparison.current.providerTotals),
+    providerBreakdownRows: buildProviderBreakdownRows(sampledUsage.providerTotals),
     developerLeaderboardRows: buildDeveloperLeaderboardRows(
       source.developers,
       source.snapshots,
+      source.metricSamples,
       range.current
     ),
     providerStatusRows: buildProviderStatusRows({
       providerIds: source.visibleProviderIds,
       snapshots: source.snapshots,
-      providerTotals: usage.comparison.current.providerTotals,
+      providerTotals: sampledUsage.providerTotals,
       quotaProviders: quota.perProvider,
       window: range.current,
     }),
     recentSyncRows: buildRecentSyncRows(source.developers),
+    quotaPressureRows: quota.details.map((detail) => ({
+      providerId: detail.providerId,
+      providerName: formatProviderName(detail.providerId),
+      developerName: detail.developerName ?? detail.developerId,
+      label: detail.label,
+      percent: detail.percent,
+      status: detail.status,
+      updatedAt: detail.updatedAt,
+    } satisfies QuotaPressureRow)),
     availableMetricRows: buildAvailableMetricRows({
       usage: usage.comparison.current,
-      tokenSamples: source.metricSamples.filter((sample) => sample.unit === "tokens"),
+      sampledUsage,
+      tokenSamples: source.metricSamples.filter((sample) => sample.metricKey.endsWith(".tokens.total")),
       cursorPool,
       quota,
       syncHealth,
@@ -115,17 +142,18 @@ function buildFilterSummary(visibleDeveloperIds: string[], visibleProviderIds: s
 function buildKpis(args: {
   activeDeveloperCount: number
   visibleDeveloperCount: number
-  usage: ReturnType<typeof calculateDashboardUsage>["comparison"]
+  tokensPercentChange: number | null
+  sampledUsage: ReturnType<typeof calculateSampledUsage>
   cursorPool: ReturnType<typeof calculateCursorPool>
   syncHealth: SyncHealth
 }) {
-  const topProvider = args.usage.current.topProvider
+  const topProvider = args.sampledUsage.topProvider
 
   return [
     {
       label: "Team usage",
-      value: `${formatCount(args.usage.current.tokensTotal)} tokens`,
-      meta: `${formatUsd(args.usage.current.estimatedCostUsd)} · ${formatPercentDelta(args.usage.tokensPercentChange)}`,
+      value: `${formatCount(args.sampledUsage.tokensTotal)} tokens`,
+      meta: `${formatUsd(args.sampledUsage.estimatedCostUsd)} · ${formatPercentDelta(args.tokensPercentChange)}`,
     },
     {
       label: "Active developers",
@@ -175,7 +203,7 @@ function buildProviderBreakdownRows(providerTotals: ProviderTotal[]): ProviderBr
 function visibleUpdateTimestamps(
   source: DashboardSource,
   window: MetricRangeWindow,
-  totals: ReturnType<typeof calculateDashboardUsage>["comparison"]["current"]
+  totals: ReturnType<typeof calculateSampledUsage>
 ) {
   const snapshotTimestamps = [totals.oldestUpdatedAt, totals.newestUpdatedAt].filter(
     (timestamp): timestamp is number => timestamp !== null

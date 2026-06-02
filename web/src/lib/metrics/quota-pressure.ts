@@ -13,6 +13,7 @@ export type QuotaPressureMetrics = {
   worstDeveloperAverage: DeveloperQuotaAverage | null
   perDeveloper: DeveloperQuotaAverage[]
   perProvider: ProviderQuotaAverage[]
+  details: QuotaPressureDetail[]
 }
 
 export type Coverage = {
@@ -41,6 +42,16 @@ export type ProviderQuotaAverage = {
   providerId: string
   averagePercent: number | null
   coverage: Coverage
+}
+
+export type QuotaPressureDetail = {
+  developerId: string
+  developerName: string | null
+  providerId: string
+  label: string
+  percent: number
+  status: "normal" | "warning" | "critical"
+  updatedAt: number
 }
 
 export function calculateQuotaPressure(args: {
@@ -76,6 +87,7 @@ export function calculateQuotaPressure(args: {
       )[0] ?? null,
     perDeveloper,
     perProvider,
+    details: quotaDetails(rows, developerIds, providerIds),
   }
 }
 
@@ -116,6 +128,75 @@ function quotaPoints(
       }
     })
     .filter((point): point is QuotaPressurePoint => point !== null)
+}
+
+function quotaDetails(
+  rows: UsageSnapshotSourceRow[],
+  developerIds: Set<string>,
+  providerIds: Set<string>
+): QuotaPressureDetail[] {
+  return rows
+    .filter((row) => developerIds.has(row.developerId) && providerIds.has(row.providerId))
+    .flatMap((row) => providerQuotaDetails(row))
+    .sort(
+      (left, right) =>
+        right.percent - left.percent ||
+        left.providerId.localeCompare(right.providerId) ||
+        left.label.localeCompare(right.label) ||
+        left.developerId.localeCompare(right.developerId)
+    )
+}
+
+function providerQuotaDetails(row: UsageSnapshotSourceRow): QuotaPressureDetail[] {
+  const details: Array<{ label: string; percent: unknown }> = []
+  const provider = row.summary.provider
+
+  if (row.providerId === "cursor") {
+    const cursor = provider?.cursor
+    details.push(
+      { label: "Total usage", percent: cursor?.planTotalPercentUsed ?? row.summary.quotaPercent },
+      { label: "Auto + composer", percent: cursor?.autoPercentUsed },
+      { label: "API usage", percent: cursor?.apiPercentUsed }
+    )
+  } else if (row.providerId === "codex") {
+    const codex = provider?.codex
+    details.push(
+      { label: "Session", percent: codex?.sessionUsedPercent },
+      { label: "Weekly", percent: codex?.weeklyUsedPercent },
+      { label: "Reviews", percent: codex?.reviewUsedPercent }
+    )
+  } else if (row.providerId === "claude") {
+    const claude = provider?.claude
+    details.push(
+      { label: "Session", percent: claude?.sessionUsedPercent },
+      { label: "Weekly", percent: claude?.weeklyUsedPercent }
+    )
+    for (const model of claude?.modelWindows ?? []) {
+      details.push({ label: model.name ?? model.key ?? "Model window", percent: model.usedPercent })
+    }
+  } else if (row.providerId === "jetbrains-ai-assistant") {
+    details.push({
+      label: "Quota",
+      percent: provider?.["jetbrains-ai-assistant"]?.quotaUsedPercent ?? row.summary.quotaPercent,
+    })
+  } else {
+    details.push({ label: "Quota", percent: row.summary.quotaPercent })
+  }
+
+  return details
+    .map(({ label, percent }) => {
+      if (typeof percent !== "number" || !Number.isFinite(percent)) return null
+      return {
+        developerId: row.developerId,
+        developerName: row.developerName ?? null,
+        providerId: row.providerId,
+        label,
+        percent,
+        status: quotaStatus(percent),
+        updatedAt: row.updatedAt,
+      }
+    })
+    .filter((detail): detail is QuotaPressureDetail => detail !== null)
 }
 
 function developerAverage(

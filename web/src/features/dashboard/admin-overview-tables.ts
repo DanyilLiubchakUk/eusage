@@ -2,8 +2,12 @@ import {
   calculateCursorPool,
   calculateDashboardUsage,
   calculateQuotaPressure,
+  calculateSampledUsage,
   dedupeLatestDeviceSnapshots,
   finiteNumber,
+  isEstimatedCostSample,
+  isSampleDayInWindow,
+  isTotalTokenSample,
   isTimestampInWindow,
   snapshotRangeTimestamp,
   type MetricRangeWindow,
@@ -28,6 +32,7 @@ export type DeveloperLeaderboardRow = {
 export function buildDeveloperLeaderboardRows(
   developers: ReadyDashboardState["developers"],
   snapshots: UsageSnapshotSourceRow[],
+  metricSamples: UsageMetricSampleSourceRow[],
   window: MetricRangeWindow
 ): DeveloperLeaderboardRow[] {
   const names = new Map<string, string>(
@@ -37,6 +42,30 @@ export function buildDeveloperLeaderboardRows(
     developers.map((developer) => [String(developer.id), developer.status])
   )
   const rows = new Map<string, DeveloperLeaderboardRow>()
+
+  for (const sample of metricSamples) {
+    if (!isSampleDayInWindow(sample.sampleDay, window)) continue
+    if (!isTotalTokenSample(sample) && !isEstimatedCostSample(sample)) continue
+    const developerId = sample.developerId
+    if (!developerId) continue
+    const row = rows.get(developerId) ?? {
+      developerId,
+      developerName: names.get(developerId) ?? developerId,
+      developerStatus: statuses.get(developerId) ?? "unknown",
+      tokensTotal: 0,
+      estimatedCostUsd: 0,
+      creditsUsed: 0,
+      providerCount: 0,
+      latestUpdatedAt: null,
+    }
+    if (isTotalTokenSample(sample)) row.tokensTotal += sample.value
+    if (isEstimatedCostSample(sample)) row.estimatedCostUsd += sample.value
+    row.latestUpdatedAt =
+      row.latestUpdatedAt === null
+        ? sample.updatedAt
+        : Math.max(row.latestUpdatedAt, sample.updatedAt)
+    rows.set(developerId, row)
+  }
 
   for (const snapshot of currentSnapshotRows(snapshots, window)) {
     const row = rows.get(snapshot.developerId) ?? {
@@ -49,10 +78,8 @@ export function buildDeveloperLeaderboardRows(
       providerCount: 0,
       latestUpdatedAt: null,
     }
-    row.tokensTotal += finiteNumber(snapshot.summary.tokensTotal)
-    row.estimatedCostUsd += finiteNumber(snapshot.summary.estimatedCostUsd)
     row.creditsUsed += finiteNumber(snapshot.summary.creditsUsed)
-    row.providerCount += 1
+    if (!row.providerCount) row.providerCount = providerCountForDeveloper(snapshot.developerId, snapshots, window)
     row.latestUpdatedAt =
       row.latestUpdatedAt === null
         ? snapshot.updatedAt
@@ -126,6 +153,16 @@ export type RecentSyncRow = {
   lastContactAt: number | null
 }
 
+export type QuotaPressureRow = {
+  providerId: string
+  providerName: string
+  developerName: string
+  label: string
+  percent: number
+  status: string
+  updatedAt: number
+}
+
 export function buildRecentSyncRows(developers: ReadyDashboardState["developers"]): RecentSyncRow[] {
   return developers
     .flatMap((developer) =>
@@ -156,24 +193,26 @@ type SyncHealthLike = {
 
 export function buildAvailableMetricRows(args: {
   usage: ReturnType<typeof calculateDashboardUsage>["comparison"]["current"]
+  sampledUsage: ReturnType<typeof calculateSampledUsage>
   tokenSamples: UsageMetricSampleSourceRow[]
   cursorPool: ReturnType<typeof calculateCursorPool>
   quota: ReturnType<typeof calculateQuotaPressure>
   syncHealth: SyncHealthLike
   rangeLabel: string
 }): AvailableMetricRow[] {
-  const hasSnapshots = args.usage.snapshotCount > 0
   const tokenSampleCount = args.tokenSamples.length
+  const hasTokenSamples = (args.sampledUsage.tokenSampleCount ?? 0) > 0
+  const hasCostSamples = (args.sampledUsage.costSampleCount ?? 0) > 0
 
   return [
     metricRow(
       "Tokens burned",
-      hasSnapshots ? formatCount(args.usage.tokensTotal) : "No data yet",
-      "Normalized snapshots",
+      hasTokenSamples ? formatCount(args.sampledUsage.tokensTotal) : "No data yet",
+      "Metric samples",
       tokenSampleCount > 0 ? `${tokenSampleCount} token samples` : "No token samples",
       metricTooltip({
         meaning: "Total visible token usage.",
-        source: "Normalized usage snapshots; chart uses provider-reported token samples when present.",
+        source: "Canonical provider token samples ending in .tokens.total.",
         unit: "tokens",
         coverage: `${tokenSampleCount} token samples in ${args.rangeLabel}.`,
         status: tokenSampleCount > 0 ? "Provider-reported where available." : "No sample data yet.",
@@ -181,15 +220,15 @@ export function buildAvailableMetricRows(args: {
     ),
     metricRow(
       "Estimated cost",
-      hasSnapshots ? formatUsd(args.usage.estimatedCostUsd) : "No data yet",
-      "Estimated",
-      `${args.usage.snapshotCount} snapshots`,
+      hasCostSamples ? formatUsd(args.sampledUsage.estimatedCostUsd) : "No data yet",
+      "Metric samples",
+      hasCostSamples ? `${args.sampledUsage.costSampleCount} cost samples` : "No cost samples",
       metricTooltip({
         meaning: "Estimated visible API cost.",
-        source: "Normalized provider summaries.",
+        source: "Canonical provider cost samples ending in .cost.estimated.",
         unit: "USD.",
-        coverage: `${args.usage.snapshotCount} visible snapshots in ${args.rangeLabel}.`,
-        status: "Estimated when providers do not report exact cost.",
+        coverage: `${args.sampledUsage.costSampleCount ?? 0} visible cost samples in ${args.rangeLabel}.`,
+        status: hasCostSamples ? "Estimated when providers do not report exact cost." : "No sample data yet.",
       })
     ),
     metricRow(
@@ -273,6 +312,18 @@ export function buildAvailableMetricRows(args: {
       })
     ),
   ]
+}
+
+function providerCountForDeveloper(
+  developerId: string,
+  snapshots: UsageSnapshotSourceRow[],
+  window: MetricRangeWindow
+) {
+  return new Set(
+    currentSnapshotRows(snapshots, window)
+      .filter((snapshot) => snapshot.developerId === developerId)
+      .map((snapshot) => snapshot.providerId)
+  ).size
 }
 
 function currentSnapshotRows(snapshots: UsageSnapshotSourceRow[], window: MetricRangeWindow) {
