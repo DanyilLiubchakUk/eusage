@@ -1,6 +1,16 @@
 import { mutation, query, type MutationCtx } from "./_generated/server"
 import type { Id } from "./_generated/dataModel"
 import { v } from "convex/values"
+import {
+  defaultDashboardSettings,
+  defaultTvSettings,
+  defaultTvSlides,
+  isValidDateRange,
+  isValidTvSlides,
+  normalizeTvSlides,
+  publicDashboardSettings,
+  publicTvSettings,
+} from "./dashboardSettings"
 
 export const sourceRows = query({
   args: {},
@@ -226,6 +236,90 @@ export const updateDashboardSettings = mutation({
   },
 })
 
+export const updateTvSettings = mutation({
+  args: {
+    dateRange: v.optional(
+      v.union(
+        v.object({ preset: v.literal("last7") }),
+        v.object({ preset: v.literal("last30") }),
+        v.object({ preset: v.literal("last90") }),
+        v.object({ preset: v.literal("allTime") }),
+        v.object({
+          preset: v.literal("custom"),
+          startDay: v.string(),
+          endDay: v.string(),
+        })
+      )
+    ),
+    visibleProviderIds: v.optional(v.union(v.array(v.string()), v.null())),
+    visibleDeveloperIds: v.optional(v.union(v.array(v.id("developers")), v.null())),
+    slides: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          enabled: v.boolean(),
+          order: v.number(),
+          durationSeconds: v.number(),
+        })
+      )
+    ),
+  },
+  handler: async (ctx, input) => {
+    const ownerState = await getOwnerTeamState(ctx)
+    if (ownerState.status !== "ready") return ownerState
+    if (input.dateRange !== undefined && !isValidDateRange(input.dateRange)) {
+      return {
+        status: "invalid-date-range" as const,
+        message: "Date range is invalid.",
+      }
+    }
+    if (input.slides !== undefined && !isValidTvSlides(input.slides)) {
+      return {
+        status: "invalid-slides" as const,
+        message: "TV slides are invalid.",
+      }
+    }
+
+    const existing = await ctx.db
+      .query("tvSettings")
+      .withIndex("by_teamId", (q) => q.eq("teamId", ownerState.team._id))
+      .first()
+    const now = Date.now()
+    const patch = {
+      ...(input.dateRange === undefined ? {} : { dateRange: input.dateRange }),
+      ...(input.visibleProviderIds === undefined
+        ? {}
+        : { visibleProviderIds: input.visibleProviderIds ?? undefined }),
+      ...(input.visibleDeveloperIds === undefined
+        ? {}
+        : { visibleDeveloperIds: input.visibleDeveloperIds ?? undefined }),
+      ...(input.slides === undefined ? {} : { slides: normalizeTvSlides(input.slides) }),
+      updatedAt: now,
+    }
+
+    if (existing) {
+      await ctx.db.patch(existing._id, patch)
+    } else {
+      await ctx.db.insert("tvSettings", {
+        teamId: ownerState.team._id,
+        dateRange: input.dateRange ?? defaultTvSettings().dateRange,
+        ...(input.visibleProviderIds === undefined || input.visibleProviderIds === null
+          ? {}
+          : { visibleProviderIds: input.visibleProviderIds }),
+        ...(input.visibleDeveloperIds === undefined || input.visibleDeveloperIds === null
+          ? {}
+          : { visibleDeveloperIds: input.visibleDeveloperIds }),
+        slides: input.slides ? normalizeTvSlides(input.slides) : defaultTvSlides(),
+        theme: "dark",
+        createdAt: now,
+        updatedAt: now,
+      })
+    }
+
+    return { status: "ok" as const }
+  },
+})
+
 async function getOwnerTeamState(ctx: MutationCtx) {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) return { status: "not-authenticated" as const }
@@ -238,57 +332,6 @@ async function getOwnerTeamState(ctx: MutationCtx) {
   if (owner.clerkUserId !== identity.subject) return { status: "not-owner" as const }
 
   return { status: "ready" as const, team: team as { _id: Id<"teams"> } }
-}
-
-function defaultDashboardSettings() {
-  return {
-    defaultDateRange: { preset: "last7" as const },
-    visibleProviderIds: null,
-    hiddenDeveloperIds: [],
-    includeInactiveDevelopers: false,
-  }
-}
-
-function publicDashboardSettings(
-  settings: {
-    defaultDateRange: unknown
-    visibleProviderIds?: string[]
-    hiddenDeveloperIds: string[]
-    includeInactiveDevelopers?: boolean
-  } | null
-) {
-  if (!settings) return defaultDashboardSettings()
-
-  return {
-    defaultDateRange: settings.defaultDateRange,
-    visibleProviderIds: settings.visibleProviderIds ?? null,
-    hiddenDeveloperIds: settings.hiddenDeveloperIds,
-    includeInactiveDevelopers: settings.includeInactiveDevelopers ?? false,
-  }
-}
-
-function defaultTvSettings() {
-  return {
-    dateRange: { preset: "last7" as const },
-    visibleProviderIds: null,
-    visibleDeveloperIds: null,
-  }
-}
-
-function publicTvSettings(
-  settings: {
-    dateRange: unknown
-    visibleProviderIds?: string[]
-    visibleDeveloperIds?: string[]
-  } | null
-) {
-  if (!settings) return defaultTvSettings()
-
-  return {
-    dateRange: settings.dateRange,
-    visibleProviderIds: settings.visibleProviderIds ?? null,
-    visibleDeveloperIds: settings.visibleDeveloperIds ?? null,
-  }
 }
 
 function latestByCreatedAt<T extends { createdAt: number }>(rows: T[]) {
@@ -310,31 +353,4 @@ function publicToken(
     status: token.status,
     lastUsedAt: token.lastUsedAt ?? null,
   }
-}
-
-function isValidDateRange(value: unknown) {
-  if (!value || typeof value !== "object") return false
-  const range = value as { preset?: unknown; startDay?: unknown; endDay?: unknown }
-  if (
-    range.preset === "last7" ||
-    range.preset === "last30" ||
-    range.preset === "last90" ||
-    range.preset === "allTime"
-  ) {
-    return true
-  }
-  if (
-    range.preset !== "custom" ||
-    typeof range.startDay !== "string" ||
-    typeof range.endDay !== "string"
-  ) {
-    return false
-  }
-  return isValidUtcDay(range.startDay) && isValidUtcDay(range.endDay) && range.endDay >= range.startDay
-}
-
-function isValidUtcDay(day: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false
-  const date = new Date(`${day}T00:00:00.000Z`)
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === day
 }
