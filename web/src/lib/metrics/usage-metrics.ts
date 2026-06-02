@@ -19,6 +19,7 @@ export type UsageTotals = {
   creditsUsed: number
   requestsUsed: number
   oldestUpdatedAt: number | null
+  newestUpdatedAt: number | null
   topProvider: ProviderTotal | null
   providerTotals: ProviderTotal[]
 }
@@ -92,6 +93,7 @@ export function calculateUsageTotals(
   let creditsUsed = 0
   let requestsUsed = 0
   let oldestUpdatedAt: number | null = null
+  let newestUpdatedAt: number | null = null
 
   for (const row of rows) {
     const tokens = finiteNumber(row.summary.tokensTotal)
@@ -103,6 +105,8 @@ export function calculateUsageTotals(
     requestsUsed += finiteNumber(row.summary.requestsUsed)
     oldestUpdatedAt =
       oldestUpdatedAt === null ? row.updatedAt : Math.min(oldestUpdatedAt, row.updatedAt)
+    newestUpdatedAt =
+      newestUpdatedAt === null ? row.updatedAt : Math.max(newestUpdatedAt, row.updatedAt)
 
     const provider = providerTotals.get(row.providerId) ?? {
       providerId: row.providerId,
@@ -133,6 +137,7 @@ export function calculateUsageTotals(
     creditsUsed,
     requestsUsed,
     oldestUpdatedAt,
+    newestUpdatedAt,
     topProvider: sortedProviderTotals[0] ?? null,
     providerTotals: sortedProviderTotals,
   }

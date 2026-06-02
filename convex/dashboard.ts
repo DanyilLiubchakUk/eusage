@@ -10,6 +10,9 @@ export const sourceRows = query({
         status: "not-authenticated" as const,
         team: null,
         developers: [],
+        providers: [],
+        dashboardSettings: defaultDashboardSettings(),
+        tvSettings: defaultTvSettings(),
         snapshots: [],
         metricSamples: [],
       }
@@ -23,6 +26,9 @@ export const sourceRows = query({
         status: "setup-state-invalid" as const,
         team: null,
         developers: [],
+        providers: [],
+        dashboardSettings: defaultDashboardSettings(),
+        tvSettings: defaultTvSettings(),
         snapshots: [],
         metricSamples: [],
       }
@@ -38,6 +44,9 @@ export const sourceRows = query({
         status: "not-owner" as const,
         team: publicTeam,
         developers: [],
+        providers: [],
+        dashboardSettings: defaultDashboardSettings(),
+        tvSettings: defaultTvSettings(),
         snapshots: [],
         metricSamples: [],
       }
@@ -55,6 +64,20 @@ export const sourceRows = query({
       .query("metricSamples")
       .withIndex("by_team_metric_day", (q) => q.eq("teamId", team._id))
       .collect()
+    const providers = await ctx.db
+      .query("providers")
+      .withIndex("by_teamId_status", (q) => q.eq("teamId", team._id))
+      .collect()
+    const dashboardSettings =
+      (await ctx.db
+        .query("dashboardSettings")
+        .withIndex("by_teamId", (q) => q.eq("teamId", team._id))
+        .first()) ?? null
+    const tvSettings =
+      (await ctx.db
+        .query("tvSettings")
+        .withIndex("by_teamId", (q) => q.eq("teamId", team._id))
+        .first()) ?? null
     const developerTokens = await ctx.db
       .query("developerTokens")
       .withIndex("by_teamId_status", (q) => q.eq("teamId", team._id))
@@ -99,6 +122,14 @@ export const sourceRows = query({
           lastSyncAt: device.lastSyncAt ?? null,
         })),
       })),
+      providers: providers.map((provider) => ({
+        providerId: provider.providerId,
+        name: provider.name,
+        status: provider.status,
+        brandColor: provider.brandColor,
+      })),
+      dashboardSettings: publicDashboardSettings(dashboardSettings),
+      tvSettings: publicTvSettings(tvSettings),
       snapshots: snapshots.map((snapshot) => ({
         id: snapshot._id,
         developerId: snapshot.developerId,
@@ -129,6 +160,57 @@ export const sourceRows = query({
     }
   },
 })
+
+function defaultDashboardSettings() {
+  return {
+    defaultDateRange: { preset: "last7" as const },
+    visibleProviderIds: null,
+    hiddenDeveloperIds: [],
+    includeInactiveDevelopers: false,
+  }
+}
+
+function publicDashboardSettings(
+  settings: {
+    defaultDateRange: unknown
+    visibleProviderIds?: string[]
+    hiddenDeveloperIds: string[]
+    includeInactiveDevelopers?: boolean
+  } | null
+) {
+  if (!settings) return defaultDashboardSettings()
+
+  return {
+    defaultDateRange: settings.defaultDateRange,
+    visibleProviderIds: settings.visibleProviderIds ?? null,
+    hiddenDeveloperIds: settings.hiddenDeveloperIds,
+    includeInactiveDevelopers: settings.includeInactiveDevelopers ?? false,
+  }
+}
+
+function defaultTvSettings() {
+  return {
+    dateRange: { preset: "last7" as const },
+    visibleProviderIds: null,
+    visibleDeveloperIds: null,
+  }
+}
+
+function publicTvSettings(
+  settings: {
+    dateRange: unknown
+    visibleProviderIds?: string[]
+    visibleDeveloperIds?: string[]
+  } | null
+) {
+  if (!settings) return defaultTvSettings()
+
+  return {
+    dateRange: settings.dateRange,
+    visibleProviderIds: settings.visibleProviderIds ?? null,
+    visibleDeveloperIds: settings.visibleDeveloperIds ?? null,
+  }
+}
 
 function latestByCreatedAt<T extends { createdAt: number }>(rows: T[]) {
   return [...rows].sort((left, right) => right.createdAt - left.createdAt)[0] ?? null

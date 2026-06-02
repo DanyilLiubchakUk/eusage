@@ -291,6 +291,7 @@ Admin dashboard preferences.
 - `defaultDateRange`
 - `visibleProviderIds`
 - `hiddenDeveloperIds`
+- `includeInactiveDevelopers`
 - `createdAt`
 - `updatedAt`
 

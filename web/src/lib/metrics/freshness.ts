@@ -3,18 +3,23 @@ const MINUTE_MS = 60 * SECOND_MS
 const HOUR_MS = 60 * MINUTE_MS
 const DAY_MS = 24 * HOUR_MS
 
-export function formatOldestUpdateLabel(
+export function formatUpdateFreshnessLabel(
   timestamps: Array<number | null | undefined>,
   now: number
 ) {
-  const oldest = timestamps
+  const sorted = timestamps
     .filter((timestamp): timestamp is number =>
       typeof timestamp === "number" && Number.isFinite(timestamp)
     )
-    .sort((left, right) => left - right)[0]
+    .sort((left, right) => left - right)
 
-  if (oldest === undefined) return "Oldest update: No data yet"
-  return `Oldest update: ${formatAge(now - oldest)} ago`
+  const oldest = sorted[0]
+  const newest = sorted[sorted.length - 1]
+
+  if (oldest === undefined || newest === undefined) return "Updates: No data yet"
+  if (oldest === newest) return `Updates: ${formatAge(now - oldest)} ago`
+
+  return `Updates: oldest ${formatAge(now - oldest)} ago · newest ${formatAge(now - newest)} ago`
 }
 
 export function formatAge(ageMs: number) {

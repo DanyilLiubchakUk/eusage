@@ -71,6 +71,17 @@ export default defineSchema({
     .index("by_developerId_status", ["developerId", "status"])
     .index("by_teamId_status", ["teamId", "status"])
     .index("by_lastSeenAt", ["lastSeenAt"]),
+  providers: defineTable({
+    teamId: v.id("teams"),
+    providerId: v.string(),
+    name: v.string(),
+    status: v.union(v.literal("enabled"), v.literal("disabled")),
+    brandColor: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_teamId_providerId", ["teamId", "providerId"])
+    .index("by_teamId_status", ["teamId", "status"]),
   usageSnapshots: defineTable({
     teamId: v.id("teams"),
     developerId: v.id("developers"),
@@ -185,4 +196,30 @@ export default defineSchema({
   })
     .index("by_team_createdAt", ["teamId", "createdAt"])
     .index("by_expiresAt", ["expiresAt"]),
+  dashboardSettings: defineTable({
+    teamId: v.id("teams"),
+    defaultDateRange: v.any(),
+    visibleProviderIds: v.optional(v.array(v.string())),
+    hiddenDeveloperIds: v.array(v.id("developers")),
+    includeInactiveDevelopers: v.optional(v.boolean()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_teamId", ["teamId"]),
+  tvSettings: defineTable({
+    teamId: v.id("teams"),
+    dateRange: v.any(),
+    visibleProviderIds: v.optional(v.array(v.string())),
+    visibleDeveloperIds: v.optional(v.array(v.id("developers"))),
+    slides: v.array(
+      v.object({
+        id: v.string(),
+        enabled: v.boolean(),
+        order: v.number(),
+        durationSeconds: v.number(),
+      })
+    ),
+    theme: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_teamId", ["teamId"]),
 })

@@ -5,7 +5,8 @@ import {
   calculateDashboardUsage,
   calculateQuotaPressure,
   calculateUsageTotals,
-  formatOldestUpdateLabel,
+  formatUpdateFreshnessLabel,
+  resolveVisibleMetricSource,
   resolveMetricDateRange,
   type UsageMetricSampleSourceRow,
   type UsageSnapshotSourceRow,
@@ -183,17 +184,74 @@ describe("dashboard metrics", () => {
       })
   })
 
-  it("formats oldest update labels without leading zero units", () => {
-    expect(formatOldestUpdateLabel([], now)).toBe("Oldest update: No data yet")
-    expect(formatOldestUpdateLabel([now - 12_000], now)).toBe(
-      "Oldest update: 12s ago"
-    )
-    expect(formatOldestUpdateLabel([now - 4 * 60_000 - 12_000], now)).toBe(
-      "Oldest update: 4m 12s ago"
+  it("resolves provider, developer, and inactive visibility before metrics", () => {
+    const visible = resolveVisibleMetricSource({
+      developers: [
+        { id: "alex", status: "active" },
+        { id: "sam", status: "active" },
+        { id: "lee", status: "inactive" },
+      ],
+      snapshots: [
+        snapshot({ developerId: "alex", providerId: "cursor", quotaPercent: 80 }),
+        snapshot({ developerId: "sam", providerId: "cursor", quotaPercent: 90 }),
+        snapshot({ developerId: "lee", providerId: "cursor", quotaPercent: 95 }),
+        snapshot({ developerId: "alex", providerId: "claude", quotaPercent: 70 }),
+      ],
+      metricSamples: [
+        sample({ developerId: "alex", providerId: "cursor" }),
+        sample({ developerId: "lee", providerId: "cursor" }),
+        sample({ developerId: "alex", providerId: "claude" }),
+      ],
+      disabledProviderIds: ["claude"],
+      hiddenDeveloperIds: ["sam"],
+    })
+    const range = resolveMetricDateRange({ preset: "last7" }, now)
+    const quota = calculateQuotaPressure({
+      snapshots: visible.snapshots,
+      window: range.current,
+      visibleDeveloperIds: visible.visibleDeveloperIds,
+      visibleProviderIds: visible.visibleProviderIds,
+    })
+
+    expect(visible.snapshots.map((row) => `${row.developerId}:${row.providerId}`))
+      .toEqual(["alex:cursor"])
+    expect(visible.metricSamples.map((row) => `${row.developerId}:${row.providerId}`))
+      .toEqual(["alex:cursor"])
+    expect(quota.teamCoverage.label).toBe("1/1 reporting")
+  })
+
+  it("can include inactive developers when admin review selects them", () => {
+    const visible = resolveVisibleMetricSource({
+      developers: [
+        { id: "alex", status: "active" },
+        { id: "lee", status: "inactive" },
+      ],
+      snapshots: [
+        snapshot({ developerId: "alex", providerId: "cursor", quotaPercent: 80 }),
+        snapshot({ developerId: "lee", providerId: "cursor", quotaPercent: 95 }),
+      ],
+      metricSamples: [],
+      includeInactiveDevelopers: true,
+    })
+
+    expect(visible.visibleDeveloperIds).toEqual(["alex", "lee"])
+    expect(visible.snapshots.map((row) => row.developerId)).toEqual(["alex", "lee"])
+  })
+
+  it("formats update freshness labels without leading zero units", () => {
+    expect(formatUpdateFreshnessLabel([], now)).toBe("Updates: No data yet")
+    expect(formatUpdateFreshnessLabel([now - 12_000], now)).toBe(
+      "Updates: 12s ago"
     )
     expect(
-      formatOldestUpdateLabel([now - 9 * 86_400_000 - 3 * 3_600_000 - 4 * 60_000 - 12_000], now)
-    ).toBe("Oldest update: 9d 3h 4m 12s ago")
+      formatUpdateFreshnessLabel([now - 4 * 60_000 - 12_000, now - 12_000], now)
+    ).toBe("Updates: oldest 4m 12s ago · newest 12s ago")
+    expect(formatUpdateFreshnessLabel([now - 4 * 60_000 - 12_000], now)).toBe(
+      "Updates: 4m 12s ago"
+    )
+    expect(
+      formatUpdateFreshnessLabel([now - 9 * 86_400_000 - 3 * 3_600_000 - 4 * 60_000 - 12_000], now)
+    ).toBe("Updates: 9d 3h 4m 12s ago")
   })
 })
 

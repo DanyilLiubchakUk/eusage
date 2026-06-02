@@ -203,6 +203,7 @@ describe("dashboard placeholders", () => {
     expect(screen.getByText("Claude: Session 64%, Weekly 70%, 50 tokens today, $0.75 today, $20.00/$100.00 extra | Codex: Session 25%, Weekly 50%, 75 tokens today, 5 credits | Cursor: Individual $60.00 remaining | JetBrains AI Assistant: 40% quota, 75 credits remaining, 50/125 credits"))
       .toBeInTheDocument()
     expect(screen.getByText("Cursor 100, Codex 75, Claude 50, JetBrains AI Assistant 50 credits")).toBeInTheDocument()
+    expect(screen.getByText("Updates: oldest 12s ago · newest 0s ago")).toBeInTheDocument()
     expect(screen.getByText("2f8a7f04...e2498b5e")).toBeInTheDocument()
     expect(screen.getAllByText(/^Last sync /)).toHaveLength(2)
   })
@@ -215,6 +216,111 @@ describe("dashboard placeholders", () => {
     expect(screen.getByText("Team On-Demand Budget: $60.00 remaining (1/2 developers reporting budget data)"))
       .toBeInTheDocument()
     expect(screen.getByText("Cursor 100, Codex 75, Claude 50, JetBrains AI Assistant 50 credits")).toBeInTheDocument()
-    expect(screen.getByText("Oldest update: 12s ago")).toBeInTheDocument()
+    expect(screen.getByText("Updates: oldest 12s ago · newest 0s ago")).toBeInTheDocument()
+  })
+
+  it("hides globally disabled providers from views without removing stored rows", () => {
+    const state = {
+      ...readyState,
+      providers: [
+        {
+          providerId: "claude",
+          name: "Claude",
+          status: "disabled",
+          brandColor: "#d97757",
+        },
+      ],
+    } as unknown as DashboardSourceState
+
+    expect(
+      (state as Extract<DashboardSourceState, { status: "ready" }>).snapshots.some(
+        (snapshot) => snapshot.providerId === "claude"
+      )
+    ).toBe(true)
+
+    render(<AdminDashboardPlaceholder state={state} now={now} />)
+
+    expect(screen.getByText("175")).toBeInTheDocument()
+    expect(screen.getByText("$4.75")).toBeInTheDocument()
+    expect(screen.getByText("Cursor 100, Codex 75, JetBrains AI Assistant 50 credits")).toBeInTheDocument()
+    expect(screen.queryByText(/Claude:/)).not.toBeInTheDocument()
+  })
+
+  it("lets TV hide a globally visible provider only from TV", () => {
+    const state = {
+      ...readyState,
+      tvSettings: {
+        dateRange: { preset: "last7" },
+        visibleProviderIds: ["cursor", "codex", "jetbrains-ai-assistant"],
+        visibleDeveloperIds: null,
+      },
+    } as unknown as DashboardSourceState
+
+    render(<TvDashboardPlaceholder state={state} now={now} />)
+
+    expect(screen.getByRole("heading", { name: "175 tokens" })).toBeInTheDocument()
+    expect(screen.getByText("Cursor 100, Codex 75, JetBrains AI Assistant 50 credits")).toBeInTheDocument()
+    expect(screen.queryByText(/Claude/)).not.toBeInTheDocument()
+  })
+
+  it("hides inactive developers by default and includes them for admin review", () => {
+    const inactiveState = {
+      ...readyState,
+      developers: [
+        ...(readyState as Extract<DashboardSourceState, { status: "ready" }>).developers,
+        {
+          id: "lee",
+          displayName: "Lee",
+          status: "inactive",
+          token: null,
+          devices: [],
+        },
+      ],
+      snapshots: [
+        ...(readyState as Extract<DashboardSourceState, { status: "ready" }>).snapshots,
+        {
+          id: "snapshot-5",
+          developerId: "lee",
+          developerName: "Lee",
+          deviceId: "device-2",
+          providerId: "cursor",
+          periodKey: "2026-06-01",
+          dataIdentity: "cursor:lee:2026-06-01",
+          summary: {
+            tokensTotal: 30,
+            estimatedCostUsd: 0.5,
+            quotaPercent: 95,
+            provider: {
+              cursor: {
+                individualLimitUsd: 100,
+                individualUsedUsd: 75,
+              },
+            },
+          },
+          metricFamilies: ["tokens", "estimatedCost", "quotaPressure", "cursorPool"],
+          capturedAt: now,
+          updatedAt: now - 1_000,
+        },
+      ],
+    } as unknown as DashboardSourceState
+
+    const tv = render(<TvDashboardPlaceholder state={inactiveState} now={now} />)
+    expect(screen.getByRole("heading", { name: "225 tokens" })).toBeInTheDocument()
+    tv.unmount()
+
+    const reviewState = {
+      ...inactiveState,
+      dashboardSettings: {
+        defaultDateRange: { preset: "last7" },
+        visibleProviderIds: null,
+        hiddenDeveloperIds: [],
+        includeInactiveDevelopers: true,
+      },
+    } as unknown as DashboardSourceState
+
+    render(<AdminDashboardPlaceholder state={reviewState} now={now} />)
+    expect(screen.getByText("255")).toBeInTheDocument()
+    expect(screen.getByText("Lee")).toBeInTheDocument()
+    expect(screen.getByText("inactive")).toBeInTheDocument()
   })
 })
