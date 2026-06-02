@@ -25,6 +25,7 @@ import {
   buildRecentSyncRows,
   type QuotaPressureRow,
 } from "./admin-overview-tables"
+import type { AdminProviderFilter } from "./admin-provider-visibility-controls"
 
 export type {
   AvailableMetricRow,
@@ -77,6 +78,7 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
   return {
     teamName: state.team.name,
     dateRange: source.dateRange,
+    providerFilters: buildProviderFilters(state, source.visibleProviderIds),
     rangeLabel: usage.range.label,
     freshnessLabel,
     filterSummary: buildFilterSummary(source.visibleDeveloperIds, source.visibleProviderIds),
@@ -140,6 +142,39 @@ function buildFilterSummary(visibleDeveloperIds: string[], visibleProviderIds: s
       ? visibleProviderIds.map(formatProviderName).join(", ")
       : "No providers visible"
   return `${visibleDeveloperIds.length} developers · ${providerText}`
+}
+
+function buildProviderFilters(
+  state: ReadyDashboardState,
+  visibleProviderIds: string[]
+): AdminProviderFilter[] {
+  const disabledProviderIds = new Set(
+    (state.providers ?? [])
+      .filter((provider) => provider.status === "disabled")
+      .map((provider) => provider.providerId)
+  )
+  const names = new Map(
+    (state.providers ?? []).map((provider) => [
+      provider.providerId,
+      provider.name || formatProviderName(provider.providerId),
+    ])
+  )
+  const visible = new Set(visibleProviderIds)
+  const ids = uniqueStable([
+    ...(state.providers ?? []).map((provider) => provider.providerId),
+    ...state.snapshots.map((snapshot) => snapshot.providerId),
+    ...state.metricSamples.map((sample) => sample.providerId),
+  ]).filter((providerId) => !disabledProviderIds.has(providerId))
+
+  return ids.map((providerId) => ({
+    providerId,
+    providerName: names.get(providerId) ?? formatProviderName(providerId),
+    visible: visible.has(providerId),
+  }))
+}
+
+function uniqueStable(values: string[]) {
+  return [...new Set(values)]
 }
 
 function buildKpis(args: {

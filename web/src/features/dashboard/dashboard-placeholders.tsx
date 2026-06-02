@@ -25,15 +25,24 @@ type DashboardPlaceholderProps = {
 
 type AdminDashboardPlaceholderProps = DashboardPlaceholderProps & {
   onDateRangeChange?: (value: MetricDateRangeInput) => Promise<void> | void
+  onProviderVisibilityChange?: (visibleProviderIds: string[] | null) => Promise<void> | void
 }
 
 export function AdminDashboardPlaceholder({
   state,
   now,
   onDateRangeChange,
+  onProviderVisibilityChange,
 }: AdminDashboardPlaceholderProps) {
   if (state.status !== "ready") return <DashboardUnavailable state={state} />
-  return <AdminOverview state={state} now={now} onDateRangeChange={onDateRangeChange} />
+  return (
+    <AdminOverview
+      state={state}
+      now={now}
+      onDateRangeChange={onDateRangeChange}
+      onProviderVisibilityChange={onProviderVisibilityChange}
+    />
+  )
 }
 
 export function TvDashboardPlaceholder({ state, now }: DashboardPlaceholderProps) {

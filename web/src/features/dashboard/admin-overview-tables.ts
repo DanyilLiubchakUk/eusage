@@ -17,6 +17,7 @@ import {
 } from "../../lib/metrics"
 import { formatCount, formatProviderName, formatUsd } from "./dashboard-formatting"
 import type { ReadyDashboardState } from "./dashboard-source"
+import { providerQuotaLabel } from "./admin-provider-quota-label"
 
 export type DeveloperLeaderboardRow = {
   developerId: string
@@ -144,10 +145,7 @@ export function buildProviderStatusRows(args: {
         providerId,
         providerName: formatProviderName(providerId),
         value: total ? formatProviderTotal(total) : "No data yet",
-        quota:
-          quota?.averagePercent === null || !quota
-            ? quota?.coverage.label ?? "0 reports"
-            : `${Math.round(quota.averagePercent)}% avg · ${quota.coverage.label}`,
+        quota: providerQuotaLabel(providerId, args.quotaDetails, quota),
         status: lastUpdatedAt ? "Synced" : "No data yet",
         lastUpdatedAt,
       }

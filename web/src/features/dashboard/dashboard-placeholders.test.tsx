@@ -325,6 +325,8 @@ describe("dashboard placeholders", () => {
     expect(screen.getByText("14%")).toBeInTheDocument()
     expect(screen.getByText("45%")).toBeInTheDocument()
     expect(screen.getByText("Provider Status")).toBeInTheDocument()
+    expect(screen.getByText("21% total · 45% API")).toBeInTheDocument()
+    expect(screen.getByText("25% session · 50% weekly")).toBeInTheDocument()
     expect(screen.getByText("Recent Syncs")).toBeInTheDocument()
     expect(screen.getAllByText("Cursor").length).toBeGreaterThan(0)
     expect(screen.getAllByText("JetBrains AI Assistant").length).toBeGreaterThan(0)
@@ -354,6 +356,24 @@ describe("dashboard placeholders", () => {
     await user.selectOptions(screen.getByRole("combobox"), "last30")
 
     expect(changes).toEqual([{ preset: "last30" }])
+  })
+
+  it("lets Admin persist visible providers", async () => {
+    const user = userEvent.setup()
+    const changes: unknown[] = []
+    render(
+      <AdminDashboardPlaceholder
+        state={readyState}
+        now={now}
+        onProviderVisibilityChange={async (value) => {
+          changes.push(value)
+        }}
+      />
+    )
+
+    await user.click(screen.getByLabelText("Claude"))
+
+    expect(changes).toEqual([["cursor", "codex", "jetbrains-ai-assistant"]])
   })
 
   it("renders Admin no-data states", () => {

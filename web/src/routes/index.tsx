@@ -38,6 +38,13 @@ function Home() {
         }
         await queryClient.invalidateQueries({ queryKey: dashboardSourceQuery.queryKey })
       }}
+      onProviderVisibilityChange={async (visibleProviderIds) => {
+        const result = await updateDashboardSettings({ visibleProviderIds })
+        if (result.status !== "ok") {
+          throw new Error(`Dashboard settings update failed: ${result.status}`)
+        }
+        await queryClient.invalidateQueries({ queryKey: dashboardSourceQuery.queryKey })
+      }}
     />
   )
 }

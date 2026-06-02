@@ -1,7 +1,8 @@
-import type { CSSProperties, ReactNode } from "react"
+import type { ReactNode } from "react"
 import { Info } from "lucide-react"
 import { DashboardChart } from "./dashboard-chart"
 import { AdminDateRangeControls } from "./admin-date-range-controls"
+import { AdminProviderVisibilityControls } from "./admin-provider-visibility-controls"
 import {
   buildAdminOverviewModel,
   formatTimestamp,
@@ -15,15 +16,22 @@ import { formatCount, formatProviderName, formatUsd } from "./dashboard-formatti
 import type { ReadyDashboardState } from "./dashboard-source"
 import type { MetricDateRangeInput } from "../../lib/metrics"
 import { QuotaPressureTable } from "./admin-overview-quota-table"
+import { CursorPoolPanel } from "./admin-overview-cursor-pool"
 import "./admin-overview.css"
 
 type AdminOverviewProps = {
   state: ReadyDashboardState
   now: number
   onDateRangeChange?: (value: MetricDateRangeInput) => Promise<void> | void
+  onProviderVisibilityChange?: (visibleProviderIds: string[] | null) => Promise<void> | void
 }
 
-export function AdminOverview({ state, now, onDateRangeChange }: AdminOverviewProps) {
+export function AdminOverview({
+  state,
+  now,
+  onDateRangeChange,
+  onProviderVisibilityChange,
+}: AdminOverviewProps) {
   const model = buildAdminOverviewModel(state, now)
   const tokenPoints = model.tokenSeries.points
   const providerRows = model.providerBreakdownRows
@@ -42,6 +50,10 @@ export function AdminOverview({ state, now, onDateRangeChange }: AdminOverviewPr
           <AdminDateRangeControls
             value={model.dateRange}
             onChange={onDateRangeChange}
+          />
+          <AdminProviderVisibilityControls
+            providers={model.providerFilters}
+            onChange={onProviderVisibilityChange}
           />
           <span>{model.rangeLabel}</span>
           <span>{model.freshnessLabel}</span>
@@ -225,45 +237,6 @@ function DeveloperLeaderboardTable({
         )}
       </tbody>
     </table>
-  )
-}
-
-function CursorPoolPanel({
-  pool,
-}: {
-  pool: ReturnType<typeof buildAdminOverviewModel>["cursorPool"]
-}) {
-  const usedPercent = pool.available && pool.limitUsd > 0 ? (pool.usedUsd / pool.limitUsd) * 100 : 0
-  const width = `${Math.max(0, Math.min(100, usedPercent))}%`
-
-  if (!pool.available) {
-    return (
-      <div className="admin-cursor-pool">
-        <p className="admin-empty-row">No Cursor pool data yet</p>
-        <span className="admin-helper-text">
-          {pool.coverage.label}. eUsage uses Cursor pooled fields first, then Team
-          On-Demand limits from synced Cursor rows.
-        </span>
-      </div>
-    )
-  }
-
-  return (
-    <div className="admin-cursor-pool">
-      <div
-        className="admin-cursor-pool-bar"
-        style={{ "--cursor-pool-used": width } as CSSProperties}
-        aria-label={`${Math.round(usedPercent)} percent used`}
-      >
-        <span />
-      </div>
-      <div className="admin-cursor-pool-values">
-        <strong>{formatUsd(pool.remainingUsd)} remaining</strong>
-        <span>
-          {formatUsd(pool.usedUsd)} used of {formatUsd(pool.limitUsd)} · {pool.label}
-        </span>
-      </div>
-    </div>
   )
 }
 

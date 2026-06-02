@@ -168,22 +168,25 @@ export const sourceRows = query({
 
 export const updateDashboardSettings = mutation({
   args: {
-    defaultDateRange: v.union(
-      v.object({ preset: v.literal("last7") }),
-      v.object({ preset: v.literal("last30") }),
-      v.object({ preset: v.literal("last90") }),
-      v.object({ preset: v.literal("allTime") }),
-      v.object({
-        preset: v.literal("custom"),
-        startDay: v.string(),
-        endDay: v.string(),
-      })
+    defaultDateRange: v.optional(
+      v.union(
+        v.object({ preset: v.literal("last7") }),
+        v.object({ preset: v.literal("last30") }),
+        v.object({ preset: v.literal("last90") }),
+        v.object({ preset: v.literal("allTime") }),
+        v.object({
+          preset: v.literal("custom"),
+          startDay: v.string(),
+          endDay: v.string(),
+        })
+      )
     ),
+    visibleProviderIds: v.optional(v.union(v.array(v.string()), v.null())),
   },
   handler: async (ctx, input) => {
     const ownerState = await getOwnerTeamState(ctx)
     if (ownerState.status !== "ready") return ownerState
-    if (!isValidDateRange(input.defaultDateRange)) {
+    if (input.defaultDateRange !== undefined && !isValidDateRange(input.defaultDateRange)) {
       return {
         status: "invalid-date-range" as const,
         message: "Date range is invalid.",
@@ -195,16 +198,23 @@ export const updateDashboardSettings = mutation({
       .withIndex("by_teamId", (q) => q.eq("teamId", ownerState.team._id))
       .first()
     const now = Date.now()
+    const patch = {
+      ...(input.defaultDateRange === undefined ? {} : { defaultDateRange: input.defaultDateRange }),
+      ...(input.visibleProviderIds === undefined
+        ? {}
+        : { visibleProviderIds: input.visibleProviderIds ?? undefined }),
+      updatedAt: now,
+    }
 
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        defaultDateRange: input.defaultDateRange,
-        updatedAt: now,
-      })
+      await ctx.db.patch(existing._id, patch)
     } else {
       await ctx.db.insert("dashboardSettings", {
         teamId: ownerState.team._id,
-        defaultDateRange: input.defaultDateRange,
+        defaultDateRange: input.defaultDateRange ?? defaultDashboardSettings().defaultDateRange,
+        ...(input.visibleProviderIds === undefined || input.visibleProviderIds === null
+          ? {}
+          : { visibleProviderIds: input.visibleProviderIds }),
         hiddenDeveloperIds: [],
         includeInactiveDevelopers: false,
         createdAt: now,
