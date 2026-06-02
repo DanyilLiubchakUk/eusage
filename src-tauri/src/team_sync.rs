@@ -16,12 +16,13 @@ use settings::{
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const UPLOAD_SCHEMA_VERSION: &str = "1.0.0";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const QUIT_FLUSH_TIMEOUT: Duration = Duration::from_secs(3);
 pub const TEAM_SYNC_DEBOUNCE_WINDOW: Duration = Duration::from_secs(30);
+const TEAM_SYNC_MAX_PENDING_AGE: Duration = Duration::from_secs(15 * 60);
 
 #[derive(Debug, Clone)]
 struct PendingProvider {
@@ -140,7 +141,7 @@ fn enqueue_provider_upload(
 }
 
 fn debounced_upload_worker(debounce: Duration) {
-    wait_for_quiet_debounce_window(debounce);
+    wait_for_upload_window(debounce, TEAM_SYNC_MAX_PENDING_AGE);
     let _ = upload_pending_once_with(
         REQUEST_TIMEOUT,
         || crate::team_credentials::read_team_token(),
@@ -149,7 +150,8 @@ fn debounced_upload_worker(debounce: Duration) {
     );
 }
 
-fn wait_for_quiet_debounce_window(debounce: Duration) {
+fn wait_for_upload_window(debounce: Duration, max_pending_age: Duration) {
+    let started_at = Instant::now();
     loop {
         let generation = {
             team_sync_state()
@@ -157,17 +159,42 @@ fn wait_for_quiet_debounce_window(debounce: Duration) {
                 .expect("team sync state poisoned")
                 .generation
         };
-        std::thread::sleep(debounce);
+        let elapsed = started_at.elapsed();
+        let wait = next_upload_wait(debounce, max_pending_age, elapsed);
+        if !wait.is_zero() {
+            std::thread::sleep(wait);
+        }
         let current_generation = {
             team_sync_state()
                 .lock()
                 .expect("team sync state poisoned")
                 .generation
         };
-        if current_generation == generation {
+        if should_upload_after_wait(
+            generation,
+            current_generation,
+            started_at.elapsed(),
+            max_pending_age,
+        ) {
             return;
         }
     }
+}
+
+fn next_upload_wait(debounce: Duration, max_pending_age: Duration, elapsed: Duration) -> Duration {
+    max_pending_age
+        .checked_sub(elapsed)
+        .map(|remaining| remaining.min(debounce))
+        .unwrap_or(Duration::ZERO)
+}
+
+fn should_upload_after_wait(
+    observed_generation: u64,
+    current_generation: u64,
+    elapsed: Duration,
+    max_pending_age: Duration,
+) -> bool {
+    current_generation == observed_generation || elapsed >= max_pending_age
 }
 
 fn upload_pending_once_with<R, F, D>(
