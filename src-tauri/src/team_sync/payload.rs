@@ -1,0 +1,307 @@
+use crate::local_http_api::cache::CachedPluginSnapshot;
+use crate::plugin_engine::runtime::{MetricLine, ProgressFormat};
+use serde::Serialize;
+use serde_json::{Map, Value, json};
+use std::collections::BTreeMap;
+
+const GENERIC_PAYLOAD_VERSION: &str = "1.0.0";
+const GENERIC_REDACTION_VERSION: &str = "1.0.0";
+const GENERIC_EXTRACTOR_VERSION: &str = "1.0.0";
+const REDACTED_VALUE: &str = "[REDACTED]";
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct TeamUsageProvider {
+    pub provider_id: String,
+    payload: Value,
+    payload_version: &'static str,
+    redaction_version: &'static str,
+    captured_at: i64,
+    period_start: i64,
+    period_end: i64,
+    period_key: String,
+    data_identity: String,
+    summary: Value,
+    summary_version: &'static str,
+    extractor_version: BTreeMap<String, String>,
+    metric_families: Vec<String>,
+    metric_samples: Vec<TeamUsageMetricSample>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TeamUsageMetricSample {
+    metric_key: String,
+    value: f64,
+    unit: String,
+    sample_day: String,
+    source: &'static str,
+}
+
+pub(super) fn build_provider_upload(snapshot: &CachedPluginSnapshot) -> TeamUsageProvider {
+    let captured_at = timestamp_millis(&snapshot.fetched_at);
+    let sample_day = sample_day(captured_at);
+    let metric_samples = metric_samples_for_snapshot(snapshot, &sample_day);
+    let summary = summary_for_snapshot(snapshot);
+    let payload = redact_json_value(serde_json::to_value(snapshot).unwrap_or_else(|_| json!({})));
+    let mut extractor_version = BTreeMap::new();
+    extractor_version.insert(
+        snapshot.provider_id.clone(),
+        GENERIC_EXTRACTOR_VERSION.to_string(),
+    );
+
+    TeamUsageProvider {
+        provider_id: snapshot.provider_id.clone(),
+        payload,
+        payload_version: GENERIC_PAYLOAD_VERSION,
+        redaction_version: GENERIC_REDACTION_VERSION,
+        captured_at,
+        period_start: captured_at,
+        period_end: captured_at,
+        period_key: sample_day.clone(),
+        data_identity: format!("{}:{}", snapshot.provider_id, sample_day),
+        summary,
+        summary_version: GENERIC_EXTRACTOR_VERSION,
+        extractor_version,
+        metric_families: vec!["pluginOutput".to_string()],
+        metric_samples,
+    }
+}
+
+fn summary_for_snapshot(snapshot: &CachedPluginSnapshot) -> Value {
+    let mut summary = Map::new();
+    summary.insert(
+        "provider".to_string(),
+        json!({
+            "displayName": snapshot.display_name,
+            "plan": snapshot.plan,
+            "lineCount": snapshot.lines.len(),
+        }),
+    );
+
+    for line in &snapshot.lines {
+        if let MetricLine::Progress {
+            used,
+            limit,
+            format,
+            ..
+        } = line
+        {
+            match format {
+                ProgressFormat::Percent if *limit > 0.0 => {
+                    summary.insert("quotaPercent".to_string(), json!((used / limit) * 100.0));
+                }
+                ProgressFormat::Dollars => {
+                    summary.insert("budgetUsedUsd".to_string(), json!(used));
+                    summary.insert("budgetLimitUsd".to_string(), json!(limit));
+                }
+                ProgressFormat::Count { suffix } if suffix.to_lowercase().contains("token") => {
+                    summary.insert("tokensTotal".to_string(), json!(used));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Value::Object(summary)
+}
+
+fn metric_samples_for_snapshot(
+    snapshot: &CachedPluginSnapshot,
+    sample_day: &str,
+) -> Vec<TeamUsageMetricSample> {
+    let mut samples = vec![TeamUsageMetricSample {
+        metric_key: format!("{}.probe.success", snapshot.provider_id),
+        value: 1.0,
+        unit: "count".to_string(),
+        sample_day: sample_day.to_string(),
+        source: "normalized",
+    }];
+
+    for line in &snapshot.lines {
+        if let MetricLine::Progress {
+            label,
+            used,
+            limit,
+            format,
+            ..
+        } = line
+        {
+            let label = metric_label(label);
+            let unit = progress_unit(format);
+            samples.push(TeamUsageMetricSample {
+                metric_key: format!("{}.{}.used", snapshot.provider_id, label),
+                value: *used,
+                unit: unit.clone(),
+                sample_day: sample_day.to_string(),
+                source: "providerReported",
+            });
+            samples.push(TeamUsageMetricSample {
+                metric_key: format!("{}.{}.limit", snapshot.provider_id, label),
+                value: *limit,
+                unit,
+                sample_day: sample_day.to_string(),
+                source: "providerReported",
+            });
+        }
+    }
+
+    samples
+}
+
+fn progress_unit(format: &ProgressFormat) -> String {
+    match format {
+        ProgressFormat::Percent => "percent".to_string(),
+        ProgressFormat::Dollars => "usd".to_string(),
+        ProgressFormat::Count { suffix } => {
+            let suffix = suffix.trim();
+            if suffix.is_empty() {
+                "count".to_string()
+            } else {
+                suffix.to_string()
+            }
+        }
+    }
+}
+
+fn metric_label(label: &str) -> String {
+    let mut out = String::new();
+    for c in label.chars() {
+        if c.is_ascii_alphanumeric() {
+            out.push(c.to_ascii_lowercase());
+        } else if !out.ends_with('_') {
+            out.push('_');
+        }
+    }
+    let trimmed = out.trim_matches('_').to_string();
+    if trimmed.is_empty() {
+        "metric".to_string()
+    } else {
+        trimmed
+    }
+}
+
+fn timestamp_millis(value: &str) -> i64 {
+    time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339)
+        .map(|date| date.unix_timestamp_nanos() / 1_000_000)
+        .unwrap_or_else(|_| time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000)
+        as i64
+}
+
+fn sample_day(timestamp_millis: i64) -> String {
+    let seconds = timestamp_millis.div_euclid(1000);
+    let date = time::OffsetDateTime::from_unix_timestamp(seconds)
+        .unwrap_or_else(|_| time::OffsetDateTime::now_utc())
+        .date();
+    format!(
+        "{:04}-{:02}-{:02}",
+        date.year(),
+        u8::from(date.month()),
+        date.day()
+    )
+}
+
+fn redact_json_value(value: Value) -> Value {
+    match value {
+        Value::Object(object) => {
+            let mut redacted = Map::new();
+            for (key, child) in object {
+                if is_sensitive_key(&key) {
+                    redacted.insert(key, Value::String(REDACTED_VALUE.to_string()));
+                } else {
+                    redacted.insert(key, redact_json_value(child));
+                }
+            }
+            Value::Object(redacted)
+        }
+        Value::Array(items) => Value::Array(items.into_iter().map(redact_json_value).collect()),
+        other => other,
+    }
+}
+
+fn is_sensitive_key(key: &str) -> bool {
+    let normalized = key
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .flat_map(|c| c.to_lowercase())
+        .collect::<String>();
+
+    matches!(
+        normalized.as_str(),
+        "token"
+            | "accesstoken"
+            | "refreshtoken"
+            | "secret"
+            | "apikey"
+            | "secretkey"
+            | "accesskey"
+            | "key"
+            | "cookie"
+            | "authorization"
+            | "password"
+            | "credential"
+    ) || normalized.ends_with("token")
+        || normalized.ends_with("password")
+        || normalized.ends_with("secret")
+        || normalized.ends_with("credential")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::plugin_engine::runtime::ProgressFormat;
+
+    fn make_snapshot(provider_id: &str, used: f64) -> CachedPluginSnapshot {
+        CachedPluginSnapshot {
+            provider_id: provider_id.to_string(),
+            display_name: provider_id.to_string(),
+            plan: Some("Pro".to_string()),
+            lines: vec![MetricLine::Progress {
+                label: "Session".to_string(),
+                used,
+                limit: 100.0,
+                format: ProgressFormat::Percent,
+                resets_at: None,
+                period_duration_ms: None,
+                color: None,
+            }],
+            fetched_at: "2026-06-01T12:00:00Z".to_string(),
+        }
+    }
+
+    #[test]
+    fn provider_upload_contains_redacted_payload_and_source_facts() {
+        let snapshot = make_snapshot("cursor", 42.0);
+        let provider = build_provider_upload(&snapshot);
+        let payload = provider.payload.as_object().unwrap();
+
+        assert_eq!(provider.provider_id, "cursor");
+        assert_eq!(provider.period_key, "2026-06-01");
+        assert_eq!(provider.summary["quotaPercent"], 42.0);
+        assert!(payload.get("providerId").is_some());
+        assert!(
+            provider
+                .metric_samples
+                .iter()
+                .any(|sample| sample.metric_key == "cursor.session.used")
+        );
+    }
+
+    #[test]
+    fn redaction_scrubs_secret_shaped_fields() {
+        let redacted = redact_json_value(json!({
+            "accessToken": "secret",
+            "nested": {
+                "api_key": "also-secret",
+                "ordinary": "keep"
+            },
+            "items": [{ "refreshToken": "refresh" }]
+        }));
+
+        assert_eq!(redacted["accessToken"], REDACTED_VALUE);
+        assert_eq!(redacted["nested"]["api_key"], REDACTED_VALUE);
+        assert_eq!(redacted["nested"]["ordinary"], "keep");
+        assert_eq!(redacted["items"][0]["refreshToken"], REDACTED_VALUE);
+        assert!(!serde_json::to_string(&redacted).unwrap().contains("secret"));
+    }
+}

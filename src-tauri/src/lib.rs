@@ -568,6 +568,7 @@ pub fn run() {
         .run(|_, event| match event {
             tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
                 local_http_api::flush_cache();
+                team_sync::flush_pending_uploads();
             }
             _ => {}
         });
