@@ -14,6 +14,9 @@
   const ERR_USAGE_API_KEY = "Usage not available for API key."
   const ERR_USAGE_CONNECTION = "Usage request failed. Check your connection."
   const ERR_USAGE_AFTER_REFRESH = "Usage request failed after refresh. Try again."
+  const SUMMARY_VERSION = "1.0.0"
+  const CODEX_EXTRACTOR_VERSION = "1.0.0"
+  const REDACTED_VALUE = "[REDACTED]"
 
   function joinPath(base, leaf) {
     return base.replace(/[\\/]+$/, "") + "/" + leaf
@@ -33,6 +36,15 @@
       ctx.host.log.warn("CODEX_HOME read failed: " + String(e))
       return null
     }
+  }
+
+  function platformName(ctx) {
+    return String((ctx.app && ctx.app.platform) || "").toLowerCase()
+  }
+
+  function isWindows(ctx) {
+    const platform = platformName(ctx)
+    return platform === "windows" || platform === "win32"
   }
 
   function decodeHexUtf8(hex) {
@@ -83,6 +95,10 @@
       return [joinPath(codexHome, AUTH_FILE)]
     }
 
+    if (isWindows(ctx)) {
+      return [joinPath("~/.codex", AUTH_FILE)]
+    }
+
     return CONFIG_AUTH_PATHS.map((basePath) => joinPath(basePath, AUTH_FILE))
   }
 
@@ -104,6 +120,10 @@
   }
 
   function loadAuthFromKeychain(ctx) {
+    if (isWindows(ctx)) {
+      return null
+    }
+
     if (!ctx.host.keychain || typeof ctx.host.keychain.readGenericPassword !== "function") {
       return null
     }
@@ -418,6 +438,285 @@
     return null
   }
 
+  function setNumber(target, key, value) {
+    if (value === null || value === undefined) return
+    const n = readNumber(value)
+    if (n !== null) target[key] = n
+  }
+
+  function setString(target, key, value) {
+    if (typeof value !== "string") return
+    const trimmed = value.trim()
+    if (trimmed) target[key] = trimmed
+  }
+
+  function sampleDay(ctx) {
+    const parsed = ctx.util.parseDateMs(ctx.nowIso)
+    const date = new Date(Number.isFinite(parsed) ? parsed : Date.now())
+    return date.toISOString().slice(0, 10)
+  }
+
+  function dayStartMs(day) {
+    const ms = Date.parse(day + "T00:00:00.000Z")
+    return Number.isFinite(ms) ? ms : null
+  }
+
+  function dayEndMs(day) {
+    const start = dayStartMs(day)
+    return start === null ? null : start + 24 * 60 * 60 * 1000
+  }
+
+  function windowDurationMs(window, fallbackMs) {
+    if (window && typeof window.limit_window_seconds === "number" && Number.isFinite(window.limit_window_seconds)) {
+      return window.limit_window_seconds * 1000
+    }
+    return fallbackMs
+  }
+
+  function resetAtMs(ctx, nowSec, window) {
+    const iso = getResetsAtIso(ctx, nowSec, window)
+    if (!iso) return null
+    const ms = ctx.util.parseDateMs(iso)
+    return Number.isFinite(ms) ? ms : null
+  }
+
+  function windowPeriod(ctx, nowSec, window, fallbackMs) {
+    const end = resetAtMs(ctx, nowSec, window)
+    if (end === null) return { start: null, end: null }
+    return {
+      start: end - windowDurationMs(window, fallbackMs),
+      end,
+    }
+  }
+
+  function normalizeMetricSegment(value) {
+    const segment = String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/^gpt-[\d.]+-codex-/, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+([a-z0-9])/g, (_, letter) => letter.toUpperCase())
+    return segment || "model"
+  }
+
+  function addMetricSample(samples, metricKey, value, unit, day, source, period) {
+    const n = readNumber(value)
+    if (n === null) return
+    const sample = {
+      metricKey,
+      value: n,
+      unit,
+      sampleDay: day,
+      source: source || "providerReported",
+    }
+    if (period && period.start !== null) sample.periodStart = period.start
+    if (period && period.end !== null) sample.periodEnd = period.end
+    samples.push(sample)
+  }
+
+  function addRateWindowSample(ctx, samples, metricKey, value, day, window, fallbackMs, nowSec) {
+    addMetricSample(
+      samples,
+      metricKey,
+      value,
+      "percent",
+      day,
+      "providerReported",
+      windowPeriod(ctx, nowSec, window, fallbackMs)
+    )
+  }
+
+  function addTokenUsageSamples(samples, usageDay, sampleSourceDay) {
+    if (!usageDay || typeof usageDay !== "object") return
+    addMetricSample(samples, "codex.tokens.total", usageDay.totalTokens, "tokens", sampleSourceDay, "providerReported")
+    addMetricSample(samples, "codex.tokens.input", usageDay.inputTokens, "tokens", sampleSourceDay, "providerReported")
+    addMetricSample(samples, "codex.tokens.output", usageDay.outputTokens, "tokens", sampleSourceDay, "providerReported")
+    addMetricSample(samples, "codex.tokens.cachedInput", usageDay.cachedInputTokens, "tokens", sampleSourceDay, "providerReported")
+    addMetricSample(samples, "codex.cost.estimated", usageCostUsd(usageDay), "usd", sampleSourceDay, "estimated")
+  }
+
+  function extractorVersion() {
+    return { codex: CODEX_EXTRACTOR_VERSION }
+  }
+
+  function metricFamilies(summary, samples) {
+    const families = []
+    if (summary.tokensTotal !== undefined) families.push("tokens")
+    if (summary.estimatedCostUsd !== undefined) families.push("estimatedCost")
+    if (summary.quotaPercent !== undefined) families.push("quotaPressure")
+    if (summary.creditsRemaining !== undefined) families.push("credits")
+    if (samples.some((sample) => sample.metricKey.indexOf("codex.") === 0 && sample.metricKey.endsWith(".percentUsed"))) {
+      families.push("codexRateLimits")
+    }
+    return families.length > 0 ? families : ["codex"]
+  }
+
+  function buildCodexSourceFacts(ctx, resp, data, tokenUsageResult) {
+    const day = sampleDay(ctx)
+    const nowSec = Math.floor(Date.now() / 1000)
+    const rateLimit = data.rate_limit || null
+    const primaryWindow = rateLimit && rateLimit.primary_window ? rateLimit.primary_window : null
+    const secondaryWindow = rateLimit && rateLimit.secondary_window ? rateLimit.secondary_window : null
+    const reviewWindow =
+      data.code_review_rate_limit && data.code_review_rate_limit.primary_window
+        ? data.code_review_rate_limit.primary_window
+        : null
+    const headerPrimary = readPercent(resp.headers["x-codex-primary-used-percent"])
+    const headerSecondary = readPercent(resp.headers["x-codex-secondary-used-percent"])
+    const primaryUsed = headerPrimary !== null
+      ? headerPrimary
+      : primaryWindow
+        ? readPercent(primaryWindow.used_percent)
+        : null
+    const secondaryUsed = headerSecondary !== null
+      ? headerSecondary
+      : secondaryWindow
+        ? readPercent(secondaryWindow.used_percent)
+        : null
+    const reviewUsed = reviewWindow ? readPercent(reviewWindow.used_percent) : null
+    const credits = data && data.credits && typeof data.credits === "object" ? data.credits : null
+    const creditsRemaining = readCreditsRemaining(resp, data)
+    const planLabel = data.plan_type ? formatCodexPlan(ctx, data.plan_type) : null
+
+    const codex = {}
+    setString(codex, "planType", data.plan_type)
+    setString(codex, "planName", planLabel)
+    setNumber(codex, "sessionUsedPercent", primaryUsed)
+    setNumber(codex, "weeklyUsedPercent", secondaryUsed)
+    setNumber(codex, "reviewUsedPercent", reviewUsed)
+    setNumber(codex, "sessionResetAt", resetAtMs(ctx, nowSec, primaryWindow))
+    setNumber(codex, "weeklyResetAt", resetAtMs(ctx, nowSec, secondaryWindow))
+    setNumber(codex, "reviewResetAt", resetAtMs(ctx, nowSec, reviewWindow))
+    if (primaryWindow) setNumber(codex, "sessionWindowSeconds", windowDurationMs(primaryWindow, PERIOD_SESSION_MS) / 1000)
+    if (secondaryWindow) setNumber(codex, "weeklyWindowSeconds", windowDurationMs(secondaryWindow, PERIOD_WEEKLY_MS) / 1000)
+    if (reviewWindow) setNumber(codex, "reviewWindowSeconds", windowDurationMs(reviewWindow, PERIOD_WEEKLY_MS) / 1000)
+    setNumber(codex, "creditsRemaining", creditsRemaining)
+    if (credits && typeof credits.has_credits === "boolean") codex.hasCredits = credits.has_credits
+    if (credits && typeof credits.unlimited === "boolean") codex.creditsUnlimited = credits.unlimited
+
+    const samples = []
+    const additionalRateLimits = []
+    if (Array.isArray(data.additional_rate_limits)) {
+      for (const entry of data.additional_rate_limits) {
+        if (!entry || !entry.rate_limit) continue
+        const name = typeof entry.limit_name === "string" ? entry.limit_name : ""
+        let shortName = name.replace(/^GPT-[\d.]+-Codex-/, "")
+        if (!shortName) shortName = name || "Model"
+        const item = { name: shortName }
+        const rl = entry.rate_limit
+        setString(item, "meteredFeature", entry.metered_feature)
+        setNumber(item, "sessionUsedPercent", rl.primary_window && rl.primary_window.used_percent)
+        setNumber(item, "weeklyUsedPercent", rl.secondary_window && rl.secondary_window.used_percent)
+        setNumber(item, "sessionResetAt", resetAtMs(ctx, nowSec, rl.primary_window))
+        setNumber(item, "weeklyResetAt", resetAtMs(ctx, nowSec, rl.secondary_window))
+        if (rl.primary_window) setNumber(item, "sessionWindowSeconds", windowDurationMs(rl.primary_window, PERIOD_SESSION_MS) / 1000)
+        if (rl.secondary_window) setNumber(item, "weeklyWindowSeconds", windowDurationMs(rl.secondary_window, PERIOD_WEEKLY_MS) / 1000)
+        additionalRateLimits.push(item)
+        const segment = normalizeMetricSegment(shortName)
+        addRateWindowSample(ctx, samples, "codex.rateLimit." + segment + ".session.percentUsed", item.sessionUsedPercent, day, rl.primary_window, PERIOD_SESSION_MS, nowSec)
+        addRateWindowSample(ctx, samples, "codex.rateLimit." + segment + ".weekly.percentUsed", item.weeklyUsedPercent, day, rl.secondary_window, PERIOD_WEEKLY_MS, nowSec)
+      }
+    }
+    if (additionalRateLimits.length > 0) codex.additionalRateLimits = additionalRateLimits
+
+    const summary = { provider: { codex } }
+    setNumber(summary, "quotaPercent", primaryUsed)
+    setNumber(summary, "creditsRemaining", creditsRemaining)
+
+    addRateWindowSample(ctx, samples, "codex.session.percentUsed", primaryUsed, day, primaryWindow, PERIOD_SESSION_MS, nowSec)
+    addRateWindowSample(ctx, samples, "codex.weekly.percentUsed", secondaryUsed, day, secondaryWindow, PERIOD_WEEKLY_MS, nowSec)
+    addRateWindowSample(ctx, samples, "codex.reviews.percentUsed", reviewUsed, day, reviewWindow, PERIOD_WEEKLY_MS, nowSec)
+    if (creditsRemaining !== null) {
+      addMetricSample(samples, "codex.credits.remaining", creditsRemaining, "credits", day, "providerReported")
+    }
+
+    if (tokenUsageResult.status === "ok") {
+      let todayEntry = null
+      for (let i = 0; i < tokenUsageResult.data.daily.length; i++) {
+        const usageDay = tokenUsageResult.data.daily[i]
+        const usageDayKey = dayKeyFromUsageDate(usageDay.date)
+        if (usageDayKey) addTokenUsageSamples(samples, usageDay, usageDayKey)
+        if (usageDayKey === day) todayEntry = usageDay
+      }
+
+      const todayTokens = Number(todayEntry && todayEntry.totalTokens) || 0
+      const todayCost = usageCostUsd(todayEntry) || 0
+      summary.tokensTotal = todayTokens
+      summary.estimatedCostUsd = todayCost
+      codex.todayTokens = todayTokens
+      codex.todayEstimatedCostUsd = todayCost
+    }
+
+    if (samples.length === 0) {
+      addMetricSample(samples, "codex.probe.success", 1, "count", day, "normalized")
+    }
+
+    return {
+      periodStart: dayStartMs(day),
+      periodEnd: dayEndMs(day),
+      periodKey: "codex:" + day,
+      dataIdentity: "codex:daily:" + day,
+      summary,
+      summaryVersion: SUMMARY_VERSION,
+      extractorVersion: extractorVersion(),
+      metricFamilies: metricFamilies(summary, samples),
+      metricSamples: samples,
+    }
+  }
+
+  function buildCodexRawPayload(resp, data, tokenUsageResult) {
+    const headers = {}
+    setString(headers, "xCodexPrimaryUsedPercent", resp.headers["x-codex-primary-used-percent"])
+    setString(headers, "xCodexSecondaryUsedPercent", resp.headers["x-codex-secondary-used-percent"])
+    setString(headers, "xCodexCreditsBalance", resp.headers["x-codex-credits-balance"])
+
+    return {
+      usage: redactPayloadValue(data),
+      headers,
+      tokenUsage: tokenUsageResult.status === "ok"
+        ? { status: "ok", daily: redactPayloadValue(tokenUsageResult.data.daily) }
+        : { status: tokenUsageResult.status },
+    }
+  }
+
+  function redactPayloadValue(value) {
+    if (Array.isArray(value)) {
+      return value.map((item) => redactPayloadValue(item))
+    }
+    if (!value || typeof value !== "object") return value
+
+    const out = {}
+    for (const key of Object.keys(value)) {
+      out[key] = isSensitivePayloadKey(key) ? REDACTED_VALUE : redactPayloadValue(value[key])
+    }
+    return out
+  }
+
+  function isSensitivePayloadKey(key) {
+    const normalized = String(key || "")
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toLowerCase()
+    return (
+      normalized === "token" ||
+      normalized === "accesstoken" ||
+      normalized === "refreshtoken" ||
+      normalized === "secret" ||
+      normalized === "apikey" ||
+      normalized === "secretkey" ||
+      normalized === "accesskey" ||
+      normalized === "key" ||
+      normalized === "cookie" ||
+      normalized === "authorization" ||
+      normalized === "password" ||
+      normalized === "credential" ||
+      normalized.endsWith("token") ||
+      normalized.endsWith("password") ||
+      normalized.endsWith("secret") ||
+      normalized.endsWith("credential")
+    )
+  }
+
   function costAndTokensLabel(data, opts) {
     const includeZeroTokens = !!(opts && opts.includeZeroTokens)
     const parts = []
@@ -687,7 +986,12 @@
         lines.push(ctx.line.badge({ label: "Status", text: "No usage data", color: "#a3a3a3" }))
       }
 
-      return { plan: plan, lines: lines }
+      return {
+        plan: plan,
+        lines: lines,
+        sourceFacts: buildCodexSourceFacts(ctx, resp, data, tokenUsageResult),
+        rawPayload: buildCodexRawPayload(resp, data, tokenUsageResult),
+      }
     }
 
     if (auth.OPENAI_API_KEY) {

@@ -300,6 +300,255 @@ describe("codex plugin", () => {
     expect(credits.limit).toBe(1000)
   })
 
+  it("emits Codex source facts, metric samples, versions, and redacted payload", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+    try {
+      const ctx = makeCtx()
+      ctx.nowIso = "2026-06-01T12:00:00.000Z"
+      const accessToken = "codex-access-token-secret"
+      const nowSec = Math.floor(Date.now() / 1000)
+      ctx.host.fs.writeText("~/.codex/auth.json", JSON.stringify({
+        tokens: { access_token: accessToken, account_id: "acct-1" },
+        last_refresh: new Date().toISOString(),
+      }))
+      ctx.host.http.request.mockReturnValue({
+        status: 200,
+        headers: {
+          "x-codex-primary-used-percent": "25",
+          "x-codex-secondary-used-percent": "50",
+        },
+        bodyText: JSON.stringify({
+          plan_type: "plus",
+          accessToken: accessToken,
+          rate_limit: {
+            primary_window: {
+              used_percent: 10,
+              reset_after_seconds: 3600,
+              limit_window_seconds: 18000,
+            },
+            secondary_window: {
+              used_percent: 20,
+              reset_at: nowSec + 604800,
+              limit_window_seconds: 604800,
+            },
+          },
+          code_review_rate_limit: {
+            primary_window: {
+              used_percent: 7,
+              reset_at: nowSec + 604800,
+              limit_window_seconds: 604800,
+            },
+          },
+          credits: {
+            has_credits: true,
+            unlimited: false,
+            balance: 5.39,
+          },
+        }),
+      })
+      ctx.host.ccusage.query.mockReturnValue({
+        status: "ok",
+        data: {
+          daily: [
+            {
+              date: "2026-06-01",
+              inputTokens: 400,
+              outputTokens: 600,
+              cachedInputTokens: 234,
+              totalTokens: 1234,
+              costUSD: 0.42,
+            },
+          ],
+        },
+      })
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+      const codex = result.sourceFacts.summary.provider.codex
+
+      expect(result.sourceFacts.summaryVersion).toBe("1.0.0")
+      expect(result.sourceFacts.extractorVersion).toEqual({ codex: "1.0.0" })
+      expect(result.sourceFacts.periodStart).toBe(Date.parse("2026-06-01T00:00:00.000Z"))
+      expect(result.sourceFacts.periodEnd).toBe(Date.parse("2026-06-02T00:00:00.000Z"))
+      expect(result.sourceFacts.periodKey).toBe("codex:2026-06-01")
+      expect(result.sourceFacts.metricFamilies).toEqual(
+        expect.arrayContaining(["tokens", "estimatedCost", "quotaPressure", "credits"])
+      )
+      expect(result.sourceFacts.summary).toMatchObject({
+        quotaPercent: 25,
+        creditsRemaining: 5.39,
+        tokensTotal: 1234,
+        estimatedCostUsd: 0.42,
+      })
+      expect(codex).toMatchObject({
+        planType: "plus",
+        planName: "Plus",
+        sessionUsedPercent: 25,
+        weeklyUsedPercent: 50,
+        reviewUsedPercent: 7,
+        sessionWindowSeconds: 18000,
+        weeklyWindowSeconds: 604800,
+        reviewWindowSeconds: 604800,
+        creditsRemaining: 5.39,
+        todayTokens: 1234,
+        todayEstimatedCostUsd: 0.42,
+      })
+      expect(result.sourceFacts.metricSamples).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            metricKey: "codex.session.percentUsed",
+            value: 25,
+            unit: "percent",
+            sampleDay: "2026-06-01",
+          }),
+          expect.objectContaining({
+            metricKey: "codex.weekly.percentUsed",
+            value: 50,
+            unit: "percent",
+          }),
+          expect.objectContaining({
+            metricKey: "codex.reviews.percentUsed",
+            value: 7,
+            unit: "percent",
+          }),
+          expect.objectContaining({
+            metricKey: "codex.tokens.total",
+            value: 1234,
+            unit: "tokens",
+          }),
+          expect.objectContaining({
+            metricKey: "codex.cost.estimated",
+            value: 0.42,
+            unit: "usd",
+            source: "estimated",
+          }),
+        ])
+      )
+      expect(result.rawPayload.usage.accessToken).toBe("[REDACTED]")
+      expect(JSON.stringify(result.rawPayload)).not.toContain(accessToken)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("omits optional Codex credits without dropping rate-limit facts", async () => {
+    const ctx = makeCtx()
+    ctx.nowIso = "2026-06-01T12:00:00.000Z"
+    ctx.host.fs.writeText("~/.codex/auth.json", JSON.stringify({
+      tokens: { access_token: "token" },
+      last_refresh: new Date().toISOString(),
+    }))
+    ctx.host.http.request.mockReturnValue({
+      status: 200,
+      headers: {},
+      bodyText: JSON.stringify({
+        rate_limit: {
+          primary_window: { used_percent: 11, reset_after_seconds: 60 },
+          secondary_window: { used_percent: 22, reset_after_seconds: 120 },
+        },
+      }),
+    })
+    ctx.host.ccusage.query.mockReturnValue({ status: "no_runner" })
+
+    const plugin = await loadPlugin()
+    const result = plugin.probe(ctx)
+
+    expect(result.sourceFacts.summary.creditsRemaining).toBeUndefined()
+    expect(result.sourceFacts.summary.provider.codex).toMatchObject({
+      sessionUsedPercent: 11,
+      weeklyUsedPercent: 22,
+    })
+    expect(result.sourceFacts.metricSamples).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ metricKey: "codex.session.percentUsed", value: 11 }),
+        expect.objectContaining({ metricKey: "codex.weekly.percentUsed", value: 22 }),
+      ])
+    )
+    expect(result.sourceFacts.metricSamples.find((sample) => sample.metricKey === "codex.credits.remaining"))
+      .toBeUndefined()
+  })
+
+  it("emits additional Codex rate-limit windows as provider facts", async () => {
+    const ctx = makeCtx()
+    ctx.nowIso = "2026-06-01T12:00:00.000Z"
+    ctx.host.fs.writeText("~/.codex/auth.json", JSON.stringify({
+      tokens: { access_token: "token" },
+      last_refresh: new Date().toISOString(),
+    }))
+    ctx.host.http.request.mockReturnValue({
+      status: 200,
+      headers: {},
+      bodyText: JSON.stringify({
+        additional_rate_limits: [
+          {
+            limit_name: "GPT-5.3-Codex-Spark",
+            metered_feature: "codex_bengalfox",
+            rate_limit: {
+              primary_window: { used_percent: 33, reset_after_seconds: 3600 },
+              secondary_window: { used_percent: 44, reset_after_seconds: 7200 },
+            },
+          },
+        ],
+      }),
+    })
+
+    const plugin = await loadPlugin()
+    const result = plugin.probe(ctx)
+
+    expect(result.sourceFacts.summary.provider.codex.additionalRateLimits).toEqual([
+      expect.objectContaining({
+        name: "Spark",
+        meteredFeature: "codex_bengalfox",
+        sessionUsedPercent: 33,
+        weeklyUsedPercent: 44,
+      }),
+    ])
+    expect(result.sourceFacts.metricSamples).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          metricKey: "codex.rateLimit.spark.session.percentUsed",
+          value: 33,
+        }),
+        expect.objectContaining({
+          metricKey: "codex.rateLimit.spark.weekly.percentUsed",
+          value: 44,
+        }),
+      ])
+    )
+  })
+
+  it("uses the Windows Codex file auth path and skips keychain fallback", async () => {
+    const ctx = makeCtx()
+    ctx.app.platform = "windows"
+    ctx.host.fs.writeText("~/.config/codex/auth.json", JSON.stringify({
+      tokens: { access_token: "config-token" },
+      last_refresh: new Date().toISOString(),
+    }))
+    ctx.host.fs.writeText("~/.codex/auth.json", JSON.stringify({
+      tokens: { access_token: "windows-token" },
+      last_refresh: new Date().toISOString(),
+    }))
+    ctx.host.keychain.readGenericPassword.mockImplementation(() => {
+      throw new Error("Windows keychain should not be read")
+    })
+    ctx.host.http.request.mockImplementation((opts) => {
+      expect(opts.headers.Authorization).toBe("Bearer windows-token")
+      return {
+        status: 200,
+        headers: { "x-codex-primary-used-percent": "10" },
+        bodyText: JSON.stringify({}),
+      }
+    })
+
+    const plugin = await loadPlugin()
+    const result = plugin.probe(ctx)
+
+    expect(result.lines.find((line) => line.label === "Session")).toBeTruthy()
+    expect(ctx.host.keychain.readGenericPassword).not.toHaveBeenCalled()
+  })
+
   it("refreshes keychain auth and writes back to keychain", async () => {
     const ctx = makeCtx()
     ctx.host.keychain.readGenericPassword.mockReturnValue(JSON.stringify({

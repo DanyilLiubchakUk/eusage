@@ -73,16 +73,21 @@ Codex CLI supports multiple credential storage modes:
 
 For `keyring`/`auto`, Codex may not keep `auth.json` on disk. If keyring save succeeds, Codex removes the fallback `auth.json`.
 
-eUsage Codex plugin auth lookup order:
+eUsage Codex plugin auth lookup order on macOS:
 
 1. `CODEX_HOME/auth.json` (when `CODEX_HOME` is set)
 2. `~/.config/codex/auth.json`
 3. `~/.codex/auth.json`
 4. macOS keychain service `Codex Auth` (fallback)
 
-If file-based OAuth credentials are missing, invalid, or fail with an auth/session error during refresh or usage lookup, eUsage tries the macOS keychain fallback. Non-auth usage failures, such as server errors or invalid responses, are shown directly.
+eUsage Codex plugin auth lookup order on Windows v1:
 
-Keychain fallback is available on macOS only.
+1. `CODEX_HOME/auth.json` (when `CODEX_HOME` is set)
+2. `~/.codex/auth.json` (under the Windows user profile)
+
+If macOS file-based OAuth credentials are missing, invalid, or fail with an auth/session error during refresh or usage lookup, eUsage tries the macOS keychain fallback. Non-auth usage failures, such as server errors or invalid responses, are shown directly.
+
+Windows Credential Manager fallback for Codex keyring mode is not part of this v1 slice; Windows Codex support uses file auth paths.
 
 Expected auth payload shape (file or keychain JSON value):
 
@@ -100,6 +105,18 @@ Expected auth payload shape (file or keychain JSON value):
 ```
 
 > Note: Codex also stores MCP OAuth tokens in `~/.codex/.credentials.json` (or keyring), but that is separate from ChatGPT CLI auth used by this plugin.
+
+## Source facts uploaded to team sync
+
+Codex source facts are extracted on desktop before upload:
+
+- `summaryVersion`: `1.0.0`
+- `extractorVersion.codex`: `1.0.0`
+- Daily period key: `codex:YYYY-MM-DD`
+- Provider fields: plan type/name, session percent, weekly percent, optional review percent, reset times, window seconds, optional credits, optional additional model windows
+- Top-level summary fields: today's token total, today's estimated cost, session quota percent, optional credits remaining
+- Metric samples: session percent, weekly percent, review percent, optional credits remaining, daily total/input/output/cached tokens, daily estimated cost, and additional rate-limit windows
+- Raw payload shape: usage body, selected response headers, and ccusage daily rows, with secret-shaped fields replaced by `[REDACTED]`
 
 ### Token Refresh
 
