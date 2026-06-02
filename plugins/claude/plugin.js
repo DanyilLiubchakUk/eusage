@@ -9,6 +9,16 @@
   const SCOPES =
     "user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload"
   const REFRESH_BUFFER_MS = 5 * 60 * 1000 // refresh 5 minutes before expiration
+  const SUMMARY_VERSION = "1.0.0"
+  const CLAUDE_EXTRACTOR_VERSION = "1.0.0"
+  const REDACTED_VALUE = "[REDACTED]"
+  const PERIOD_SESSION_MS = 5 * 60 * 60 * 1000
+  const PERIOD_WEEKLY_MS = 7 * 24 * 60 * 60 * 1000
+  const MODEL_WINDOWS = [
+    { key: "seven_day_sonnet", name: "Sonnet", segment: "sonnet" },
+    { key: "seven_day_opus", name: "Opus", segment: "opus" },
+    { key: "seven_day_omelette", name: "Claude Design", segment: "design" },
+  ]
 
   // Rate-limit state persisted across probe() calls (module scope survives re-invocations).
   const MIN_USAGE_FETCH_INTERVAL_MS = 5 * 60 * 1000  // never poll more than once per 5 min
@@ -161,6 +171,11 @@
     return getClaudeHomePath(ctx) + "/" + CRED_FILE_NAME
   }
 
+  function isMacPlatform(ctx) {
+    const platform = String((ctx.app && ctx.app.platform) || "").toLowerCase()
+    return platform === "darwin" || platform === "macos"
+  }
+
   function getOauthConfig(ctx) {
     let baseApiUrl = PROD_BASE_API_URL
     let refreshUrl = PROD_REFRESH_URL
@@ -310,10 +325,12 @@
   }
 
   function loadStoredCredentials(ctx, suppressMissingWarn) {
-    // Recent Claude Code versions keep the current macOS session in Keychain and
-    // can leave a stale credentials file behind, so Keychain must win when valid.
-    const keychainCredentials = loadKeychainCredentials(ctx)
-    if (keychainCredentials) return keychainCredentials
+    if (isMacPlatform(ctx)) {
+      // Recent Claude Code versions keep the current macOS session in Keychain and
+      // can leave a stale credentials file behind, so Keychain must win when valid.
+      const keychainCredentials = loadKeychainCredentials(ctx)
+      if (keychainCredentials) return keychainCredentials
+    }
 
     const fileCredentials = loadFileCredentials(ctx)
     if (fileCredentials) return fileCredentials
@@ -601,6 +618,302 @@
     return null
   }
 
+  function readNumber(value) {
+    if (typeof value === "number" && Number.isFinite(value)) return value
+    return null
+  }
+
+  function centsToUsd(value) {
+    const cents = readNumber(value)
+    return cents === null ? null : Math.round((cents / 100) * 100) / 100
+  }
+
+  function setNumber(target, key, value) {
+    const n = readNumber(value)
+    if (n !== null) target[key] = n
+  }
+
+  function setString(target, key, value) {
+    if (typeof value !== "string") return
+    const trimmed = value.trim()
+    if (trimmed) target[key] = trimmed
+  }
+
+  function sampleDay(ctx) {
+    const parsed = ctx.util.parseDateMs(ctx.nowIso)
+    const date = new Date(Number.isFinite(parsed) ? parsed : Date.now())
+    return date.toISOString().slice(0, 10)
+  }
+
+  function dayStartMs(day) {
+    const ms = Date.parse(day + "T00:00:00.000Z")
+    return Number.isFinite(ms) ? ms : null
+  }
+
+  function dayEndMs(day) {
+    const start = dayStartMs(day)
+    return start === null ? null : start + 24 * 60 * 60 * 1000
+  }
+
+  function resetAtMs(ctx, window) {
+    if (!window || typeof window !== "object") return null
+    const iso = ctx.util.toIso(window.resets_at)
+    if (!iso) return null
+    const ms = ctx.util.parseDateMs(iso)
+    return Number.isFinite(ms) ? ms : null
+  }
+
+  function windowPeriod(ctx, window, fallbackMs) {
+    const end = resetAtMs(ctx, window)
+    if (end === null) return { start: null, end: null }
+    return { start: end - fallbackMs, end }
+  }
+
+  function normalizeMetricSegment(value) {
+    const segment = String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/^claude\s+/, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+([a-z0-9])/g, (_, letter) => letter.toUpperCase())
+    return segment || "model"
+  }
+
+  function addMetricSample(samples, metricKey, value, unit, day, source, period) {
+    const n = readNumber(value)
+    if (n === null) return
+    const sample = {
+      metricKey,
+      value: n,
+      unit,
+      sampleDay: day,
+      source: source || "providerReported",
+    }
+    if (period && period.start !== null) sample.periodStart = period.start
+    if (period && period.end !== null) sample.periodEnd = period.end
+    samples.push(sample)
+  }
+
+  function addWindowSample(ctx, samples, metricKey, value, day, window, fallbackMs) {
+    addMetricSample(
+      samples,
+      metricKey,
+      value,
+      "percent",
+      day,
+      "providerReported",
+      windowPeriod(ctx, window, fallbackMs)
+    )
+  }
+
+  function addTokenUsageSamples(samples, usageDay, sampleSourceDay) {
+    if (!usageDay || typeof usageDay !== "object") return
+    addMetricSample(samples, "claude.tokens.total", usageDay.totalTokens, "tokens", sampleSourceDay, "providerReported")
+    addMetricSample(samples, "claude.tokens.input", usageDay.inputTokens, "tokens", sampleSourceDay, "providerReported")
+    addMetricSample(samples, "claude.tokens.output", usageDay.outputTokens, "tokens", sampleSourceDay, "providerReported")
+    addMetricSample(samples, "claude.tokens.cacheCreation", usageDay.cacheCreationTokens, "tokens", sampleSourceDay, "providerReported")
+    addMetricSample(samples, "claude.tokens.cacheRead", usageDay.cacheReadTokens, "tokens", sampleSourceDay, "providerReported")
+    addMetricSample(samples, "claude.cost.estimated", usageCostUsd(usageDay), "usd", sampleSourceDay, "estimated")
+  }
+
+  function extractorVersion() {
+    return { claude: CLAUDE_EXTRACTOR_VERSION }
+  }
+
+  function metricFamilies(summary, samples) {
+    const families = []
+    if (summary.tokensTotal !== undefined) families.push("tokens")
+    if (summary.estimatedCostUsd !== undefined) families.push("estimatedCost")
+    if (summary.quotaPercent !== undefined) families.push("quotaPressure")
+    if (summary.budgetUsedUsd !== undefined || summary.budgetLimitUsd !== undefined) families.push("budget")
+    if (summary.creditsUsed !== undefined) families.push("credits")
+    if (samples.some((sample) => sample.metricKey.indexOf("claude.") === 0 && sample.metricKey.endsWith(".percentUsed"))) {
+      families.push("claudeRateLimits")
+    }
+    return families.length > 0 ? families : ["claude"]
+  }
+
+  function addWindowFact(ctx, target, samples, opts) {
+    const window = opts.window
+    if (!window || typeof window !== "object") return null
+    const used = readNumber(window.utilization)
+    if (used === null) return null
+    setNumber(target, opts.usedKey, used)
+    setNumber(target, opts.resetKey, resetAtMs(ctx, window))
+    target[opts.durationKey] = opts.durationMs / 1000
+    addWindowSample(ctx, samples, opts.metricKey, used, opts.day, window, opts.durationMs)
+    return used
+  }
+
+  function buildClaudeSourceFacts(ctx, data, tokenUsageResult, plan, creds) {
+    const day = sampleDay(ctx)
+    const usage = data && typeof data === "object" ? data : {}
+    const oauth = creds && creds.oauth ? creds.oauth : {}
+    const claude = {}
+    setString(claude, "planName", plan)
+    setString(claude, "subscriptionType", oauth.subscriptionType)
+    setString(claude, "rateLimitTier", oauth.rateLimitTier)
+
+    const samples = []
+    const sessionUsed = addWindowFact(ctx, claude, samples, {
+      window: usage.five_hour,
+      usedKey: "sessionUsedPercent",
+      resetKey: "sessionResetAt",
+      durationKey: "sessionWindowSeconds",
+      metricKey: "claude.session.percentUsed",
+      durationMs: PERIOD_SESSION_MS,
+      day,
+    })
+    addWindowFact(ctx, claude, samples, {
+      window: usage.seven_day,
+      usedKey: "weeklyUsedPercent",
+      resetKey: "weeklyResetAt",
+      durationKey: "weeklyWindowSeconds",
+      metricKey: "claude.weekly.percentUsed",
+      durationMs: PERIOD_WEEKLY_MS,
+      day,
+    })
+
+    const modelWindows = []
+    for (const spec of MODEL_WINDOWS) {
+      const window = usage[spec.key]
+      if (!window || typeof window !== "object") continue
+      const used = readNumber(window.utilization)
+      if (used === null) continue
+      const item = {
+        key: spec.key,
+        name: spec.name,
+        usedPercent: used,
+        windowSeconds: PERIOD_WEEKLY_MS / 1000,
+      }
+      const reset = resetAtMs(ctx, window)
+      if (reset !== null) item.resetAt = reset
+      modelWindows.push(item)
+      addWindowSample(
+        ctx,
+        samples,
+        "claude.model." + normalizeMetricSegment(spec.segment) + ".percentUsed",
+        used,
+        day,
+        window,
+        PERIOD_WEEKLY_MS
+      )
+    }
+    if (modelWindows.length > 0) claude.modelWindows = modelWindows
+
+    const extraUsage = usage.extra_usage && typeof usage.extra_usage === "object"
+      ? usage.extra_usage
+      : null
+    let extraUsedUsd = null
+    let extraLimitUsd = null
+    if (extraUsage) {
+      if (typeof extraUsage.is_enabled === "boolean") claude.extraUsageEnabled = extraUsage.is_enabled
+      setString(claude, "extraUsageCurrency", extraUsage.currency)
+      extraUsedUsd = centsToUsd(extraUsage.used_credits)
+      extraLimitUsd = centsToUsd(extraUsage.monthly_limit)
+      setNumber(claude, "extraUsageUsedUsd", extraUsedUsd)
+      setNumber(claude, "extraUsageMonthlyLimitUsd", extraLimitUsd)
+      if (readNumber(extraUsage.monthly_limit) === 0) claude.extraUsageUnlimited = true
+      addMetricSample(samples, "claude.extraUsage.used", extraUsedUsd, "usd", day, "providerReported")
+      if (extraLimitUsd !== null && extraLimitUsd > 0) {
+        addMetricSample(samples, "claude.extraUsage.monthlyLimit", extraLimitUsd, "usd", day, "providerReported")
+      }
+    }
+
+    const summary = { provider: { claude } }
+    setNumber(summary, "quotaPercent", sessionUsed)
+    setNumber(summary, "budgetUsedUsd", extraUsedUsd)
+    if (extraLimitUsd !== null && extraLimitUsd > 0) {
+      summary.budgetLimitUsd = extraLimitUsd
+    }
+    setNumber(summary, "creditsUsed", extraUsedUsd)
+
+    if (tokenUsageResult.status === "ok") {
+      let todayEntry = null
+      for (let i = 0; i < tokenUsageResult.data.daily.length; i++) {
+        const usageDay = tokenUsageResult.data.daily[i]
+        const usageDayKey = dayKeyFromUsageDate(usageDay.date)
+        if (usageDayKey) addTokenUsageSamples(samples, usageDay, usageDayKey)
+        if (usageDayKey === day) todayEntry = usageDay
+      }
+
+      const todayTokens = Number(todayEntry && todayEntry.totalTokens) || 0
+      const todayCost = usageCostUsd(todayEntry) || 0
+      summary.tokensTotal = todayTokens
+      summary.estimatedCostUsd = todayCost
+      claude.todayTokens = todayTokens
+      claude.todayEstimatedCostUsd = todayCost
+    }
+
+    if (samples.length === 0) {
+      addMetricSample(samples, "claude.probe.success", 1, "count", day, "normalized")
+    }
+
+    return {
+      periodStart: dayStartMs(day),
+      periodEnd: dayEndMs(day),
+      periodKey: "claude:" + day,
+      dataIdentity: "claude:daily:" + day,
+      summary,
+      summaryVersion: SUMMARY_VERSION,
+      extractorVersion: extractorVersion(),
+      metricFamilies: metricFamilies(summary, samples),
+      metricSamples: samples,
+    }
+  }
+
+  function buildClaudeRawPayload(data, tokenUsageResult, creds) {
+    return {
+      usage: redactPayloadValue(data || {}),
+      tokenUsage: tokenUsageResult.status === "ok"
+        ? { status: "ok", daily: redactPayloadValue(tokenUsageResult.data.daily) }
+        : { status: tokenUsageResult.status },
+      auth: redactPayloadValue({
+        source: creds ? creds.source : null,
+        inferenceOnly: !!(creds && creds.inferenceOnly),
+        oauth: creds && creds.oauth ? creds.oauth : null,
+      }),
+    }
+  }
+
+  function redactPayloadValue(value) {
+    if (Array.isArray(value)) {
+      return value.map((item) => redactPayloadValue(item))
+    }
+    if (!value || typeof value !== "object") return value
+
+    const out = {}
+    for (const key of Object.keys(value)) {
+      out[key] = isSensitivePayloadKey(key) ? REDACTED_VALUE : redactPayloadValue(value[key])
+    }
+    return out
+  }
+
+  function isSensitivePayloadKey(key) {
+    const normalized = String(key || "")
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toLowerCase()
+    return (
+      normalized === "token" ||
+      normalized === "accesstoken" ||
+      normalized === "refreshtoken" ||
+      normalized === "secret" ||
+      normalized === "apikey" ||
+      normalized === "secretkey" ||
+      normalized === "accesskey" ||
+      normalized === "key" ||
+      normalized === "cookie" ||
+      normalized === "authorization" ||
+      normalized === "password" ||
+      normalized === "credential" ||
+      normalized.endsWith("token") ||
+      normalized.endsWith("password") ||
+      normalized.endsWith("secret") ||
+      normalized.endsWith("credential")
+    )
+  }
+
   function costAndTokensLabel(data, opts) {
     const includeZeroTokens = !!(opts && opts.includeZeroTokens)
     const parts = []
@@ -787,6 +1100,16 @@
           periodDurationMs: 7 * 24 * 60 * 60 * 1000 // 7 days
         }))
       }
+      if (data.seven_day_opus && typeof data.seven_day_opus.utilization === "number") {
+        lines.push(ctx.line.progress({
+          label: "Opus",
+          used: data.seven_day_opus.utilization,
+          limit: 100,
+          format: { kind: "percent" },
+          resetsAt: ctx.util.toIso(data.seven_day_opus.resets_at),
+          periodDurationMs: 7 * 24 * 60 * 60 * 1000 // 7 days
+        }))
+      }
       if (data.seven_day_omelette && typeof data.seven_day_omelette.utilization === "number") {
         lines.push(ctx.line.progress({
           label: "Claude Design",
@@ -878,7 +1201,12 @@
       lines.push(ctx.line.badge({ label: "Status", text: "No usage data", color: "#a3a3a3" }))
     }
 
-    return { plan: plan, lines: lines }
+    return {
+      plan: plan,
+      lines: lines,
+      sourceFacts: buildClaudeSourceFacts(ctx, data, usageResult, plan, creds),
+      rawPayload: buildClaudeRawPayload(data, usageResult, creds),
+    }
   }
 
   // _resetState is a testing hook — resets module-scope rate-limit state between tests.

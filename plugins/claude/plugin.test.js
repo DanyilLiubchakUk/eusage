@@ -604,6 +604,224 @@ describe("claude plugin", () => {
     expect(line.resetsAt).toBe("2099-01-01T00:00:00.000Z")
   })
 
+  it("emits Claude source facts, metric samples, and redacted raw payload", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+    try {
+      const ctx = makeCtx()
+      ctx.nowIso = "2026-06-01T12:00:00.000Z"
+      const accessToken = "secret-access-token"
+      const refreshToken = "secret-refresh-token"
+      ctx.host.fs.readText = () =>
+        JSON.stringify({
+          claudeAiOauth: {
+            accessToken,
+            refreshToken,
+            subscriptionType: "pro",
+            rateLimitTier: "5x",
+          },
+        })
+      ctx.host.fs.exists = () => true
+      ctx.host.http.request.mockReturnValue({
+        status: 200,
+        bodyText: JSON.stringify({
+          five_hour: {
+            utilization: 25,
+            resets_at: "2026-06-01T17:00:00.000Z",
+          },
+          seven_day: {
+            utilization: 40,
+            resets_at: "2026-06-08T00:00:00.000Z",
+          },
+          seven_day_opus: {
+            utilization: 3,
+            resets_at: "2026-06-08T00:00:00.000Z",
+          },
+          seven_day_omelette: {
+            utilization: 5,
+            resets_at: "2026-06-08T00:00:00.000Z",
+          },
+          extra_usage: {
+            is_enabled: true,
+            used_credits: 500,
+            monthly_limit: 10000,
+            currency: "USD",
+          },
+          debug_access_token: accessToken,
+        }),
+      })
+      ctx.host.ccusage.query = vi.fn(() => ({
+        status: "ok",
+        data: {
+          daily: [
+            {
+              date: "2026-06-01",
+              inputTokens: 400,
+              outputTokens: 600,
+              cacheCreationTokens: 100,
+              cacheReadTokens: 134,
+              totalTokens: 1234,
+              totalCost: 0.42,
+            },
+          ],
+        },
+      }))
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+      const claude = result.sourceFacts.summary.provider.claude
+
+      expect(result.sourceFacts.summaryVersion).toBe("1.0.0")
+      expect(result.sourceFacts.extractorVersion).toEqual({ claude: "1.0.0" })
+      expect(result.sourceFacts.periodStart).toBe(Date.parse("2026-06-01T00:00:00.000Z"))
+      expect(result.sourceFacts.periodEnd).toBe(Date.parse("2026-06-02T00:00:00.000Z"))
+      expect(result.sourceFacts.periodKey).toBe("claude:2026-06-01")
+      expect(result.sourceFacts.metricFamilies).toEqual(
+        expect.arrayContaining(["tokens", "estimatedCost", "quotaPressure", "budget", "credits"])
+      )
+      expect(result.sourceFacts.summary).toMatchObject({
+        quotaPercent: 25,
+        budgetUsedUsd: 5,
+        budgetLimitUsd: 100,
+        creditsUsed: 5,
+        tokensTotal: 1234,
+        estimatedCostUsd: 0.42,
+      })
+      expect(claude).toMatchObject({
+        planName: "Pro 5x",
+        subscriptionType: "pro",
+        rateLimitTier: "5x",
+        sessionUsedPercent: 25,
+        weeklyUsedPercent: 40,
+        sessionWindowSeconds: 18000,
+        weeklyWindowSeconds: 604800,
+        extraUsageEnabled: true,
+        extraUsageUsedUsd: 5,
+        extraUsageMonthlyLimitUsd: 100,
+        extraUsageCurrency: "USD",
+        todayTokens: 1234,
+        todayEstimatedCostUsd: 0.42,
+      })
+      expect(claude.modelWindows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ key: "seven_day_opus", name: "Opus", usedPercent: 3 }),
+          expect.objectContaining({ key: "seven_day_omelette", name: "Claude Design", usedPercent: 5 }),
+        ])
+      )
+      expect(result.sourceFacts.metricSamples).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            metricKey: "claude.session.percentUsed",
+            value: 25,
+            unit: "percent",
+            sampleDay: "2026-06-01",
+          }),
+          expect.objectContaining({
+            metricKey: "claude.weekly.percentUsed",
+            value: 40,
+            unit: "percent",
+          }),
+          expect.objectContaining({
+            metricKey: "claude.model.opus.percentUsed",
+            value: 3,
+            unit: "percent",
+          }),
+          expect.objectContaining({
+            metricKey: "claude.extraUsage.used",
+            value: 5,
+            unit: "usd",
+          }),
+          expect.objectContaining({
+            metricKey: "claude.tokens.cacheCreation",
+            value: 100,
+            unit: "tokens",
+          }),
+          expect.objectContaining({
+            metricKey: "claude.cost.estimated",
+            value: 0.42,
+            unit: "usd",
+            source: "estimated",
+          }),
+        ])
+      )
+      expect(result.rawPayload.auth.oauth.accessToken).toBe("[REDACTED]")
+      expect(result.rawPayload.auth.oauth.refreshToken).toBe("[REDACTED]")
+      expect(result.rawPayload.usage.debug_access_token).toBe("[REDACTED]")
+      expect(JSON.stringify(result.rawPayload)).not.toContain(accessToken)
+      expect(JSON.stringify(result.rawPayload)).not.toContain(refreshToken)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("omits optional Claude windows and extra usage values without dropping source facts", async () => {
+    const ctx = makeCtx()
+    ctx.nowIso = "2026-06-01T12:00:00.000Z"
+    ctx.host.fs.readText = () =>
+      JSON.stringify({ claudeAiOauth: { accessToken: "token", subscriptionType: "pro" } })
+    ctx.host.fs.exists = () => true
+    ctx.host.http.request.mockReturnValue({
+      status: 200,
+      bodyText: JSON.stringify({
+        five_hour: { utilization: 11, resets_at: "2026-06-01T17:00:00.000Z" },
+        seven_day: { utilization: 22, resets_at: "2026-06-08T00:00:00.000Z" },
+      }),
+    })
+    ctx.host.ccusage.query = vi.fn(() => ({ status: "no_runner" }))
+
+    const plugin = await loadPlugin()
+    const result = plugin.probe(ctx)
+    const claude = result.sourceFacts.summary.provider.claude
+
+    expect(claude).toMatchObject({
+      sessionUsedPercent: 11,
+      weeklyUsedPercent: 22,
+    })
+    expect(claude.modelWindows).toBeUndefined()
+    expect(claude.extraUsageUsedUsd).toBeUndefined()
+    expect(result.sourceFacts.summary.budgetLimitUsd).toBeUndefined()
+    expect(result.sourceFacts.metricSamples).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ metricKey: "claude.session.percentUsed", value: 11 }),
+        expect.objectContaining({ metricKey: "claude.weekly.percentUsed", value: 22 }),
+      ])
+    )
+    expect(result.sourceFacts.metricSamples.find((sample) => sample.metricKey === "claude.extraUsage.used"))
+      .toBeUndefined()
+  })
+
+  it("uses the Windows Claude credentials file and skips keychain lookup", async () => {
+    const ctx = makeCtx()
+    ctx.app.platform = "windows"
+    ctx.host.fs.readText = vi.fn(() =>
+      JSON.stringify({ claudeAiOauth: { accessToken: "windows-token", subscriptionType: "pro" } })
+    )
+    ctx.host.fs.exists = vi.fn((path) => path === "~/.claude/.credentials.json")
+    ctx.host.keychain.readGenericPassword.mockImplementation(() => {
+      throw new Error("Windows keychain should not be read")
+    })
+    ctx.host.keychain.readGenericPasswordForCurrentUser.mockImplementation(() => {
+      throw new Error("Windows keychain should not be read")
+    })
+    ctx.host.http.request.mockImplementation((opts) => {
+      expect(opts.headers.Authorization).toBe("Bearer windows-token")
+      return {
+        status: 200,
+        bodyText: JSON.stringify({
+          five_hour: { utilization: 10, resets_at: "2099-01-01T00:00:00.000Z" },
+        }),
+      }
+    })
+
+    const plugin = await loadPlugin()
+    const result = plugin.probe(ctx)
+
+    expect(result.lines.find((line) => line.label === "Session")).toBeTruthy()
+    expect(result.sourceFacts.summary.provider.claude.sessionUsedPercent).toBe(10)
+    expect(ctx.host.keychain.readGenericPassword).not.toHaveBeenCalled()
+    expect(ctx.host.keychain.readGenericPasswordForCurrentUser).not.toHaveBeenCalled()
+  })
+
   it("omits Claude Design line when seven_day_omelette has no utilization", async () => {
     const ctx = makeCtx()
     ctx.host.fs.readText = () =>

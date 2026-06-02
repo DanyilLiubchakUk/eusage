@@ -61,9 +61,17 @@ All windows are enforced simultaneously — hitting any limit throttles the user
 
 ## Authentication
 
-### Token Location
+### Credential Storage Locations
 
-On macOS, eUsage reads Claude Code credentials from Keychain first. The default service name is:
+Claude Code stores subscription OAuth credentials differently by OS.
+
+eUsage Claude plugin auth lookup order on macOS:
+
+1. macOS Keychain service for the current user.
+2. Legacy macOS Keychain service lookup.
+3. `CLAUDE_CONFIG_DIR/.credentials.json` when `CLAUDE_CONFIG_DIR` is set, otherwise `~/.claude/.credentials.json`.
+
+The default Keychain service name is:
 
 ```text
 Claude Code-credentials
@@ -75,7 +83,14 @@ When `CLAUDE_CONFIG_DIR` is set, Claude Code may use a config-specific service n
 Claude Code-credentials-<sha256(CLAUDE_CONFIG_DIR).slice(0, 8)>
 ```
 
-Keychain values use the same JSON structure as the legacy credentials file:
+eUsage Claude plugin auth lookup order on Windows v1:
+
+1. `CLAUDE_CONFIG_DIR/.credentials.json` when `CLAUDE_CONFIG_DIR` is set.
+2. `~/.claude/.credentials.json`, which resolves to `%USERPROFILE%\.claude\.credentials.json`.
+
+Windows v1 does not use macOS Keychain lookup. Current Claude Code docs state Windows stores credentials in the user profile `.claude` credentials file.
+
+Credential values use this JSON structure:
 
 ```jsonc
 {
@@ -90,7 +105,19 @@ Keychain values use the same JSON structure as the legacy credentials file:
 }
 ```
 
-**Fallback:** `~/.claude/.credentials.json`. This file can be left behind by older Claude Code versions, so it is treated as a fallback when Keychain does not contain usable credentials.
+On macOS, `~/.claude/.credentials.json` can be left behind by older Claude Code versions, so it is treated as a fallback when Keychain does not contain usable credentials.
+
+## Source facts uploaded to team sync
+
+Claude source facts are extracted on desktop before upload:
+
+- `summaryVersion`: `1.0.0`
+- `extractorVersion.claude`: `1.0.0`
+- Daily period key: `claude:YYYY-MM-DD`
+- Provider fields: plan name, subscription type, rate-limit tier, five-hour session percent/reset/window, seven-day weekly percent/reset/window, optional model windows, extra usage spent, monthly limit, currency, today tokens, and today estimated cost.
+- Top-level summary fields: session quota percent, optional extra usage budget fields, optional extra usage credits used, today's token total, and today's estimated cost.
+- Metric samples: session percent, weekly percent, optional model-window percents, extra usage spent/monthly limit, daily total/input/output/cache creation/cache read tokens, and daily estimated cost.
+- Raw payload shape: usage body, auth metadata, and ccusage daily rows, with secret-shaped fields replaced by `[REDACTED]`.
 
 ### Token Refresh
 
