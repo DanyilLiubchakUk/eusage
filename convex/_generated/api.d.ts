@@ -10,6 +10,7 @@
 
 import type * as dashboard from "../dashboard.js";
 import type * as dashboardSettings from "../dashboardSettings.js";
+import type * as dashboardSourceRows from "../dashboardSourceRows.js";
 import type * as desktopApi from "../desktopApi.js";
 import type * as desktopApiCore from "../desktopApiCore.js";
 import type * as developerTokenLifecycle from "../developerTokenLifecycle.js";
@@ -17,6 +18,8 @@ import type * as developerTokens from "../developerTokens.js";
 import type * as developers from "../developers.js";
 import type * as setup from "../setup.js";
 import type * as setupClaim from "../setupClaim.js";
+import type * as tokenSecrets from "../tokenSecrets.js";
+import type * as tvDisplayLinks from "../tvDisplayLinks.js";
 import type * as usageIngest from "../usageIngest.js";
 import type * as usageIngestCore from "../usageIngestCore.js";
 import type * as usageIngestRedaction from "../usageIngestRedaction.js";
@@ -32,6 +35,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   dashboard: typeof dashboard;
   dashboardSettings: typeof dashboardSettings;
+  dashboardSourceRows: typeof dashboardSourceRows;
   desktopApi: typeof desktopApi;
   desktopApiCore: typeof desktopApiCore;
   developerTokenLifecycle: typeof developerTokenLifecycle;
@@ -39,6 +43,8 @@ declare const fullApi: ApiFromModules<{
   developers: typeof developers;
   setup: typeof setup;
   setupClaim: typeof setupClaim;
+  tokenSecrets: typeof tokenSecrets;
+  tvDisplayLinks: typeof tvDisplayLinks;
   usageIngest: typeof usageIngest;
   usageIngestCore: typeof usageIngestCore;
   usageIngestRedaction: typeof usageIngestRedaction;

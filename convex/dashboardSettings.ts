@@ -116,20 +116,23 @@ export function isValidDateRange(value: unknown) {
 }
 
 export function isValidTvSlides(
-  slides: Array<{ id: string; order: number; durationSeconds: number }>
+  slides: Array<{ id: string; enabled: boolean; order: number; durationSeconds: number }>
 ) {
   if (slides.length !== TV_SLIDE_IDS.length) return false
   const ids = new Set<TvSlideId>()
+  let enabledCount = 0
 
   for (const slide of slides) {
     if (!isTvSlideId(slide.id)) return false
+    if (typeof slide.enabled !== "boolean") return false
     if (ids.has(slide.id)) return false
     if (!Number.isInteger(slide.order)) return false
     if (validDurationSeconds(slide.durationSeconds) === null) return false
+    if (slide.enabled) enabledCount += 1
     ids.add(slide.id)
   }
 
-  return TV_SLIDE_IDS.every((id) => ids.has(id))
+  return enabledCount > 0 && TV_SLIDE_IDS.every((id) => ids.has(id))
 }
 
 function isValidUtcDay(day: string) {
@@ -143,7 +146,7 @@ function isTvSlideId(id: string): id is TvSlideId {
 }
 
 function validDurationSeconds(value: unknown): number | null {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 300) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 5 || value > 300) {
     return null
   }
   return value

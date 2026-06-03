@@ -233,4 +233,15 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_teamId", ["teamId"]),
+  tvDisplayLinks: defineTable({
+    teamId: v.id("teams"),
+    tokenHash: v.string(),
+    fingerprint: v.string(),
+    status: v.union(v.literal("active"), v.literal("revoked")),
+    createdAt: v.number(),
+    rotatedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_teamId_status", ["teamId", "status"]),
 })

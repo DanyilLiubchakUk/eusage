@@ -30,7 +30,7 @@ export const TV_SLIDE_DEFINITIONS = [
   { id: "team-overview", title: "Team Overview" },
   { id: "developer-leaderboard", title: "Developer Leaderboard" },
   { id: "provider-breakdown", title: "Provider Breakdown" },
-  { id: "cursor-pool", title: "Cursor Pool" },
+  { id: "cursor-pool", title: "Cursor Budget" },
   { id: "sync-health", title: "Sync Health" },
 ] as const
 
@@ -55,7 +55,7 @@ export type TvSettingsPatch = {
 export type TvDashboardModel = ReturnType<typeof buildTvDashboardModel>
 
 const DEFAULT_DURATION_SECONDS = 10
-const MIN_DURATION_SECONDS = 1
+const MIN_DURATION_SECONDS = 5
 const MAX_DURATION_SECONDS = 300
 
 export function buildTvDashboardModel(state: ReadyDashboardState, now: number) {

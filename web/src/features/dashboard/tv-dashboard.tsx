@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { ArrowLeft, ArrowRight, LogOut, Pause, Play } from "lucide-react"
 import { buildTvDashboardModel, type TvSettingsPatch } from "./tv-dashboard-data"
 import { NoSlides, TvSlide } from "./tv-dashboard-slides"
-import { TvSettingsPanel } from "./tv-dashboard-settings"
+import { TvSettingsPanel, type TvDisplayLinkControls } from "./tv-dashboard-settings"
 import type { ReadyDashboardState } from "./dashboard-source"
 import "./tv-dashboard.css"
 
@@ -10,9 +10,17 @@ type TvDashboardProps = {
   state: ReadyDashboardState
   now: number
   onSettingsChange?: (patch: TvSettingsPatch) => Promise<void> | void
+  displayLinkControls?: TvDisplayLinkControls
+  showSettings?: boolean
 }
 
-export function TvDashboard({ state, now, onSettingsChange }: TvDashboardProps) {
+export function TvDashboard({
+  state,
+  now,
+  onSettingsChange,
+  displayLinkControls,
+  showSettings = true,
+}: TvDashboardProps) {
   const [clock, setClock] = useState(now)
   const [activeIndex, setActiveIndex] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -48,7 +56,7 @@ export function TvDashboard({ state, now, onSettingsChange }: TvDashboardProps) 
   }
 
   return (
-    <main className="tv-page">
+    <main className={`tv-page ${showSettings ? "tv-page--admin" : "tv-page--display"}`}>
       {activeSlide ? <TvSlide slide={activeSlide} teamName={model.teamName} /> : <NoSlides />}
       <TvPlaybackControls
         paused={paused}
@@ -58,7 +66,13 @@ export function TvDashboard({ state, now, onSettingsChange }: TvDashboardProps) 
         onPrevious={previousSlide}
         onNext={nextSlide}
       />
-      <TvSettingsPanel model={model} onSettingsChange={onSettingsChange} />
+      {showSettings ? (
+        <TvSettingsPanel
+          model={model}
+          onSettingsChange={onSettingsChange}
+          displayLinkControls={displayLinkControls}
+        />
+      ) : null}
     </main>
   )
 }
@@ -87,6 +101,7 @@ function TvPlaybackControls({
       <button
         type="button"
         aria-label={paused ? "Resume auto-rotate" : "Pause auto-rotate"}
+        disabled={slideCount < 2}
         onClick={onPauseToggle}
       >
         {paused ? <Play size={18} /> : <Pause size={18} />}

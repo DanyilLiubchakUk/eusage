@@ -76,7 +76,7 @@ describe("tv dashboard", () => {
       "sync-health",
     ])
 
-    fireEvent.change(screen.getByLabelText("Cursor Pool duration seconds"), {
+    fireEvent.change(screen.getByLabelText("Cursor Budget duration seconds"), {
       target: { value: "25" },
     })
     await waitFor(() => expect(changes).toHaveLength(2))
@@ -113,11 +113,58 @@ describe("tv dashboard", () => {
 
     fireEvent.click(screen.getByText("TV settings"))
     fireEvent.change(screen.getByLabelText("Team Overview duration seconds"), {
-      target: { value: "0" },
+      target: { value: "4" },
     })
 
-    expect(screen.getByText("Duration must be 1-300 seconds")).toBeInTheDocument()
+    expect(screen.getByText("Duration must be 5-300 seconds")).toBeInTheDocument()
     expect(changes).toEqual([])
+  })
+
+  it("prevents disabling the last enabled slide", () => {
+    const state = {
+      ...readyState,
+      tvSettings: {
+        dateRange: { preset: "last7" },
+        visibleProviderIds: null,
+        visibleDeveloperIds: null,
+        slides: [
+          { id: "team-overview", enabled: true, order: 0, durationSeconds: 10 },
+          { id: "developer-leaderboard", enabled: false, order: 1, durationSeconds: 10 },
+          { id: "provider-breakdown", enabled: false, order: 2, durationSeconds: 10 },
+          { id: "cursor-pool", enabled: false, order: 3, durationSeconds: 10 },
+          { id: "sync-health", enabled: false, order: 4, durationSeconds: 10 },
+        ],
+      },
+    } as unknown as Extract<DashboardSourceState, { status: "ready" }>
+    const changes: unknown[] = []
+
+    render(
+      <TvDashboard
+        state={state}
+        now={now}
+        onSettingsChange={(patch) => {
+          changes.push(patch)
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByText("TV settings"))
+
+    expect(screen.getByLabelText("Team Overview")).toBeDisabled()
+    expect(changes).toEqual([])
+  })
+
+  it("hides admin settings on public display mode", () => {
+    render(
+      <TvDashboard
+        state={readyState as Extract<DashboardSourceState, { status: "ready" }>}
+        now={now}
+        showSettings={false}
+      />
+    )
+
+    expect(screen.queryByText("TV settings")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Pause auto-rotate" })).toBeInTheDocument()
   })
 
   it("uses per-slide freshness sources", () => {

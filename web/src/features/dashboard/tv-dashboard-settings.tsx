@@ -26,12 +26,32 @@ import {
   type TvSlideSetting,
 } from "./tv-dashboard-data"
 
+export type TvDisplayLinkControls = {
+  link: {
+    fingerprint: string
+    status: string
+    createdAt: number
+    rotatedAt: number | null
+    revokedAt: number | null
+  } | null
+  rawToken: string | null
+  displayUrl: string | null
+  onCreate: () => Promise<void>
+  onRotate: () => Promise<void>
+  onRevoke: () => Promise<void>
+}
+
 type TvSettingsPanelProps = {
   model: TvDashboardModel
   onSettingsChange?: (patch: TvSettingsPatch) => Promise<void> | void
+  displayLinkControls?: TvDisplayLinkControls
 }
 
-export function TvSettingsPanel({ model, onSettingsChange }: TvSettingsPanelProps) {
+export function TvSettingsPanel({
+  model,
+  onSettingsChange,
+  displayLinkControls,
+}: TvSettingsPanelProps) {
   const [status, setStatus] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const sensors = useSensors(
@@ -59,9 +79,12 @@ export function TvSettingsPanel({ model, onSettingsChange }: TvSettingsPanelProp
   }
 
   function toggleSlide(slideId: string) {
+    const enabledCount = model.slideSettings.filter((slide) => slide.enabled).length
     saveSlides(
       model.slideSettings.map((slide) =>
-        slide.id === slideId ? { ...slide, enabled: !slide.enabled } : slide
+        slide.id === slideId && (enabledCount > 1 || !slide.enabled)
+          ? { ...slide, enabled: !slide.enabled }
+          : slide
       )
     )
   }
@@ -69,7 +92,7 @@ export function TvSettingsPanel({ model, onSettingsChange }: TvSettingsPanelProp
   function changeDuration(slideId: string, value: string) {
     const durationSeconds = parseTvSlideDuration(value)
     if (durationSeconds === null) {
-      setStatus("Duration must be 1-300 seconds")
+      setStatus("Duration must be 5-300 seconds")
       return
     }
     saveSlides(
@@ -98,6 +121,7 @@ export function TvSettingsPanel({ model, onSettingsChange }: TvSettingsPanelProp
   }
 
   const slideIds = useMemo(() => model.slideSettings.map((slide) => slide.id), [model.slideSettings])
+  const enabledCount = model.slideSettings.filter((slide) => slide.enabled).length
 
   return (
     <details className="tv-settings-panel">
@@ -117,6 +141,7 @@ export function TvSettingsPanel({ model, onSettingsChange }: TvSettingsPanelProp
                   disabled={!onSettingsChange || isSaving}
                   isFirst={index === 0}
                   isLast={index === model.slideSettings.length - 1}
+                  isLastEnabled={slide.enabled && enabledCount === 1}
                   onToggle={() => toggleSlide(slide.id)}
                   onDurationChange={(value) => changeDuration(slide.id, value)}
                   onMoveUp={() => moveSlide(slide.id, -1)}
@@ -126,6 +151,7 @@ export function TvSettingsPanel({ model, onSettingsChange }: TvSettingsPanelProp
             </div>
           </SortableContext>
         </DndContext>
+        {displayLinkControls ? <TvDisplayLinkPanel controls={displayLinkControls} /> : null}
         {status ? <p className="tv-settings-status">{status}</p> : null}
       </div>
     </details>
@@ -137,6 +163,7 @@ function TvSlideSettingsRow({
   disabled,
   isFirst,
   isLast,
+  isLastEnabled,
   onToggle,
   onDurationChange,
   onMoveUp,
@@ -146,6 +173,7 @@ function TvSlideSettingsRow({
   disabled: boolean
   isFirst: boolean
   isLast: boolean
+  isLastEnabled: boolean
   onToggle: () => void
   onDurationChange: (value: string) => void
   onMoveUp: () => void
@@ -169,13 +197,18 @@ function TvSlideSettingsRow({
         <GripVertical size={16} />
       </button>
       <label>
-        <input type="checkbox" checked={slide.enabled} disabled={disabled} onChange={onToggle} />
+        <input
+          type="checkbox"
+          checked={slide.enabled}
+          disabled={disabled || isLastEnabled}
+          onChange={onToggle}
+        />
         <span>{slide.title}</span>
       </label>
       <input
         aria-label={`${slide.title} duration seconds`}
         type="number"
-        min="1"
+        min="5"
         max="300"
         step="1"
         value={slide.durationSeconds}
@@ -199,5 +232,86 @@ function TvSlideSettingsRow({
         <ArrowDown size={16} />
       </button>
     </div>
+  )
+}
+
+function TvDisplayLinkPanel({ controls }: { controls: TvDisplayLinkControls }) {
+  const [status, setStatus] = useState<string | null>(null)
+
+  async function runAction(action: () => Promise<void>, success: string) {
+    setStatus(null)
+    try {
+      await action()
+      setStatus(success)
+    } catch (error) {
+      console.error(error)
+      setStatus("TV link action failed")
+    }
+  }
+
+  async function copyLink() {
+    if (!controls.displayUrl) return
+    try {
+      await navigator.clipboard.writeText(controls.displayUrl)
+      setStatus("Copied")
+    } catch (error) {
+      console.error(error)
+      setStatus("Copy failed")
+    }
+  }
+
+  return (
+    <section className="tv-display-link-panel" aria-label="TV display link">
+      <div>
+        <strong>TV display link</strong>
+        <p>
+          {controls.link
+            ? `Active link ${controls.link.fingerprint}`
+            : "No active display link"}
+        </p>
+      </div>
+      {controls.rawToken && controls.displayUrl ? (
+        <label>
+          <span>New link</span>
+          <input readOnly value={controls.displayUrl} />
+        </label>
+      ) : (
+        <p>Raw link is shown only after create or rotate. Rotate if it was lost.</p>
+      )}
+      <div className="tv-display-link-actions">
+        {controls.link ? (
+          <>
+            <button
+              type="button"
+              onClick={() => runAction(controls.onRotate, "Rotated")}
+            >
+              Rotate
+            </button>
+            <button
+              type="button"
+              onClick={() => runAction(controls.onRevoke, "Revoked")}
+            >
+              Revoke
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => runAction(controls.onCreate, "Created")}
+          >
+            Create
+          </button>
+        )}
+        <button type="button" disabled={!controls.displayUrl} onClick={copyLink}>
+          Copy
+        </button>
+        {controls.displayUrl ? (
+          <a href={controls.displayUrl} target="_blank" rel="noreferrer">
+            Open
+          </a>
+        ) : null}
+      </div>
+      {status ? <p className="tv-settings-status">{status}</p> : null}
+    </section>
   )
 }
