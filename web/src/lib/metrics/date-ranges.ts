@@ -67,6 +67,24 @@ export function formatUtcDay(timestamp: number) {
   return new Date(startOfUtcDay(timestamp)).toISOString().slice(0, 10)
 }
 
+export function daysInWindow(window: MetricRangeWindow) {
+  if (window.startMs === null || window.endMs === null) return []
+
+  return daysBetween(formatUtcDay(window.startMs), formatUtcDay(window.endMs - DAY_MS))
+}
+
+export function daysBetween(startDay: string, endDay: string) {
+  const startMs = parseUtcDay(startDay)
+  const endMs = parseUtcDay(endDay)
+  if (endMs < startMs) return []
+
+  const days: string[] = []
+  for (let timestamp = startMs; timestamp <= endMs; timestamp += DAY_MS) {
+    days.push(formatUtcDay(timestamp))
+  }
+  return days
+}
+
 function windowFromBounds(startMs: number, endMs: number): MetricRangeWindow {
   return {
     startMs,

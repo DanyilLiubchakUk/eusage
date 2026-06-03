@@ -24,6 +24,7 @@ import {
   type ProviderStatusRow,
 } from "./admin-overview-tables"
 import { formatCount, formatPercentDelta, formatProviderName, formatUsd } from "./dashboard-formatting"
+import { buildDashboardDateRangeBounds } from "./dashboard-date-range-bounds"
 import { dashboardDeviceName } from "./dashboard-device-name"
 import { dashboardSource, type ReadyDashboardState } from "./dashboard-source"
 
@@ -138,6 +139,7 @@ export function buildTvDashboardModel(state: ReadyDashboardState, now: number) {
   return {
     teamName: state.team.name,
     dateRange: source.dateRange,
+    dateBounds: buildDashboardDateRangeBounds(source.metricSamples, now),
     rangeLabel: range.label,
     slideSettings,
     slides,
@@ -327,8 +329,9 @@ function currentSamples(samples: UsageMetricSampleSourceRow[], window: MetricRan
 function cursorDeveloperRows(rows: UsageSnapshotSourceRow[]) {
   return rows
     .map((row) => {
-      const used = row.summary.provider?.cursor?.individualUsedUsd
-      const limit = row.summary.provider?.cursor?.individualLimitUsd
+      const cursor = row.summary.provider?.cursor
+      const used = cursor?.onDemandUsedUsd ?? cursor?.individualUsedUsd
+      const limit = cursor?.onDemandLimitUsd ?? cursor?.individualLimitUsd
       if (typeof used !== "number" || typeof limit !== "number" || limit <= 0) return null
       return {
         developerName: row.developerName ?? row.developerId,

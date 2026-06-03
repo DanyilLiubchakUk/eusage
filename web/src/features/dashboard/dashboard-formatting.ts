@@ -5,6 +5,10 @@ type ProviderTotalLike = {
 }
 
 export function formatCount(value: number) {
+  if (Math.abs(value) >= 1_000_000_000) return `${compactNumber(value / 1_000_000_000)} B`
+  if (Math.abs(value) >= 1_000_000) return `${compactNumber(value / 1_000_000)} M`
+  if (Math.abs(value) >= 1_000) return `${compactNumber(value / 1_000)} K`
+
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value)
 }
 
@@ -50,4 +54,14 @@ export function formatProviderName(providerId: string) {
 
 function numberOrNull(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function compactNumber(value: number) {
+  const multiplier = 100
+  const truncated = Math.trunc(value * multiplier) / multiplier
+
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: Math.abs(truncated) < 10 ? 2 : 0,
+  }).format(truncated)
 }

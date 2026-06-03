@@ -6,6 +6,7 @@ type DashboardChartDataset = {
   data: number[]
   borderColor?: string
   backgroundColor?: string
+  yAxisID?: "y" | "y1"
 }
 
 type DashboardChartProps = {
@@ -55,7 +56,11 @@ export function DashboardChart({
   }, [type, labels, datasets, hasData])
 
   if (!hasData) {
-    return <p className="admin-chart-empty">{emptyLabel}</p>
+    return (
+      <div className="admin-chart-frame admin-chart-frame-empty">
+        <p className="admin-chart-empty">{emptyLabel}</p>
+      </div>
+    )
   }
 
   return (
@@ -77,6 +82,8 @@ function chartConfig(
   labels: string[],
   datasets: DashboardChartDataset[]
 ): ChartConfiguration {
+  const hasRightAxis = datasets.some((dataset) => dataset.yAxisID === "y1")
+
   return {
     type,
     data: {
@@ -84,11 +91,12 @@ function chartConfig(
       datasets: datasets.map((dataset) => ({
         label: dataset.label,
         data: dataset.data,
+        yAxisID: dataset.yAxisID ?? "y",
         borderColor: dataset.borderColor ?? "#0f766e",
         backgroundColor: dataset.backgroundColor ?? "rgba(15, 118, 110, 0.18)",
         borderWidth: type === "line" ? 2 : 0,
         borderRadius: type === "bar" ? 4 : 0,
-        fill: type === "line",
+        fill: type === "line" && dataset.yAxisID !== "y1",
         tension: type === "line" ? 0.25 : 0,
         pointRadius: type === "line" ? 3 : 0,
       })),
@@ -107,6 +115,15 @@ function chartConfig(
         },
         tooltip: {
           enabled: true,
+          callbacks: {
+            label: (context) => {
+              const label = context.dataset.label ? `${context.dataset.label}: ` : ""
+              const value = Number(context.parsed.y)
+              const formatted =
+                context.dataset.yAxisID === "y1" ? formatUsdAxisValue(value) : compactAxisValue(value)
+              return `${label}${formatted}`
+            },
+          },
         },
       },
       scales: {
@@ -115,20 +132,74 @@ function chartConfig(
             display: false,
           },
           ticks: {
+            autoSkip: false,
             color: "#64748b",
-            maxRotation: 0,
+            maxRotation: 45,
+            minRotation: labels.length > 14 ? 45 : 0,
           },
         },
         y: {
           beginAtZero: true,
+          position: "left",
           grid: {
             color: "rgba(148, 163, 184, 0.28)",
           },
+          title: {
+            display: hasRightAxis,
+            text: "Tokens",
+            color: "#334155",
+          },
           ticks: {
             color: "#64748b",
+            callback: (value) => compactAxisValue(Number(value)),
           },
         },
+        ...(hasRightAxis
+          ? {
+              y1: {
+                beginAtZero: true,
+                position: "right" as const,
+                grid: {
+                  drawOnChartArea: false,
+                },
+                title: {
+                  display: true,
+                  text: "API equivalent",
+                  color: "#334155",
+                },
+                ticks: {
+                  color: "#64748b",
+                  callback: (value: string | number) => formatUsdAxisValue(Number(value)),
+                },
+              },
+            }
+          : {}),
       },
     },
   }
+}
+
+function compactAxisValue(value: number) {
+  if (!Number.isFinite(value)) return ""
+  const absolute = Math.abs(value)
+  if (absolute >= 1_000_000_000) return `${formatAxisNumber(value / 1_000_000_000)}B`
+  if (absolute >= 1_000_000) return `${formatAxisNumber(value / 1_000_000)}M`
+  if (absolute >= 1_000) return `${formatAxisNumber(value / 1_000)}K`
+  return String(value)
+}
+
+function formatAxisNumber(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: value < 10 ? 1 : 0,
+  }).format(value)
+}
+
+function formatUsdAxisValue(value: number) {
+  if (!Number.isFinite(value)) return ""
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
 }

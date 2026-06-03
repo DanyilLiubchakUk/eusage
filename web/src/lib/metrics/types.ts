@@ -31,6 +31,7 @@ export type CursorSummary = {
   planLimitUsd?: number
   onDemandUsedUsd?: number
   onDemandLimitUsd?: number
+  onDemandRemainingUsd?: number
   individualUsedUsd?: number
   individualLimitUsd?: number
   individualRemainingUsd?: number

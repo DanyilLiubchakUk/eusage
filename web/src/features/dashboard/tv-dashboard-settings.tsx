@@ -129,6 +129,7 @@ export function TvSettingsPanel({
       <div className="tv-settings-body">
         <AdminDateRangeControls
           value={model.dateRange}
+          bounds={model.dateBounds}
           onChange={(dateRange) => save({ dateRange })}
         />
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={dragEnd}>

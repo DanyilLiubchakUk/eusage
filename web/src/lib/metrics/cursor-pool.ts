@@ -1,8 +1,6 @@
-import { isTimestampInWindow } from "./date-ranges"
 import {
   dedupeLatestDeviceSnapshots,
   finiteNumber,
-  snapshotRangeTimestamp,
 } from "./usage-metrics"
 import type { MetricRangeWindow, UsageSnapshotSourceRow } from "./types"
 
@@ -28,7 +26,6 @@ export function calculateCursorPool(args: {
 }): CursorPoolMetrics {
   const cursorRows = dedupeLatestDeviceSnapshots(args.snapshots)
     .filter((row) => row.providerId === "cursor")
-    .filter((row) => isTimestampInWindow(snapshotRangeTimestamp(row), args.window))
 
   const pooled = latestPooledCursorRow(cursorRows)
   if (pooled) return pooled
@@ -142,11 +139,21 @@ function individualFields(row: UsageSnapshotSourceRow): PoolFields | null {
   const cursor = row.summary.provider?.cursor
   if (!cursor) return null
 
-  const limitUsd = finiteNumber(cursor.individualLimitUsd ?? cursor.individualLimit)
+  const limitUsd = finiteNumber(
+    cursor.onDemandLimitUsd ??
+      cursor.onDemandLimit ??
+      cursor.individualLimitUsd ??
+      cursor.individualLimit
+  )
   if (limitUsd <= 0) return null
 
-  const explicitUsed = cursor.individualUsedUsd ?? cursor.individualUsed
-  const remaining = cursor.individualRemainingUsd ?? cursor.individualRemaining
+  const explicitUsed =
+    cursor.onDemandUsedUsd ?? cursor.onDemandUsed ?? cursor.individualUsedUsd ?? cursor.individualUsed
+  const remaining =
+    cursor.onDemandRemainingUsd ??
+    cursor.onDemandRemaining ??
+    cursor.individualRemainingUsd ??
+    cursor.individualRemaining
   const usedUsd =
     typeof explicitUsed === "number" && Number.isFinite(explicitUsed)
       ? explicitUsed

@@ -1,5 +1,6 @@
 import {
   buildTotalTokenSeries,
+  buildTotalEstimatedCostSeries,
   calculateCursorPool,
   calculateDashboardUsage,
   calculateQuotaPressure,
@@ -25,6 +26,7 @@ import {
   buildRecentSyncRows,
   type QuotaPressureRow,
 } from "./admin-overview-tables"
+import { buildDashboardDateRangeBounds } from "./dashboard-date-range-bounds"
 import type { AdminProviderFilter } from "./admin-provider-visibility-controls"
 
 export type {
@@ -69,6 +71,10 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
     samples: source.metricSamples,
     window: range.current,
   })
+  const estimatedCostSeries = buildTotalEstimatedCostSeries({
+    samples: source.metricSamples,
+    window: range.current,
+  })
   const syncHealth = buildSyncHealth(source.developers)
   const freshnessLabel = formatUpdateFreshnessLabel(
     visibleUpdateTimestamps(source, range.current, usage.comparison.current),
@@ -78,6 +84,7 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
   return {
     teamName: state.team.name,
     dateRange: source.dateRange,
+    dateBounds: buildDashboardDateRangeBounds(source.metricSamples, now),
     providerFilters: buildProviderFilters(state, source.visibleProviderIds),
     rangeLabel: usage.range.label,
     freshnessLabel,
@@ -131,6 +138,7 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
     cursorPool,
     quota,
     syncHealth,
+    estimatedCostSeries,
   }
 }
 
@@ -209,9 +217,9 @@ function buildKpis(args: {
       meta: args.syncHealth.status,
     },
     {
-      label: "Cursor pool remaining",
+      label: "Cursor budget remaining",
       value: args.cursorPool.available ? formatUsd(args.cursorPool.remainingUsd) : "No data yet",
-      meta: args.cursorPool.available ? args.cursorPool.coverage.label : "No Cursor pool data",
+      meta: args.cursorPool.available ? args.cursorPool.coverage.label : "No Cursor budget data",
     },
   ]
 }

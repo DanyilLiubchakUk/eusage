@@ -1,4 +1,6 @@
 import {
+  daysBetween,
+  daysInWindow,
   isSampleDayInWindow,
   isTimestampInWindow,
   resolveMetricDateRange,
@@ -272,10 +274,45 @@ export function buildTotalTokenSeries(args: {
   return {
     metricKey: "tokens.total",
     unit: "tokens",
-    points: [...valuesByDay.entries()]
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([day, value]) => ({ day, value })),
+    points: filledSeriesPoints(valuesByDay, args.window),
   }
+}
+
+export function buildTotalEstimatedCostSeries(args: {
+  samples: UsageMetricSampleSourceRow[]
+  window: MetricRangeWindow
+}): MetricSeries {
+  const valuesByDay = new Map<string, number>()
+
+  for (const sample of canonicalConsumedSamples(args.samples, args.window).filter(isEstimatedCostSample)) {
+    valuesByDay.set(sample.sampleDay, (valuesByDay.get(sample.sampleDay) ?? 0) + sample.value)
+  }
+
+  return {
+    metricKey: "cost.estimated",
+    unit: "usd",
+    points: filledSeriesPoints(valuesByDay, args.window),
+  }
+}
+
+function filledSeriesPoints(valuesByDay: Map<string, number>, window: MetricRangeWindow) {
+  if (valuesByDay.size === 0) return []
+
+  const sortedDays = [...valuesByDay.keys()].sort()
+  const firstSampleDay = sortedDays[0]
+  const lastSampleDay = sortedDays[sortedDays.length - 1]
+  const days =
+    window.startMs === null || window.endMs === null
+      ? daysBetween(firstSampleDay, lastSampleDay)
+      : daysInWindow(window).filter((day) => day >= firstSampleDay)
+
+  if (days.length > 0) {
+    return days.map((day) => ({ day, value: valuesByDay.get(day) ?? 0 }))
+  }
+
+  return [...valuesByDay.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([day, value]) => ({ day, value }))
 }
 
 export function isTotalTokenSample(sample: UsageMetricSampleSourceRow) {

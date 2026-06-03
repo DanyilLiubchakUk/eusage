@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   buildMetricSeries,
+  buildTotalEstimatedCostSeries,
   buildTotalTokenSeries,
   buildMetricUnitSeries,
   calculateSampledUsage,
@@ -113,10 +114,72 @@ describe("dashboard metrics", () => {
 
     const usage = calculateSampledUsage({ samples, window: range.current })
     const series = buildTotalTokenSeries({ samples, window: range.current })
+    const costSeries = buildTotalEstimatedCostSeries({ samples, window: range.current })
 
     expect(usage.tokensTotal).toBe(19_000_000)
     expect(usage.estimatedCostUsd).toBe(23.2)
-    expect(series.points).toEqual([{ day: "2026-06-01", value: 19_000_000 }])
+    expect(series.points).toEqual([
+      { day: "2026-06-01", value: 19_000_000 },
+    ])
+    expect(costSeries.points).toEqual([
+      { day: "2026-06-01", value: 23.2 },
+    ])
+  })
+
+  it("trims leading empty days from filled token chart ranges", () => {
+    const range = resolveMetricDateRange({ preset: "last90" }, now)
+
+    const series = buildTotalTokenSeries({
+      samples: [
+        sample({ sampleDay: "2026-05-28", value: 12 }),
+        sample({ sampleDay: "2026-05-30", value: 8 }),
+      ],
+      window: range.current,
+    })
+
+    expect(series.points.at(0)).toEqual({ day: "2026-05-28", value: 12 })
+    expect(series.points).toContainEqual({ day: "2026-05-29", value: 0 })
+    expect(series.points.at(-1)).toEqual({ day: "2026-06-01", value: 0 })
+  })
+
+  it("fills all-time token chart days between first and last sample", () => {
+    const range = resolveMetricDateRange({ preset: "allTime" }, now)
+
+    const series = buildTotalTokenSeries({
+      samples: [
+        sample({ sampleDay: "2026-05-04", value: 120 }),
+        sample({ sampleDay: "2026-05-06", value: 165 }),
+      ],
+      window: range.current,
+    })
+
+    expect(series.points).toEqual([
+      { day: "2026-05-04", value: 120 },
+      { day: "2026-05-05", value: 0 },
+      { day: "2026-05-06", value: 165 },
+    ])
+  })
+
+  it("fills custom token chart days after the first in-range sample", () => {
+    const range = resolveMetricDateRange(
+      { preset: "custom", startDay: "2026-05-01", endDay: "2026-05-06" },
+      now
+    )
+
+    const series = buildTotalTokenSeries({
+      samples: [
+        sample({ sampleDay: "2026-05-03", value: 30 }),
+        sample({ sampleDay: "2026-05-06", value: 60 }),
+      ],
+      window: range.current,
+    })
+
+    expect(series.points).toEqual([
+      { day: "2026-05-03", value: 30 },
+      { day: "2026-05-04", value: 0 },
+      { day: "2026-05-05", value: 0 },
+      { day: "2026-05-06", value: 60 },
+    ])
   })
 
   it("sums device-scoped consumed samples and ignores legacy unscoped duplicates", () => {
@@ -159,10 +222,16 @@ describe("dashboard metrics", () => {
 
     const usage = calculateSampledUsage({ samples, window: range.current })
     const series = buildTotalTokenSeries({ samples, window: range.current })
+    const costSeries = buildTotalEstimatedCostSeries({ samples, window: range.current })
 
     expect(usage.tokensTotal).toBe(23_000_000)
     expect(usage.estimatedCostUsd).toBe(28.2)
-    expect(series.points).toEqual([{ day: "2026-06-01", value: 23_000_000 }])
+    expect(series.points).toEqual([
+      { day: "2026-06-01", value: 23_000_000 },
+    ])
+    expect(costSeries.points).toEqual([
+      { day: "2026-06-01", value: 28.2 },
+    ])
   })
 
   it("omits comparison deltas for all-time ranges", () => {
@@ -236,6 +305,61 @@ describe("dashboard metrics", () => {
         missingDevelopers: 1,
         label: "2/3 developers reporting budget data",
       },
+    })
+  })
+
+  it("uses Cursor on-demand fields when individual fields are missing", () => {
+    const range = resolveMetricDateRange({ preset: "last7" }, now)
+
+    const pool = calculateCursorPool({
+      snapshots: [
+        cursorSnapshot("alex", {
+          onDemandLimitUsd: 5,
+          onDemandUsedUsd: 0,
+        }),
+      ],
+      window: range.current,
+      visibleDeveloperIds: ["alex"],
+    })
+
+    expect(pool).toMatchObject({
+      available: true,
+      source: "teamOnDemandFallback",
+      limitUsd: 5,
+      usedUsd: 0,
+      remainingUsd: 5,
+      coverage: {
+        reportingDevelopers: 1,
+        totalDevelopers: 1,
+        missingDevelopers: 0,
+        label: "1/1 developers reporting budget data",
+      },
+    })
+  })
+
+  it("keeps current Cursor budget visible when billing period ends after the selected range", () => {
+    const range = resolveMetricDateRange({ preset: "last7" }, now)
+
+    const pool = calculateCursorPool({
+      snapshots: [
+        cursorSnapshot("alex", {
+          pooledLimitUsd: 500,
+          pooledUsedUsd: 120,
+        }, {
+          periodStart: Date.UTC(2026, 5, 1),
+          periodEnd: Date.UTC(2026, 6, 1),
+        }),
+      ],
+      window: range.current,
+      visibleDeveloperIds: ["alex"],
+    })
+
+    expect(pool).toMatchObject({
+      available: true,
+      source: "providerReportedPooled",
+      limitUsd: 500,
+      usedUsd: 120,
+      remainingUsd: 380,
     })
   })
 
@@ -433,13 +557,15 @@ function snapshot(
 
 function cursorSnapshot(
   developerId: string,
-  cursor: NonNullable<UsageSnapshotSourceRow["summary"]["provider"]>["cursor"]
+  cursor: NonNullable<UsageSnapshotSourceRow["summary"]["provider"]>["cursor"],
+  overrides: Partial<UsageSnapshotSourceRow> = {}
 ) {
   return snapshot({
     developerId,
     providerId: "cursor",
     dataIdentity: `cursor:${developerId}:2026-06-01`,
     provider: { cursor },
+    ...overrides,
   })
 }
 
