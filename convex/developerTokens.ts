@@ -1,3 +1,5 @@
+import { fingerprintSecretHash, generateSecret, hashSecret } from "./tokenSecrets"
+
 export type DeveloperStatus = "active" | "inactive"
 export type DeveloperTokenStatus = "active" | "revoked"
 
@@ -172,22 +174,15 @@ export async function createDeveloperWithToken(args: {
 }
 
 export function generateDeveloperToken(bytes = randomBytes(32)) {
-  return `eusage_dev_${bytesToBase64Url(bytes)}`
+  return generateSecret("eusage_dev", bytes)
 }
 
 export async function hashDeveloperToken(rawToken: string) {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(rawToken)
-  )
-
-  return Array.from(new Uint8Array(digest), (byte) =>
-    byte.toString(16).padStart(2, "0")
-  ).join("")
+  return hashSecret(rawToken)
 }
 
 export function fingerprintDeveloperTokenHash(tokenHash: string) {
-  return `${tokenHash.slice(0, 8)}...${tokenHash.slice(-8)}`
+  return fingerprintSecretHash(tokenHash)
 }
 
 export function buildDeveloperConnectionString(args: {
@@ -231,15 +226,6 @@ function randomBytes(length: number) {
     bytes[index] = Math.floor(Math.random() * 256)
   }
   return bytes
-}
-
-function bytesToBase64Url(bytes: Uint8Array) {
-  let binary = ""
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte)
-  }
-
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")
 }
 
 function trimOptional(value: string | undefined) {
