@@ -1,0 +1,28 @@
+{
+  "version": "0.6.24",
+  "description": "Internal team AI usage tracker",
+  "homepage": "https://github.com/DanyilLiubchakUk/eusage",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/DanyilLiubchakUk/eusage/releases/download/v0.6.24/REPLACE_WITH_WINDOWS_INSTALLER_ASSET_NAME.exe",
+      "hash": "REPLACE_WITH_EXE_SHA256"
+    }
+  },
+  "installer": {
+    "args": ["/S"]
+  },
+  "uninstaller": {
+    "args": ["/S"]
+  },
+  "checkver": {
+    "github": "https://github.com/DanyilLiubchakUk/eusage"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/DanyilLiubchakUk/eusage/releases/download/v$version/REPLACE_WITH_WINDOWS_INSTALLER_ASSET_NAME.exe"
+      }
+    }
+  }
+}

@@ -31,6 +31,8 @@ The free update host is GitHub Releases. No paid update server is needed.
 
 GitHub Actions and GitHub Releases are enough for this path.
 
+For first-install package-manager setup, see [Desktop package managers](desktop-package-managers.md).
+
 ## Windows install
 
 Windows v1 uses an unsigned x64 installer. This is free.
@@ -43,6 +45,8 @@ Expected user experience:
 - After first install, future updates use the in-app updater button.
 
 This matches Decision 0048.
+
+For technical users, a private Scoop bucket gives a repeatable free install command. It does not remove SmartScreen warnings for unsigned installers.
 
 Paid path later:
 
@@ -57,7 +61,7 @@ Fully smooth macOS install is not free. Apple requires Developer ID signing and 
 Free internal path:
 
 - Build and publish unsigned or ad-hoc signed DMGs.
-- Users may need to bypass Gatekeeper manually.
+- Users install with a private Homebrew cask and `--no-quarantine`, or manually bypass Gatekeeper.
 - This can work for a tiny dev team, but it is not a clean teammate-ready path.
 
 Teammate-ready path:
