@@ -62,7 +62,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU5N0VGMUEyNjM1RTg5NTEKUldSUmlWNWpvdkYrNlMwY0xOYTFvN21QOG1KL1JYTTBHN2FzRWIrMkpzajJKeiswMG9LblRGK2UK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI5MzE1RDBENUMzNTY3RUUKUldUdVp6VmNEVjB4dWY0Qk5ZRUd4TDhJZU1lRWcwTkN2OGtGaUlBQXgycGpWdjUwN09HamNjVDgK",
       "endpoints": [
         "https://github.com/DanyilLiubchakUk/eusage/releases/latest/download/latest.json"
       ]
