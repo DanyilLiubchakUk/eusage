@@ -10,6 +10,7 @@ import {
 } from "../features/dashboard/dashboard-placeholders"
 import type { MetricDateRangeInput } from "../lib/metrics"
 import { SetupStatusView } from "../features/setup/setup-status-view"
+import { AppShell } from "../features/shell/app-shell"
 
 const setupQuery = convexQuery(api.setup.get, {})
 
@@ -24,11 +25,15 @@ export const Route = createFileRoute("/")({
 function Home() {
   const { data: setupState } = useSuspenseQuery(setupQuery)
 
-  if (setupState.status !== "setup-complete") {
-    return <SetupStatusView state={setupState} />
-  }
-
-  return <HomeDashboard />
+  return (
+    <AppShell>
+      {setupState.status !== "setup-complete" ? (
+        <SetupStatusView state={setupState} />
+      ) : (
+        <HomeDashboard />
+      )}
+    </AppShell>
+  )
 }
 
 function HomeDashboard() {

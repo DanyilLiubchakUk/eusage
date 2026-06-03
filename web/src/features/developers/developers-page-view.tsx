@@ -1,6 +1,7 @@
 import { type FormEvent, type ReactNode, useRef, useState } from "react"
 import { buildDeveloperConnectionString } from "../../../../convex/developerTokens"
 import { DeveloperTable } from "./developer-table"
+import "./developers-page.css"
 import type {
   CreateDeveloperResult,
   DeveloperMutationResult,
@@ -111,14 +112,14 @@ export function DevelopersPageView({
   }
 
   return (
-    <main className="admin-page">
-      <section className="setup-hero" aria-labelledby="developers-title">
+    <main className="admin-page developers-page">
+      <section className="setup-hero developers-hero" aria-labelledby="developers-title">
         <p className="setup-eyebrow">Admin Developers</p>
         <h1 id="developers-title">Developers</h1>
         <p className="setup-copy">{pageCopy(state)}</p>
       </section>
 
-      <section className="setup-panel setup-panel-wide" aria-label="Admin state">
+      <section className="setup-panel setup-panel-wide developers-state-strip" aria-label="Admin state">
         <div>
           <span className="setup-label">Backend state</span>
           <strong>{state.status}</strong>
@@ -156,7 +157,7 @@ export function DevelopersPageView({
 
       {state.status === "ready" && auth.isLoaded && auth.isSignedIn ? (
         <>
-          <form className="setup-card setup-form" onSubmit={handleSubmit}>
+          <form className="setup-card setup-form developers-create-form" onSubmit={handleSubmit}>
             <div className="setup-user-row">{userSlot}</div>
             <label>
               <span className="setup-label">Developer name</span>

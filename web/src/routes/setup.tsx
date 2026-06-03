@@ -9,6 +9,7 @@ import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { api } from "../../../convex/_generated/api"
 import { SetupClaimView } from "../features/setup/setup-claim-view"
+import { AppShell } from "../features/shell/app-shell"
 
 const setupQuery = convexQuery(api.setup.get, {})
 
@@ -30,37 +31,41 @@ function SetupRoute() {
     user?.primaryEmailAddress?.emailAddress ?? user?.fullName ?? user?.id ?? null
 
   return (
-    <SetupClaimView
-      state={data}
-      auth={{
-        isLoaded,
-        isSignedIn: isSignedIn === true,
-        userLabel,
-      }}
-      signInSlot={
-        <SignInButton mode="modal">
-          <button className="setup-button" type="button">
-            Sign in
-          </button>
-        </SignInButton>
-      }
-      userSlot={<UserButton />}
-      onClaim={async (input) => {
-        const result = await claimOwner(input)
-        await queryClient.invalidateQueries({ queryKey: setupQuery.queryKey })
-        return result
-      }}
-    />
+    <AppShell>
+      <SetupClaimView
+        state={data}
+        auth={{
+          isLoaded,
+          isSignedIn: isSignedIn === true,
+          userLabel,
+        }}
+        signInSlot={
+          <SignInButton mode="modal">
+            <button className="setup-button" type="button">
+              Sign in
+            </button>
+          </SignInButton>
+        }
+        userSlot={<UserButton />}
+        onClaim={async (input) => {
+          const result = await claimOwner(input)
+          await queryClient.invalidateQueries({ queryKey: setupQuery.queryKey })
+          return result
+        }}
+      />
+    </AppShell>
   )
 }
 
 function SetupLoading() {
   return (
-    <main className="setup-page">
-      <section className="setup-card" aria-label="Setup loading">
-        <strong>Loading setup...</strong>
-        <p>Checking backend state.</p>
-      </section>
-    </main>
+    <AppShell>
+      <main className="setup-page">
+        <section className="setup-card" aria-label="Setup loading">
+          <strong>Loading setup...</strong>
+          <p>Checking backend state.</p>
+        </section>
+      </main>
+    </AppShell>
   )
 }

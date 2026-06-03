@@ -8,6 +8,8 @@ import {
   Scripts,
 } from "@tanstack/react-router"
 import type { QueryClient } from "@tanstack/react-query"
+import { themeBootstrapScript } from "../lib/theme"
+import "../theme.css"
 import "../styles.css"
 
 export const Route = createRootRouteWithContext<{
@@ -35,6 +37,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         <HeadContent />
       </head>
       <body>

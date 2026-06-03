@@ -28,7 +28,7 @@ export function DeveloperTable({
 }: DeveloperTableProps) {
   if (state.developers.length === 0) {
     return (
-      <section className="setup-card" aria-label="Developers">
+      <section className="setup-card developer-table-card" aria-label="Developers">
         <p>No developers yet.</p>
       </section>
     )

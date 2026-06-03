@@ -10,6 +10,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { DevelopersPageView } from "../features/developers/developers-page-view"
+import { AppShell } from "../features/shell/app-shell"
 
 export const Route = createFileRoute("/developers")({
   component: DevelopersRoute,
@@ -48,7 +49,8 @@ function DevelopersRoute() {
   if (auth.isSignedIn && !data) return <DevelopersLoading />
 
   return (
-    <DevelopersPageView
+    <AppShell>
+      <DevelopersPageView
       state={data ?? signedOutState}
       auth={{
         ...auth,
@@ -82,21 +84,24 @@ function DevelopersRoute() {
           developerId: input.developerId as Id<"developers">,
           tokenLabel: input.tokenLabel,
         })
-        await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
-        return result
-      }}
-    />
+          await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
+          return result
+        }}
+      />
+    </AppShell>
   )
 }
 
 function DevelopersLoading() {
   return (
-    <main className="admin-page">
-      <section className="setup-card" aria-label="Developers loading">
-        <strong>Loading developers...</strong>
-        <p>Checking sign-in.</p>
-      </section>
-    </main>
+    <AppShell>
+      <main className="admin-page">
+        <section className="setup-card" aria-label="Developers loading">
+          <strong>Loading developers...</strong>
+          <p>Checking sign-in.</p>
+        </section>
+      </main>
+    </AppShell>
   )
 }
 
