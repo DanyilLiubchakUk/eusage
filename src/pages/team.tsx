@@ -201,51 +201,64 @@ function DeviceNameEditor({
     setDeviceName(connection.deviceName)
   }, [connection.deviceName])
 
+  const detectedName = connection.detectedDeviceName ?? connection.deviceName
   const trimmed = deviceName.trim()
   const isSavedOverride = trimmed === (connection.deviceNameOverride ?? "")
   const canSave = Boolean(trimmed) && trimmed !== connection.deviceName && !isSavedOverride
+  const canRevertEdit = deviceName !== connection.deviceName
 
   return (
-    <section className="rounded-md border bg-muted/30 p-3 space-y-2.5">
-      <div className="min-w-0">
-        <h2 className="text-xs font-semibold tracking-normal">Device name</h2>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-          Admin and TV sync health label
-        </p>
-      </div>
+    <section>
+      <h3 className="text-lg font-semibold mb-0">Device Name</h3>
+      <p
+        className="mb-2 truncate text-sm text-muted-foreground"
+        title={`Detected: ${detectedName}`}
+      >
+        Admin and TV sync label. Detected: {detectedName}
+      </p>
 
-      <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+      <div
+        className={cn(
+          "flex h-8 items-center rounded-md border bg-muted/50 px-2 transition-colors",
+          "focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]"
+        )}
+      >
         <input
           aria-label="Device name"
           value={deviceName}
           onChange={(event) => setDeviceName(event.target.value)}
-          className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-xs outline-none"
+          className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground"
         />
         <Button
           type="button"
-          size="sm"
-          className="h-8 shrink-0"
+          size="icon-xs"
+          aria-label="Save"
+          className="ml-1"
           disabled={busy || !canSave}
           onClick={() => onUpdateDeviceName(trimmed)}
         >
-          <Save className="size-4" />
-          Save
+          <Save className="size-3.5" />
         </Button>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-xs text-muted-foreground">
-          Detected: {connection.detectedDeviceName ?? connection.deviceName}
-        </span>
+      <div className="mt-2 flex items-center gap-2">
         <Button
           type="button"
-          size="sm"
-          variant="ghost"
-          className="h-7 shrink-0 px-2"
+          size="xs"
+          variant="outline"
+          disabled={busy || !canRevertEdit}
+          onClick={() => setDeviceName(connection.deviceName)}
+        >
+          Revert
+        </Button>
+        <Button
+          type="button"
+          size="xs"
+          variant="outline"
           disabled={busy || !connection.deviceNameOverride}
           onClick={() => onUpdateDeviceName(null)}
         >
-          <RotateCcw className="size-3.5" />
+          <RotateCcw className="size-3" />
           Reset
         </Button>
       </div>
