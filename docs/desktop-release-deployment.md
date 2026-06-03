@@ -67,7 +67,8 @@ Free internal path:
 Teammate-ready path:
 
 - Use a paid Apple Developer account.
-- Add these GitHub secrets:
+- Add Apple signing and notarization back to the publish workflow.
+- Then add these GitHub secrets:
   - `APPLE_CERTIFICATE`
   - `APPLE_CERTIFICATE_PASSWORD`
   - `KEYCHAIN_PASSWORD`
@@ -78,6 +79,7 @@ Teammate-ready path:
 - Keep `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` for updater signatures.
 - Push a release tag.
 - GitHub Actions signs, notarizes, publishes DMGs, and uploads updater metadata.
+- The current free workflow intentionally does not read Apple secrets.
 
 ## Required secrets
 
@@ -91,6 +93,7 @@ Required for both OSes:
 Required only for smooth macOS distribution:
 
 - Apple Developer signing and notarization secrets listed above.
+- A workflow update that passes those secrets to Tauri.
 
 ## What the button does
 
