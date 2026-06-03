@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest"
+import type { Id } from "./_generated/dataModel"
 import type { QueryCtx } from "./_generated/server"
 import { dashboardSourceRowsForTeam } from "./dashboardSourceRows"
 
 const now = Date.UTC(2026, 5, 3, 9, 10)
+const teamId = "team-1" as Id<"teams">
+const developerId = "developer-1" as Id<"developers">
+const deviceId = "device-1" as Id<"devices">
 const team = {
-  _id: "team-1",
+  _id: teamId,
   name: "eUsage Team",
   slug: "eusage-team",
 }
 const developer = {
-  _id: "developer-1",
-  teamId: "team-1",
+  _id: developerId,
+  teamId,
   displayName: "Danyil",
   status: "active",
   createdAt: now,
@@ -18,9 +22,9 @@ const developer = {
 }
 const codexSnapshot = {
   _id: "snapshot-codex",
-  teamId: "team-1",
-  developerId: "developer-1",
-  deviceId: "device-1",
+  teamId,
+  developerId,
+  deviceId,
   providerId: "codex",
   periodKey: "codex:2026-06-03",
   dataIdentity: "codex:daily:2026-06-03",
@@ -31,10 +35,10 @@ const codexSnapshot = {
 }
 const codexSample = {
   _id: "metric-codex",
-  teamId: "team-1",
+  teamId,
   providerId: "codex",
-  developerId: "developer-1",
-  deviceId: "device-1",
+  developerId,
+  deviceId,
   metricKey: "codex.tokens.total",
   value: 100,
   unit: "tokens",
@@ -46,9 +50,9 @@ const codexSample = {
   updatedAt: now,
 }
 const device = {
-  _id: "device-1",
-  teamId: "team-1",
-  developerId: "developer-1",
+  _id: deviceId,
+  teamId,
+  developerId,
   deviceId: "device-1",
   deviceName: "Unknown device",
   os: "windows",
@@ -103,7 +107,7 @@ describe("dashboard source rows", () => {
         providers: [],
         tvSettings: [
           {
-            teamId: "team-1",
+            teamId,
             dateRange: { preset: "last7" },
             visibleProviderIds: ["cursor"],
             visibleDeveloperIds: undefined,
@@ -142,7 +146,7 @@ describe("dashboard source rows", () => {
 function provider(providerId: string, status: "enabled" | "disabled") {
   return {
     _id: `provider-${providerId}`,
-    teamId: "team-1",
+    teamId,
     providerId,
     name: providerId,
     status,
