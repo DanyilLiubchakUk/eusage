@@ -294,10 +294,10 @@ export function buildAvailableMetricRows(args: {
       })
     ),
     metricRow(
-      "Cursor pool",
+      "Cursor budget",
       args.cursorPool.available ? formatUsd(args.cursorPool.remainingUsd) : "No data yet",
       "Cursor",
-      args.cursorPool.available ? args.cursorPool.coverage.label : "No Cursor pool data",
+      args.cursorPool.available ? args.cursorPool.coverage.label : "No Cursor budget data",
       metricTooltip({
         meaning: "Remaining Cursor shared pool or summed Team On-Demand budget.",
         source: "Cursor pooled fields first, then per-developer fallback.",

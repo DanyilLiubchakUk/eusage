@@ -13,10 +13,10 @@ export function CursorPoolPanel({ pool }: CursorPoolPanelProps) {
   if (!pool.available) {
     return (
       <div className="admin-cursor-pool">
-        <p className="admin-empty-row">No Cursor pool data yet</p>
+        <p className="admin-empty-row">No Cursor budget data yet</p>
         <span className="admin-helper-text">
           {pool.coverage.label}. eUsage uses Cursor pooled fields first, then Team
-          On-Demand limits from synced Cursor rows.
+          On-Demand budget from synced Cursor rows.
         </span>
       </div>
     )

@@ -8,6 +8,7 @@ import {
   DashboardLoading,
   DashboardSignInRequired,
 } from "../features/dashboard/dashboard-placeholders"
+import { DASHBOARD_SOURCE_REFETCH_INTERVAL_MS } from "../features/dashboard/dashboard-refresh"
 import type { MetricDateRangeInput } from "../lib/metrics"
 import { SetupStatusView } from "../features/setup/setup-status-view"
 import { AppShell } from "../features/shell/app-shell"
@@ -42,9 +43,13 @@ function HomeDashboard() {
     api.dashboard.sourceRows,
     auth.isLoaded && auth.isSignedIn ? {} : "skip"
   )
-  const { data: dashboardState } = useQuery(dashboardSourceQuery)
+  const { data: dashboardState } = useQuery({
+    ...dashboardSourceQuery,
+    refetchInterval: DASHBOARD_SOURCE_REFETCH_INTERVAL_MS,
+  })
   const queryClient = useQueryClient()
   const updateDashboardSettings = useConvexMutation(api.dashboard.updateDashboardSettings)
+  const clearTeamData = useConvexMutation(api.dashboard.clearTeamData)
 
   if (!auth.isLoaded) return <DashboardLoading />
   if (!auth.isSignedIn) return <DashboardSignInRequired signInSlot={<DashboardSignInButton />} />
@@ -69,6 +74,14 @@ function HomeDashboard() {
           throw new Error(`Dashboard settings update failed: ${result.status}`)
         }
         await queryClient.invalidateQueries({ queryKey: dashboardSourceQuery.queryKey })
+      }}
+      onClearTeamData={async () => {
+        const result = await clearTeamData({ confirm: "DELETE TEAM DATA" })
+        if (result.status !== "ok") {
+          throw new Error(`Team data delete failed: ${result.status}`)
+        }
+        await queryClient.invalidateQueries({ queryKey: dashboardSourceQuery.queryKey })
+        return { deleted: result.deleted }
       }}
     />
   )

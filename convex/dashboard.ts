@@ -183,6 +183,41 @@ export const updateTvSettings = mutation({
   },
 })
 
+export const clearTeamData = mutation({
+  args: {
+    confirm: v.literal("DELETE TEAM DATA"),
+  },
+  handler: async (ctx) => {
+    const ownerState = await getOwnerTeamState(ctx)
+    if (ownerState.status !== "ready") return ownerState
+
+    const deleted = {
+      developers: 0,
+      developerTokens: 0,
+      devices: 0,
+      metricSamples: 0,
+      providers: 0,
+      rawPayloads: 0,
+      syncErrors: 0,
+      usageSnapshots: 0,
+    }
+
+    deleted.metricSamples = await deleteTeamRows(ctx, "metricSamples", ownerState.team._id)
+    deleted.usageSnapshots = await deleteTeamRows(ctx, "usageSnapshots", ownerState.team._id)
+    deleted.rawPayloads = await deleteTeamRows(ctx, "rawPayloads", ownerState.team._id)
+    deleted.syncErrors = await deleteTeamRows(ctx, "syncErrors", ownerState.team._id)
+    deleted.devices = await deleteTeamRows(ctx, "devices", ownerState.team._id)
+    deleted.developerTokens = await deleteTeamRows(ctx, "developerTokens", ownerState.team._id)
+    deleted.providers = await deleteTeamRows(ctx, "providers", ownerState.team._id)
+    deleted.developers = await deleteTeamRows(ctx, "developers", ownerState.team._id)
+
+    return {
+      status: "ok" as const,
+      deleted,
+    }
+  },
+})
+
 async function getOwnerTeamState(ctx: MutationCtx) {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) return { status: "not-authenticated" as const }
@@ -195,4 +230,27 @@ async function getOwnerTeamState(ctx: MutationCtx) {
   if (owner.clerkUserId !== identity.subject) return { status: "not-owner" as const }
 
   return { status: "ready" as const, team: team as { _id: Id<"teams"> } }
+}
+
+async function deleteTeamRows<
+  TTable extends
+    | "developers"
+    | "developerTokens"
+    | "devices"
+    | "metricSamples"
+    | "providers"
+    | "rawPayloads"
+    | "syncErrors"
+    | "usageSnapshots",
+>(ctx: MutationCtx, table: TTable, teamId: Id<"teams">) {
+  const rows = await ctx.db.query(table).collect()
+  let count = 0
+
+  for (const row of rows) {
+    if (row.teamId !== teamId) continue
+    await ctx.db.delete(row._id)
+    count += 1
+  }
+
+  return count
 }

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { useId, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { Info } from "lucide-react"
 import { DashboardChart } from "./dashboard-chart"
 import { AdminDateRangeControls } from "./admin-date-range-controls"
@@ -18,12 +18,14 @@ import type { MetricDateRangeInput } from "../../lib/metrics"
 import { QuotaPressureTable } from "./admin-overview-quota-table"
 import { CursorPoolPanel } from "./admin-overview-cursor-pool"
 import "./admin-overview.css"
+import "./admin-overview-interactions.css"
 
 type AdminOverviewProps = {
   state: ReadyDashboardState
   now: number
   onDateRangeChange?: (value: MetricDateRangeInput) => Promise<void> | void
   onProviderVisibilityChange?: (visibleProviderIds: string[] | null) => Promise<void> | void
+  onClearTeamData?: () => Promise<{ deleted: Record<string, number> }> | void
 }
 
 export function AdminOverview({
@@ -31,9 +33,12 @@ export function AdminOverview({
   now,
   onDateRangeChange,
   onProviderVisibilityChange,
+  onClearTeamData,
 }: AdminOverviewProps) {
   const model = buildAdminOverviewModel(state, now)
   const tokenPoints = model.tokenSeries.points
+  const estimatedCostPoints = model.estimatedCostSeries.points
+  const usageDays = chartDays(tokenPoints, estimatedCostPoints)
   const providerRows = model.providerBreakdownRows
 
   return (
@@ -45,19 +50,24 @@ export function AdminOverview({
           <p className="admin-overview-subtitle">
             Fixed all-up dashboard for visible team usage, provider health, and sync status.
           </p>
+          <p className="admin-overview-freshness">{model.freshnessLabel}</p>
         </div>
         <div className="admin-overview-meta" aria-label="Dashboard filters">
-          <AdminDateRangeControls
-            value={model.dateRange}
-            onChange={onDateRangeChange}
-          />
-          <AdminProviderVisibilityControls
-            providers={model.providerFilters}
-            onChange={onProviderVisibilityChange}
-          />
-          <span>{model.rangeLabel}</span>
-          <span>{model.freshnessLabel}</span>
-          <span>{model.filterSummary}</span>
+          <div className="admin-overview-filter-row">
+            <AdminDateRangeControls
+              value={model.dateRange}
+              bounds={model.dateBounds}
+              onChange={onDateRangeChange}
+            />
+            <span>{model.rangeLabel}</span>
+          </div>
+          <div className="admin-overview-filter-row">
+            <AdminProviderVisibilityControls
+              providers={model.providerFilters}
+              onChange={onProviderVisibilityChange}
+            />
+            <span>{model.filterSummary}</span>
+          </div>
         </div>
       </header>
 
@@ -72,27 +82,32 @@ export function AdminOverview({
       </section>
 
       <section className="admin-overview-grid admin-overview-grid-main">
-        <DashboardPanel title="Team usage over time" meta="Visible token samples by day">
+        <DashboardPanel title="Team usage over time" meta="Tokens left · API equivalent right" height="chart">
           <DashboardChart
             type="line"
             ariaLabel="Team usage over time chart"
-            labels={tokenPoints.map((point) => point.day)}
+            labels={usageDays}
             datasets={[
               {
                 label: "Tokens",
-                data: tokenPoints.map((point) => point.value),
+                data: chartValues(usageDays, tokenPoints),
                 borderColor: "#0f766e",
                 backgroundColor: "rgba(15, 118, 110, 0.16)",
+                yAxisID: "y",
+              },
+              {
+                label: "API equivalent",
+                data: chartValues(usageDays, estimatedCostPoints),
+                borderColor: "#b45309",
+                backgroundColor: "rgba(180, 83, 9, 0.12)",
+                yAxisID: "y1",
               },
             ]}
-            emptyLabel="No token samples yet"
-          />
-          <ChartDataList
-            rows={tokenPoints.map((point) => [point.day, `${formatCount(point.value)} tokens`])}
+            emptyLabel="No token or cost samples yet"
           />
         </DashboardPanel>
 
-        <DashboardPanel title="Provider breakdown" meta="Visible provider totals">
+        <DashboardPanel title="Provider breakdown" meta="Visible provider totals" height="chart">
           <DashboardChart
             type="bar"
             ariaLabel="Provider breakdown chart"
@@ -111,81 +126,94 @@ export function AdminOverview({
       </section>
 
       <section className="admin-overview-grid admin-overview-grid-support">
-        <DashboardPanel title="Developer leaderboard" meta="Default metric: total visible usage">
-          <DeveloperLeaderboardTable rows={model.developerLeaderboardRows} />
-        </DashboardPanel>
-
-        <DashboardPanel title="Cursor pool" meta={model.cursorPool.coverage.label}>
-          <CursorPoolPanel pool={model.cursorPool} />
-        </DashboardPanel>
-
-        <DashboardPanel title="Sync health" meta={model.syncHealth.status}>
-          <SyncHealthPanel rows={model.recentSyncRows} />
-        </DashboardPanel>
-
-        <DashboardPanel title="Quota pressure" meta={model.quota.teamCoverage.label}>
+        <DashboardPanel title="Quota pressure" meta={model.quota.teamCoverage.label} height="tall">
           <QuotaPressureTable rows={model.quotaPressureRows} />
         </DashboardPanel>
+
+        <div className="admin-overview-stack">
+          <DashboardPanel title="Cursor budget" meta={model.cursorPool.coverage.label} height="short">
+            <CursorPoolPanel pool={model.cursorPool} />
+          </DashboardPanel>
+
+          <DashboardPanel title="Sync health" meta={model.syncHealth.status} height="short">
+            <SyncHealthPanel rows={model.recentSyncRows} />
+          </DashboardPanel>
+
+          <DashboardPanel title="Recent Syncs" meta="Latest visible devices" height="medium">
+            <RecentSyncsTable rows={model.recentSyncRows} />
+          </DashboardPanel>
+        </div>
       </section>
 
       <section className="admin-overview-grid admin-overview-grid-tables">
-        <DashboardPanel title="Top Developers" meta="Visible current range">
+        <DashboardPanel title="Developer leaderboard" meta="Default metric: total visible usage" height="medium">
+          <DeveloperLeaderboardTable rows={model.developerLeaderboardRows} />
+        </DashboardPanel>
+
+        <DashboardPanel title="Top Developers" meta="Visible current range" height="medium">
           <DeveloperLeaderboardTable rows={model.developerLeaderboardRows} compact />
         </DashboardPanel>
+      </section>
 
-        <DashboardPanel title="Provider Status" meta="Visible current range">
+      <section className="admin-overview-grid">
+        <DashboardPanel title="Provider Status" meta="Visible current range" height="medium">
           <ProviderStatusTable rows={model.providerStatusRows} />
         </DashboardPanel>
+      </section>
 
-        <DashboardPanel title="Recent Syncs" meta="Latest visible devices">
-          <RecentSyncsTable rows={model.recentSyncRows} />
-        </DashboardPanel>
-
-        <DashboardPanel title="Available Metrics" meta="Definitions and coverage">
+      <section className="admin-overview-grid">
+        <DashboardPanel title="Available Metrics" meta="Definitions and coverage" height="tall">
           <AvailableMetricsTable rows={model.availableMetricRows} />
+        </DashboardPanel>
+      </section>
+
+      <section className="admin-overview-grid">
+        <DashboardPanel title="Delete data" meta="Clear synced team records" height="short">
+          <ClearTeamDataPanel onClearTeamData={onClearTeamData} />
         </DashboardPanel>
       </section>
     </main>
   )
 }
 
+type ChartPoint = {
+  day: string
+  value: number
+}
+
+function chartDays(...series: ChartPoint[][]) {
+  return [...new Set(series.flatMap((points) => points.map((point) => point.day)))].sort()
+}
+
+function chartValues(days: string[], points: ChartPoint[]) {
+  const valuesByDay = new Map(points.map((point) => [point.day, point.value]))
+  return days.map((day) => valuesByDay.get(day) ?? 0)
+}
+
 function DashboardPanel({
   title,
   meta,
   children,
+  height = "medium",
 }: {
   title: string
   meta: string
   children: ReactNode
+  height?: "short" | "medium" | "tall" | "chart"
 }) {
   return (
-    <section className="admin-panel" aria-label={title}>
+    <section className={`admin-panel admin-panel-${height}`} aria-label={title}>
       <div className="admin-panel-header">
         <strong>{title}</strong>
         <span>{meta}</span>
       </div>
-      {children}
+      <div className="admin-panel-body">{children}</div>
     </section>
   )
 }
 
-function ChartDataList({ rows }: { rows: Array<[string, string]> }) {
-  if (rows.length === 0) return null
-
-  return (
-    <dl className="admin-chart-data">
-      {rows.map(([label, value]) => (
-        <div key={label}>
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
 function ProviderBreakdownList({ rows }: { rows: ProviderBreakdownRow[] }) {
-  if (rows.length === 0) return <p className="admin-empty-row">No provider usage yet</p>
+  if (rows.length === 0) return null
 
   return (
     <ul className="admin-provider-list">
@@ -352,10 +380,99 @@ function AvailableMetricsTable({ rows }: { rows: AvailableMetricRow[] }) {
 }
 
 function MetricInfo({ row }: { row: AvailableMetricRow }) {
+  const tooltipId = useId()
+  const tooltipRef = useRef<HTMLSpanElement | null>(null)
+  const [tooltipStyle, setTooltipStyle] = useState<CSSProperties>({})
+
+  function showTooltip(target: HTMLElement) {
+    const tooltip = tooltipRef.current
+    if (!tooltip) return
+
+    const rect = target.getBoundingClientRect()
+    const width = 352
+    const left = Math.min(window.innerWidth - width - 16, Math.max(16, rect.right - width))
+    const opensAbove = rect.top > 150
+    setTooltipStyle({
+      left,
+      top: opensAbove ? rect.top - 10 : rect.bottom + 10,
+      transform: opensAbove ? "translateY(-100%)" : "translateY(0)",
+    })
+    if ("showPopover" in tooltip) tooltip.showPopover()
+  }
+
+  function hideTooltip() {
+    const tooltip = tooltipRef.current
+    if (tooltip && "hidePopover" in tooltip) tooltip.hidePopover()
+  }
+
   return (
-    <span className="admin-metric-info" aria-label={row.tooltip} title={row.tooltip}>
-      <Info size={14} aria-hidden="true" />
+    <span className="admin-metric-tooltip-wrap">
+      <button
+        className="admin-metric-info"
+        type="button"
+        aria-label={row.tooltip}
+        aria-describedby={tooltipId}
+        onFocus={(event) => showTooltip(event.currentTarget)}
+        onBlur={hideTooltip}
+        onMouseEnter={(event) => showTooltip(event.currentTarget)}
+        onMouseLeave={hideTooltip}
+      >
+        <Info size={14} aria-hidden="true" />
+      </button>
+      <span
+        className="admin-metric-tooltip"
+        id={tooltipId}
+        ref={tooltipRef}
+        role="tooltip"
+        popover="manual"
+        style={tooltipStyle}
+      >
+        {row.tooltip}
+      </span>
     </span>
+  )
+}
+
+function ClearTeamDataPanel({
+  onClearTeamData,
+}: {
+  onClearTeamData?: () => Promise<{ deleted: Record<string, number> }> | void
+}) {
+  const [status, setStatus] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  async function handleClick() {
+    if (!onClearTeamData || isDeleting) return
+
+    const confirmed = window.confirm(
+      "Delete Developers, Tokens, Devices, Usage, Providers, Raw payloads, and Sync errors? This cannot be undone."
+    )
+    if (!confirmed) return
+
+    setIsDeleting(true)
+    setStatus(null)
+    try {
+      const result = await onClearTeamData()
+      const total = Object.values(result?.deleted ?? {}).reduce((sum, count) => sum + count, 0)
+      setStatus(`Deleted ${formatCount(total)} rows.`)
+    } catch (error) {
+      console.error(error)
+      setStatus("Delete failed.")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <div className="admin-data-reset">
+      <p className="admin-helper-text">
+        Deletes: Developers, Tokens, Devices, Usage, Providers, Raw payloads, Sync errors.
+      </p>
+      <button type="button" disabled={!onClearTeamData || isDeleting} onClick={() => void handleClick()}>
+        {isDeleting ? "Deleting..." : "Delete data"}
+      </button>
+      {status ? <span>{status}</span> : null}
+    </div>
   )
 }
 

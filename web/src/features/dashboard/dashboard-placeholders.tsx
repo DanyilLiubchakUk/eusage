@@ -19,6 +19,7 @@ type DashboardPlaceholderProps = {
 type AdminDashboardPlaceholderProps = DashboardPlaceholderProps & {
   onDateRangeChange?: (value: MetricDateRangeInput) => Promise<void> | void
   onProviderVisibilityChange?: (visibleProviderIds: string[] | null) => Promise<void> | void
+  onClearTeamData?: () => Promise<{ deleted: Record<string, number> }> | void
 }
 
 export function AdminDashboardPlaceholder({
@@ -28,6 +29,7 @@ export function AdminDashboardPlaceholder({
   signInSlot,
   onDateRangeChange,
   onProviderVisibilityChange,
+  onClearTeamData,
 }: AdminDashboardPlaceholderProps) {
   if (state.status !== "ready") {
     return <DashboardUnavailable state={state} auth={auth} signInSlot={signInSlot} />
@@ -38,6 +40,7 @@ export function AdminDashboardPlaceholder({
       now={now}
       onDateRangeChange={onDateRangeChange}
       onProviderVisibilityChange={onProviderVisibilityChange}
+      onClearTeamData={onClearTeamData}
     />
   )
 }

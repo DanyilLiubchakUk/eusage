@@ -1,8 +1,5 @@
 .admin-overview {
-  gap: 1.25rem;
-  background:
-    linear-gradient(180deg, rgba(14, 165, 233, 0.08), transparent 24rem),
-    #f8fafc;
+  gap: 1.5rem;
 }
 
 .admin-overview-header {
@@ -10,37 +7,53 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 1.5rem;
-  width: min(100%, 96rem);
+  width: var(--page-w);
 }
 
 .admin-overview-header h1 {
-  margin: 0;
-  font-size: clamp(2rem, 5vw, 4rem);
-  line-height: 0.98;
+  margin: 0.4rem 0 0;
+  color: var(--text);
+  font-size: clamp(1.9rem, 4vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 .admin-overview-subtitle {
   max-width: 46rem;
-  margin: 0.8rem 0 0;
-  color: #475569;
+  margin: 0.7rem 0 0;
+  color: var(--text-muted);
   line-height: 1.55;
 }
 
-.admin-overview-meta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  max-width: 42rem;
+.admin-overview-freshness {
+  margin: 0.5rem 0 0;
+  color: var(--text-subtle);
+  font-size: 0.86rem;
+  font-weight: 700;
 }
 
-.admin-overview-meta span {
-  padding: 0.45rem 0.65rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.84);
-  color: #334155;
-  font-size: 0.84rem;
+.admin-overview-meta {
+  display: grid;
+  justify-items: end;
+  gap: 0.45rem;
+  max-width: 52rem;
+}
+
+.admin-overview-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.admin-overview-filter-row > span {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
@@ -54,11 +67,11 @@
 .admin-date-range select,
 .admin-date-range input,
 .admin-date-range button {
-  height: 2rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #334155;
+  height: 2.1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
   font-size: 0.84rem;
   font-weight: 700;
@@ -70,10 +83,45 @@
 }
 
 .admin-date-range button {
-  padding: 0 0.7rem;
+  padding: 0 0.8rem;
+  border-color: var(--accent-border);
+  color: var(--accent-strong);
+  cursor: pointer;
 }
 
-.admin-date-range form {
+.admin-date-range .admin-date-range-apply {
+  display: inline-grid;
+  place-items: center;
+  width: 2.1rem;
+  min-width: 2.1rem;
+  padding: 0;
+  border-color: var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--accent-strong);
+}
+
+.admin-date-range .admin-date-range-apply:hover:not(:disabled),
+.admin-date-range .admin-date-range-apply:focus-visible {
+  border-color: var(--accent-border);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.admin-date-range .admin-date-range-apply-pending {
+  border-color: var(--accent-strong);
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.admin-date-range .admin-date-range-apply-pending:hover:not(:disabled),
+.admin-date-range .admin-date-range-apply-pending:focus-visible {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+  color: #ffffff;
+}
+
+.admin-date-range-custom {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
@@ -89,57 +137,80 @@
 .admin-provider-filter label {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  min-height: 2rem;
-  padding: 0 0.55rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #334155;
+  gap: 0.4rem;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-muted);
   font-size: 0.84rem;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-provider-filter label span {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.admin-provider-filter input,
+.admin-date-range input[type="checkbox"] {
+  accent-color: var(--accent);
 }
 
 .admin-kpi-strip {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 1px;
-  width: min(100%, 96rem);
-  overflow: hidden;
-  border: 1px solid #d8e0e8;
-  border-radius: 8px;
-  background: #d8e0e8;
+  gap: 0;
+  width: var(--page-w);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .admin-kpi {
+  position: relative;
   display: grid;
-  gap: 0.35rem;
+  gap: 0.4rem;
   min-width: 0;
-  padding: 1rem;
-  background: #ffffff;
+  padding: 1rem 1.15rem;
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.admin-kpi:first-child {
+  border-left: 0;
+}
+
+.admin-kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 1.15rem;
+  width: 2.25rem;
+  height: 2px;
+  background: var(--accent);
 }
 
 .admin-kpi strong {
   overflow-wrap: anywhere;
-  color: #0f172a;
-  font-size: 1.35rem;
-  line-height: 1.15;
+  color: var(--text);
+  font-size: 1.45rem;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
 }
 
 .admin-kpi span:last-child {
   overflow-wrap: anywhere;
-  color: #64748b;
-  font-size: 0.9rem;
+  color: var(--text-subtle);
+  font-size: 0.86rem;
 }
 
 .admin-overview-grid {
   display: grid;
   gap: 1rem;
-  width: min(100%, 96rem);
-}
-
-.admin-overview-grid-main {
-  grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.65fr);
+  width: var(--page-w);
 }
 
 .admin-overview-grid-support {
@@ -151,15 +222,33 @@
 }
 
 .admin-panel {
+  --panel-body-min-height: 12rem;
   display: grid;
   align-content: start;
   gap: 1rem;
   min-width: 0;
-  padding: 1rem;
-  border: 1px solid #d8e0e8;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.04);
+  padding: 1.2rem 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.admin-panel-short {
+  --panel-body-min-height: 6rem;
+}
+
+.admin-panel-medium {
+  --panel-body-min-height: 12rem;
+}
+
+.admin-panel-tall {
+  --panel-body-min-height: 16rem;
+}
+
+.admin-panel-chart {
+  --panel-body-min-height: 24rem;
+}
+
+.admin-panel-body {
+  min-height: var(--panel-body-min-height);
 }
 
 .admin-panel-header {
@@ -167,22 +256,58 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .admin-panel-header strong {
-  color: #0f172a;
-  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text);
+  font-size: 1.02rem;
+}
+
+.admin-panel-header strong::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
 }
 
 .admin-panel-header span {
-  color: #64748b;
-  font-size: 0.84rem;
+  color: var(--text-subtle);
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
 .admin-chart-frame {
+  position: relative;
   width: 100%;
-  height: 18rem;
+  height: 24rem;
+}
+
+.admin-chart-frame-empty {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(90deg, transparent 0 8%, rgba(15, 118, 110, 0.08) 8% 9%, transparent 9% 100%),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 3.85rem,
+      rgba(100, 116, 139, 0.16) 3.85rem 3.9rem
+    );
+}
+
+.admin-chart-frame-empty::after {
+  content: "";
+  position: absolute;
+  inset: auto 1rem 1rem 3rem;
+  height: 2px;
+  background: var(--border);
 }
 
 .admin-chart-frame canvas {
@@ -190,45 +315,18 @@
   height: 100%;
 }
 
-.admin-chart-empty,
+.admin-chart-empty {
+  position: relative;
+  z-index: 1;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+}
+
 .admin-empty-row {
   margin: 0;
-  color: #64748b;
-}
-
-.admin-chart-data {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0;
-}
-
-.admin-chart-data div,
-.admin-provider-list li,
-.admin-sync-list li {
-  display: grid;
-  gap: 0.2rem;
-  min-width: 0;
-}
-
-.admin-chart-data div {
-  min-width: 7rem;
-  padding: 0.55rem 0.65rem;
-  border-radius: 6px;
-  background: #f1f5f9;
-}
-
-.admin-chart-data dt,
-.admin-provider-list span,
-.admin-sync-list span {
-  color: #64748b;
-  font-size: 0.82rem;
-}
-
-.admin-chart-data dd {
-  margin: 0;
-  color: #0f172a;
-  font-weight: 800;
+  color: var(--text-subtle);
 }
 
 .admin-provider-list,
@@ -242,13 +340,27 @@
 
 .admin-provider-list li,
 .admin-sync-list li {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
   padding: 0.65rem 0;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border);
+}
+
+.admin-provider-list li:first-child,
+.admin-sync-list li:first-child {
+  border-top: 0;
 }
 
 .admin-provider-list strong,
 .admin-sync-list strong {
-  color: #0f172a;
+  color: var(--text);
+}
+
+.admin-provider-list span,
+.admin-sync-list span {
+  color: var(--text-subtle);
+  font-size: 0.82rem;
 }
 
 .admin-cursor-pool {
@@ -260,8 +372,8 @@
   position: relative;
   height: 1.1rem;
   overflow: hidden;
-  border-radius: 999px;
-  background: #e2e8f0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
 }
 
 .admin-cursor-pool-bar span {
@@ -269,7 +381,7 @@
   width: var(--cursor-pool-used);
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #0f766e, #2563eb);
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
 }
 
 .admin-cursor-pool-values {
@@ -278,18 +390,54 @@
 }
 
 .admin-cursor-pool-values strong {
-  color: #0f172a;
-  font-size: 1.25rem;
+  color: var(--text);
+  font-size: 1.3rem;
 }
 
 .admin-cursor-pool-values span {
-  color: #64748b;
+  color: var(--text-subtle);
 }
 
 .admin-helper-text {
-  color: #64748b;
+  color: var(--text-subtle);
   font-size: 0.86rem;
   line-height: 1.45;
+}
+
+.admin-data-reset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.admin-data-reset p {
+  flex: 1 1 28rem;
+  margin: 0;
+}
+
+.admin-data-reset button {
+  min-height: 2.25rem;
+  padding: 0 0.8rem;
+  border: 1px solid #dc2626;
+  border-radius: var(--radius-sm);
+  background: #dc2626;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-data-reset button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.admin-data-reset span {
+  color: var(--text-subtle);
+  font-size: 0.86rem;
+  font-weight: 700;
 }
 
 .admin-compact-table {
@@ -301,25 +449,34 @@
 .admin-compact-table th,
 .admin-compact-table td {
   padding: 0.7rem 0.6rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 
 .admin-compact-table th {
-  color: #047857;
-  font-size: 0.74rem;
+  color: var(--accent-strong);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
+.admin-compact-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
 .admin-compact-table td {
-  color: #334155;
+  color: var(--text);
   font-size: 0.92rem;
+}
+
+.admin-compact-table td strong {
+  color: var(--text);
 }
 
 .admin-compact-table td span {
   display: block;
   margin-top: 0.2rem;
-  color: #64748b;
+  color: var(--text-subtle);
 }
 
 .admin-metric-info {
@@ -328,9 +485,9 @@
   justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  color: #0f766e;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--accent-strong);
 }
 
 @media (max-width: 1100px) {
@@ -340,20 +497,40 @@
   }
 
   .admin-overview-meta {
+    justify-items: start;
+    max-width: none;
+  }
+
+  .admin-overview-filter-row {
     justify-content: flex-start;
   }
 
   .admin-kpi-strip,
-  .admin-overview-grid-main,
   .admin-overview-grid-support,
   .admin-overview-grid-tables {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .admin-kpi:nth-child(odd) {
+    border-left: 0;
+  }
 }
 
 @media (max-width: 700px) {
+  .admin-overview-filter-row,
+  .admin-date-range,
+  .admin-date-range-custom,
+  .admin-provider-filter {
+    width: 100%;
+  }
+
+  .admin-date-range select,
+  .admin-date-range input,
+  .admin-date-range button {
+    flex: 1 1 9rem;
+  }
+
   .admin-kpi-strip,
-  .admin-overview-grid-main,
   .admin-overview-grid-support,
   .admin-overview-grid-tables {
     grid-template-columns: 1fr;
@@ -361,5 +538,19 @@
 
   .admin-panel {
     overflow-x: auto;
+  }
+
+  .admin-kpi,
+  .admin-kpi:nth-child(odd) {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .admin-kpi:first-child {
+    border-top: 0;
+  }
+
+  .admin-chart-frame {
+    height: 19rem;
   }
 }

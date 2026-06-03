@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
   AdminDashboardPlaceholder,
   DashboardUnavailable,
@@ -56,6 +56,7 @@ describe("dashboard placeholders", () => {
     ).toBeInTheDocument()
     expect(screen.getAllByText("225 tokens").length).toBeGreaterThan(0)
     expect(screen.getByText("$5.50 · No comparison")).toBeInTheDocument()
+    expect(screen.getByText("Tokens left · API equivalent right")).toBeInTheDocument()
     expect(screen.getByText("Default metric: total visible usage")).toBeInTheDocument()
     expect(screen.getAllByText("$60.00 remaining").length).toBeGreaterThan(0)
     expect(screen.getByText("51% avg · 70% worst")).toBeInTheDocument()
@@ -78,10 +79,8 @@ describe("dashboard placeholders", () => {
     expect(screen.getAllByText("Cursor").length).toBeGreaterThan(0)
     expect(screen.getAllByText("JetBrains AI Assistant").length).toBeGreaterThan(0)
     expect(screen.getByText("Credits")).toBeInTheDocument()
-    expect(screen.getByLabelText(/Total visible token usage/)).toHaveAttribute(
-      "title",
-      expect.stringContaining("Source: Canonical provider token samples")
-    )
+    expect(screen.getByRole("button", { name: /Total visible token usage/ })).not.toHaveAttribute("title")
+    expect(screen.getByText(/Source: Canonical provider token samples/)).toBeInTheDocument()
     expect(screen.getByText("Updates: oldest 12s ago · newest 0s ago")).toBeInTheDocument()
     expect(screen.getAllByText("Alex").length).toBeGreaterThan(0)
     expect(screen.getByText("Alex Mac")).toBeInTheDocument()
@@ -103,6 +102,79 @@ describe("dashboard placeholders", () => {
     await user.selectOptions(screen.getByRole("combobox"), "last30")
 
     expect(changes).toEqual([{ preset: "last30" }])
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument()
+  })
+
+  it("limits custom Admin date inputs to visible metric days", () => {
+    render(
+      <AdminDashboardPlaceholder
+        state={{
+          ...(readyState as Extract<DashboardSourceState, { status: "ready" }>),
+          dashboardSettings: {
+            defaultDateRange: { preset: "custom", startDay: "2026-05-01", endDay: "2026-06-01" },
+            visibleProviderIds: null,
+            hiddenDeveloperIds: [],
+            includeInactiveDevelopers: false,
+          },
+        }}
+        now={now}
+        onDateRangeChange={() => undefined}
+      />
+    )
+
+    expect(screen.getByLabelText("Custom start date")).toHaveAttribute("min", "2026-06-01")
+    expect(screen.getByLabelText("Custom start date")).toHaveAttribute("max", "2026-06-01")
+    expect(screen.getByLabelText("Custom end date")).toHaveAttribute("min", "2026-06-01")
+    expect(screen.getByLabelText("Custom end date")).toHaveAttribute("max", "2026-06-01")
+    expect(screen.queryByText("Apply")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Apply custom date range" })).toBeInTheDocument()
+  })
+
+  it("persists custom Admin date changes from the icon apply button", async () => {
+    const user = userEvent.setup()
+    const changes: unknown[] = []
+    const ready = readyState as Extract<DashboardSourceState, { status: "ready" }>
+    render(
+      <AdminDashboardPlaceholder
+        state={{
+          ...ready,
+          dashboardSettings: {
+            defaultDateRange: { preset: "custom", startDay: "2026-05-30", endDay: "2026-06-01" },
+            visibleProviderIds: null,
+            hiddenDeveloperIds: [],
+            includeInactiveDevelopers: false,
+          },
+          metricSamples: [
+            ...ready.metricSamples,
+            {
+              ...ready.metricSamples[0],
+              id: "metric-old-day" as (typeof ready.metricSamples)[number]["id"],
+              sampleDay: "2026-05-30",
+              value: 1,
+            },
+          ],
+        }}
+        now={now}
+        onDateRangeChange={async (value) => {
+          changes.push(value)
+        }}
+      />
+    )
+
+    await user.clear(screen.getByLabelText("Custom start date"))
+    await user.type(screen.getByLabelText("Custom start date"), "2026-05-31")
+    expect(changes).toEqual([])
+    expect(
+      screen.getByRole("button", { name: "Apply pending custom date range" })
+    ).toHaveClass("admin-date-range-apply-pending")
+
+    await user.click(screen.getByRole("button", { name: "Apply pending custom date range" }))
+
+    expect(changes.at(-1)).toEqual({
+      preset: "custom",
+      startDay: "2026-05-31",
+      endDay: "2026-06-01",
+    })
   })
 
   it("lets Admin persist visible providers", async () => {
@@ -123,12 +195,45 @@ describe("dashboard placeholders", () => {
     expect(changes).toEqual([["cursor", "codex", "jetbrains-ai-assistant"]])
   })
 
+  it("confirms before clearing team data", async () => {
+    const user = userEvent.setup()
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true)
+    const clearTeamData = vi.fn(async () => ({
+      deleted: {
+        developers: 1,
+        developerTokens: 1,
+        devices: 1,
+        metricSamples: 1,
+        providers: 1,
+        rawPayloads: 1,
+        syncErrors: 1,
+        usageSnapshots: 1,
+      },
+    }))
+
+    render(
+      <AdminDashboardPlaceholder
+        state={readyState}
+        now={now}
+        onClearTeamData={clearTeamData}
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: "Delete data" }))
+
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("This cannot be undone"))
+    expect(clearTeamData).toHaveBeenCalledOnce()
+    expect(await screen.findByText("Deleted 8 rows.")).toBeInTheDocument()
+    confirm.mockRestore()
+  })
+
   it("renders Admin no-data states", () => {
     render(<AdminDashboardPlaceholder state={quietState()} now={now} />)
 
     expect(screen.getByRole("heading", { name: "Quiet Team" })).toBeInTheDocument()
-    expect(screen.getByText("No token samples yet")).toBeInTheDocument()
-    expect(screen.getAllByText("No provider usage yet").length).toBeGreaterThan(0)
+    expect(screen.getByText("No token or cost samples yet").closest(".admin-chart-frame-empty")).not.toBeNull()
+    expect(screen.getAllByText("No provider usage yet")).toHaveLength(1)
+    expect(screen.getByText("No provider usage yet").closest(".admin-chart-frame-empty")).not.toBeNull()
     expect(screen.getAllByText("No developer usage yet").length).toBeGreaterThan(0)
     expect(screen.getAllByText("No device sync rows yet").length).toBeGreaterThan(0)
     expect(screen.getByText("No providers visible")).toBeInTheDocument()
