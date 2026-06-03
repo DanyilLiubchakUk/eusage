@@ -26,6 +26,7 @@ These issues are dependency-ordered tracer bullets. Each slice is intended to be
 | 16 | [#19 Build Admin Overview charts and metric tables](https://github.com/DanyilLiubchakUk/eusage/issues/19) | AFK | #18 Apply provider and developer visibility filters end to end | 24, 25, 26, 27, 28, 29, 56, 57 |
 | 17 | [#20 Build TV slides, settings, playback, and freshness](https://github.com/DanyilLiubchakUk/eusage/issues/20) | AFK | #18 Apply provider and developer visibility filters end to end | 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41 |
 | 18 | [#21 Verify deployed teammate readiness on macOS and Windows](https://github.com/DanyilLiubchakUk/eusage/issues/21) | HITL | #19 Build Admin Overview charts and metric tables<br>#20 Build TV slides, settings, playback, and freshness | 1, 52, 53, 54, 55, 70 |
+| 19 | [#22 Detect and override desktop device name](https://github.com/DanyilLiubchakUk/eusage/issues/22) | AFK | #8 Authenticate desktop API and record device check-ins<br>#12 Connect desktop Team page to a team deployment | 55, 56, 57 |
 
 ## Local Issue Body Files
 
@@ -47,3 +48,4 @@ These issues are dependency-ordered tracer bullets. Each slice is intended to be
 - [16 - Build Admin Overview charts and metric tables](eusage-v1/016-build-admin-overview-charts-and-metric-tables.md)
 - [17 - Build TV slides, settings, playback, and freshness](eusage-v1/017-build-tv-slides-settings-playback-and-freshness.md)
 - [18 - Verify deployed teammate readiness on macOS and Windows](eusage-v1/018-verify-deployed-teammate-readiness-on-macos-and-windows.md)
+- [19 - Detect and override desktop device name](eusage-v1/019-detect-and-override-desktop-device-name.md)
