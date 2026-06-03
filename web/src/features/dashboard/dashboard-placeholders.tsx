@@ -1,11 +1,19 @@
+import type { ReactNode } from "react"
 import type { MetricDateRangeInput } from "../../lib/metrics"
 import { AdminOverview } from "./admin-overview"
 import type { DashboardSourceState } from "./dashboard"
 import { TvDashboard } from "./tv-dashboard"
 
+export type DashboardAuthState = {
+  isLoaded: boolean
+  isSignedIn: boolean
+}
+
 type DashboardPlaceholderProps = {
   state: DashboardSourceState
   now: number
+  auth?: DashboardAuthState
+  signInSlot?: ReactNode
 }
 
 type AdminDashboardPlaceholderProps = DashboardPlaceholderProps & {
@@ -16,10 +24,14 @@ type AdminDashboardPlaceholderProps = DashboardPlaceholderProps & {
 export function AdminDashboardPlaceholder({
   state,
   now,
+  auth,
+  signInSlot,
   onDateRangeChange,
   onProviderVisibilityChange,
 }: AdminDashboardPlaceholderProps) {
-  if (state.status !== "ready") return <DashboardUnavailable state={state} />
+  if (state.status !== "ready") {
+    return <DashboardUnavailable state={state} auth={auth} signInSlot={signInSlot} />
+  }
   return (
     <AdminOverview
       state={state}
@@ -30,12 +42,55 @@ export function AdminDashboardPlaceholder({
   )
 }
 
-export function TvDashboardPlaceholder({ state, now }: DashboardPlaceholderProps) {
-  if (state.status !== "ready") return <DashboardUnavailable state={state} />
+export function TvDashboardPlaceholder({
+  state,
+  now,
+  auth,
+  signInSlot,
+}: DashboardPlaceholderProps) {
+  if (state.status !== "ready") {
+    return <DashboardUnavailable state={state} auth={auth} signInSlot={signInSlot} />
+  }
   return <TvDashboard state={state} now={now} />
 }
 
-function DashboardUnavailable({ state }: { state: DashboardSourceState }) {
+export function DashboardLoading() {
+  return (
+    <main className="setup-page">
+      <section className="setup-card" aria-label="Dashboard loading">
+        <strong>Loading dashboard...</strong>
+        <p>Checking sign-in.</p>
+      </section>
+    </main>
+  )
+}
+
+export function DashboardSignInRequired({ signInSlot }: { signInSlot?: ReactNode }) {
+  return (
+    <main className="setup-page">
+      <section className="setup-card" aria-label="Sign in">
+        <strong>Sign in required</strong>
+        <p>Sign in with Clerk to open the dashboard.</p>
+        {signInSlot}
+      </section>
+    </main>
+  )
+}
+
+export function DashboardUnavailable({
+  state,
+  auth,
+  signInSlot,
+}: {
+  state: DashboardSourceState
+  auth?: DashboardAuthState
+  signInSlot?: ReactNode
+}) {
+  if (state.status === "not-authenticated" && auth) {
+    if (!auth.isLoaded || auth.isSignedIn) return <DashboardLoading />
+    return <DashboardSignInRequired signInSlot={signInSlot} />
+  }
+
   return (
     <main className="setup-page">
       <section className="setup-card" aria-label="Dashboard unavailable">

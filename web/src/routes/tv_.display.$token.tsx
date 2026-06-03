@@ -8,6 +8,7 @@ export const Route = createFileRoute("/tv_/display/$token")({
   loader: async ({ context, params }) => {
     await context.queryClient.ensureQueryData(displaySourceQuery(params.token))
   },
+  pendingComponent: TvDisplayLoading,
   component: TvDisplayRoute,
 })
 
@@ -33,6 +34,18 @@ function TvLinkUnavailable() {
         <p className="setup-eyebrow">TV</p>
         <h1 id="tv-title">TV link unavailable</h1>
         <p className="tv-subtitle">Ask an admin to rotate the display link.</p>
+      </section>
+    </main>
+  )
+}
+
+function TvDisplayLoading() {
+  return (
+    <main className="tv-page tv-page--display">
+      <section className="tv-slide" aria-labelledby="tv-loading-title">
+        <p className="setup-eyebrow">TV</p>
+        <h1 id="tv-loading-title">Loading TV...</h1>
+        <p className="tv-subtitle">Checking display link.</p>
       </section>
     </main>
   )

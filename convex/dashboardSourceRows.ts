@@ -52,14 +52,33 @@ export async function dashboardSourceRowsForTeam(
     options.tvSafeOnly && publicTv.visibleProviderIds
       ? new Set(publicTv.visibleProviderIds)
       : null
+  const providerStatusById = new Map(
+    providers.map((provider) => [provider.providerId, provider.status])
+  )
+  const knownProviderIds = uniqueStable([
+    ...providers.map((provider) => provider.providerId),
+    ...snapshots.map((snapshot) => snapshot.providerId),
+    ...metricSamples.map((sample) => sample.providerId),
+  ])
+  const isVisibleTvProvider = (providerId: string) => {
+    const status = providerStatusById.get(providerId)
+    return (
+      status !== "disabled" &&
+      (!tvVisibleProviderIds || tvVisibleProviderIds.has(providerId))
+    )
+  }
   const filteredProviders = options.tvSafeOnly
     ? providers.filter(
         (provider) =>
           provider.status === "enabled" &&
-          (!tvVisibleProviderIds || tvVisibleProviderIds.has(provider.providerId))
+          isVisibleTvProvider(provider.providerId)
       )
     : providers
-  const filteredProviderIds = new Set(filteredProviders.map((provider) => provider.providerId))
+  const filteredProviderIds = new Set(
+    options.tvSafeOnly
+      ? knownProviderIds.filter(isVisibleTvProvider)
+      : filteredProviders.map((provider) => provider.providerId)
+  )
   const filteredDevelopers = options.tvSafeOnly
     ? developers.filter(
         (developer) =>
@@ -201,6 +220,10 @@ export function unavailableDashboardSource<const TStatus extends string>(
 
 function latestByCreatedAt<T extends { createdAt: number }>(rows: T[]) {
   return [...rows].sort((left, right) => right.createdAt - left.createdAt)[0] ?? null
+}
+
+function uniqueStable(values: string[]) {
+  return [...new Set(values)]
 }
 
 function publicToken(

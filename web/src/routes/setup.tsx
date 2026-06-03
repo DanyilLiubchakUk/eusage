@@ -16,6 +16,7 @@ export const Route = createFileRoute("/setup")({
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(setupQuery)
   },
+  pendingComponent: SetupLoading,
   component: SetupRoute,
 })
 
@@ -50,5 +51,16 @@ function SetupRoute() {
         return result
       }}
     />
+  )
+}
+
+function SetupLoading() {
+  return (
+    <main className="setup-page">
+      <section className="setup-card" aria-label="Setup loading">
+        <strong>Loading setup...</strong>
+        <p>Checking backend state.</p>
+      </section>
+    </main>
   )
 }

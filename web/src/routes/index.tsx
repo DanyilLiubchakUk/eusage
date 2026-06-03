@@ -1,36 +1,56 @@
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { SignInButton, useAuth } from "@clerk/tanstack-react-start"
+import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { api } from "../../../convex/_generated/api"
-import { AdminDashboardPlaceholder } from "../features/dashboard/dashboard-placeholders"
+import {
+  AdminDashboardPlaceholder,
+  DashboardLoading,
+  DashboardSignInRequired,
+} from "../features/dashboard/dashboard-placeholders"
 import type { MetricDateRangeInput } from "../lib/metrics"
 import { SetupStatusView } from "../features/setup/setup-status-view"
 
 const setupQuery = convexQuery(api.setup.get, {})
-const dashboardSourceQuery = convexQuery(api.dashboard.sourceRows, {})
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(setupQuery)
-    await context.queryClient.ensureQueryData(dashboardSourceQuery)
   },
+  pendingComponent: DashboardLoading,
   component: Home,
 })
 
 function Home() {
   const { data: setupState } = useSuspenseQuery(setupQuery)
-  const { data: dashboardState } = useSuspenseQuery(dashboardSourceQuery)
-  const queryClient = useQueryClient()
-  const updateDashboardSettings = useConvexMutation(api.dashboard.updateDashboardSettings)
 
   if (setupState.status !== "setup-complete") {
     return <SetupStatusView state={setupState} />
   }
 
+  return <HomeDashboard />
+}
+
+function HomeDashboard() {
+  const auth = useDashboardAuth()
+  const dashboardSourceQuery = convexQuery(
+    api.dashboard.sourceRows,
+    auth.isLoaded && auth.isSignedIn ? {} : "skip"
+  )
+  const { data: dashboardState } = useQuery(dashboardSourceQuery)
+  const queryClient = useQueryClient()
+  const updateDashboardSettings = useConvexMutation(api.dashboard.updateDashboardSettings)
+
+  if (!auth.isLoaded) return <DashboardLoading />
+  if (!auth.isSignedIn) return <DashboardSignInRequired signInSlot={<DashboardSignInButton />} />
+  if (!dashboardState) return <DashboardLoading />
+
   return (
     <AdminDashboardPlaceholder
       state={dashboardState}
       now={Date.now()}
+      auth={auth}
+      signInSlot={<DashboardSignInButton />}
       onDateRangeChange={async (defaultDateRange: MetricDateRangeInput) => {
         const result = await updateDashboardSettings({ defaultDateRange })
         if (result.status !== "ok") {
@@ -46,5 +66,23 @@ function Home() {
         await queryClient.invalidateQueries({ queryKey: dashboardSourceQuery.queryKey })
       }}
     />
+  )
+}
+
+function useDashboardAuth() {
+  const { isLoaded, isSignedIn } = useAuth()
+  return {
+    isLoaded,
+    isSignedIn: isSignedIn === true,
+  }
+}
+
+function DashboardSignInButton() {
+  return (
+    <SignInButton mode="modal">
+      <button className="setup-button" type="button">
+        Sign in
+      </button>
+    </SignInButton>
   )
 }

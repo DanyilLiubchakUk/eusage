@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
 import {
   AdminDashboardPlaceholder,
+  DashboardUnavailable,
   TvDashboardPlaceholder,
 } from "./dashboard-placeholders"
 import type { DashboardSourceState } from "./dashboard"
@@ -14,6 +15,38 @@ import {
 } from "./dashboard-test-fixtures"
 
 describe("dashboard placeholders", () => {
+  it("hides transient unauthenticated dashboard state while auth loads", () => {
+    const state = { status: "not-authenticated" } as DashboardSourceState
+
+    render(
+      <DashboardUnavailable
+        state={state}
+        auth={{ isLoaded: false, isSignedIn: false }}
+      />
+    )
+
+    expect(screen.getByText("Loading dashboard...")).toBeInTheDocument()
+    expect(screen.queryByText("Dashboard unavailable")).not.toBeInTheDocument()
+    expect(screen.queryByText("not-authenticated")).not.toBeInTheDocument()
+  })
+
+  it("asks signed-out users to sign in without showing dashboard unavailable", () => {
+    const state = { status: "not-authenticated" } as DashboardSourceState
+
+    render(
+      <DashboardUnavailable
+        state={state}
+        auth={{ isLoaded: true, isSignedIn: false }}
+        signInSlot={<button type="button">Sign in</button>}
+      />
+    )
+
+    expect(screen.getByText("Sign in required")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument()
+    expect(screen.queryByText("Dashboard unavailable")).not.toBeInTheDocument()
+    expect(screen.queryByText("not-authenticated")).not.toBeInTheDocument()
+  })
+
   it("renders Admin metrics from shared source rows", () => {
     render(<AdminDashboardPlaceholder state={readyState} now={now} />)
 

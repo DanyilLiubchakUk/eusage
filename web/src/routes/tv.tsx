@@ -1,24 +1,33 @@
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { SignInButton, useAuth } from "@clerk/tanstack-react-start"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { api } from "../../../convex/_generated/api"
+import {
+  DashboardLoading,
+  DashboardSignInRequired,
+  DashboardUnavailable,
+} from "../features/dashboard/dashboard-placeholders"
 import { TvDashboard } from "../features/dashboard/tv-dashboard"
 
-const dashboardSourceQuery = convexQuery(api.dashboard.sourceRows, {})
-const tvDisplayLinkQuery = convexQuery(api.tvDisplayLinks.get, {})
-
 export const Route = createFileRoute("/tv")({
-  loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData(dashboardSourceQuery)
-    await context.queryClient.ensureQueryData(tvDisplayLinkQuery)
-  },
   component: TvRoute,
 })
 
 function TvRoute() {
-  const { data } = useSuspenseQuery(dashboardSourceQuery)
-  const { data: displayLinkState } = useSuspenseQuery(tvDisplayLinkQuery)
+  const auth = useDashboardAuth()
+  const canReadDashboard = auth.isLoaded && auth.isSignedIn
+  const dashboardSourceQuery = convexQuery(
+    api.dashboard.sourceRows,
+    canReadDashboard ? {} : "skip"
+  )
+  const tvDisplayLinkQuery = convexQuery(
+    api.tvDisplayLinks.get,
+    canReadDashboard ? {} : "skip"
+  )
+  const { data } = useQuery(dashboardSourceQuery)
+  const { data: displayLinkState } = useQuery(tvDisplayLinkQuery)
   const queryClient = useQueryClient()
   const updateTvSettings = useConvexMutation(api.dashboard.updateTvSettings)
   const createDisplayLink = useConvexMutation(api.tvDisplayLinks.create)
@@ -26,14 +35,17 @@ function TvRoute() {
   const revokeDisplayLink = useConvexMutation(api.tvDisplayLinks.revoke)
   const [rawDisplayToken, setRawDisplayToken] = useState<string | null>(null)
 
+  if (!auth.isLoaded) return <DashboardLoading />
+  if (!auth.isSignedIn) return <DashboardSignInRequired signInSlot={<DashboardSignInButton />} />
+  if (!data || !displayLinkState) return <DashboardLoading />
+
   if (data.status !== "ready") {
     return (
-      <main className="setup-page">
-        <section className="setup-card" aria-label="Dashboard unavailable">
-          <strong>Dashboard unavailable</strong>
-          <p>{data.status}</p>
-        </section>
-      </main>
+      <DashboardUnavailable
+        state={data}
+        auth={auth}
+        signInSlot={<DashboardSignInButton />}
+      />
     )
   }
 
@@ -80,6 +92,24 @@ function TvRoute() {
         await queryClient.invalidateQueries({ queryKey: dashboardSourceQuery.queryKey })
       }}
     />
+  )
+}
+
+function useDashboardAuth() {
+  const { isLoaded, isSignedIn } = useAuth()
+  return {
+    isLoaded,
+    isSignedIn: isSignedIn === true,
+  }
+}
+
+function DashboardSignInButton() {
+  return (
+    <SignInButton mode="modal">
+      <button className="setup-button" type="button">
+        Sign in
+      </button>
+    </SignInButton>
   )
 }
 

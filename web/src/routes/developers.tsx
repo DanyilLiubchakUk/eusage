@@ -5,48 +5,56 @@ import {
   useAuth,
   useUser,
 } from "@clerk/tanstack-react-start"
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { DevelopersPageView } from "../features/developers/developers-page-view"
 
-const developersQuery = convexQuery(api.developers.list, {})
-
 export const Route = createFileRoute("/developers")({
-  loader: async ({ context }) => {
-    await context.queryClient.ensureQueryData(developersQuery)
-  },
   component: DevelopersRoute,
 })
 
 function DevelopersRoute() {
-  const { data } = useSuspenseQuery(developersQuery)
+  const { isLoaded, isSignedIn } = useAuth()
+  const { user } = useUser()
+  const auth = {
+    isLoaded,
+    isSignedIn: isSignedIn === true,
+  }
+  const developersQuery = convexQuery(api.developers.list, auth.isSignedIn ? {} : "skip")
+  const { data } = useQuery(developersQuery)
   const queryClient = useQueryClient()
   const createDeveloper = useConvexMutation(api.developers.create)
   const rotateDeveloperToken = useConvexMutation(api.developers.rotate)
   const revokeDeveloperToken = useConvexMutation(api.developers.revoke)
   const reenableDeveloper = useConvexMutation(api.developers.reenable)
-  const { isLoaded, isSignedIn } = useAuth()
-  const { user } = useUser()
   const userLabel =
     user?.primaryEmailAddress?.emailAddress ?? user?.fullName ?? user?.id ?? null
+  const signInSlot = (
+    <SignInButton mode="modal">
+      <button className="setup-button" type="button">
+        Sign in
+      </button>
+    </SignInButton>
+  )
+  const signedOutState = {
+    status: "not-authenticated" as const,
+    team: null,
+    developers: [],
+  }
+
+  if (!auth.isLoaded) return <DevelopersLoading />
+  if (auth.isSignedIn && !data) return <DevelopersLoading />
 
   return (
     <DevelopersPageView
-      state={data}
+      state={data ?? signedOutState}
       auth={{
-        isLoaded,
-        isSignedIn: isSignedIn === true,
+        ...auth,
         userLabel,
       }}
-      signInSlot={
-        <SignInButton mode="modal">
-          <button className="setup-button" type="button">
-            Sign in
-          </button>
-        </SignInButton>
-      }
+      signInSlot={signInSlot}
       userSlot={<UserButton />}
       teamUrl={browserOrigin()}
       onCreate={async (input) => {
@@ -78,6 +86,17 @@ function DevelopersRoute() {
         return result
       }}
     />
+  )
+}
+
+function DevelopersLoading() {
+  return (
+    <main className="admin-page">
+      <section className="setup-card" aria-label="Developers loading">
+        <strong>Loading developers...</strong>
+        <p>Checking sign-in.</p>
+      </section>
+    </main>
   )
 }
 
