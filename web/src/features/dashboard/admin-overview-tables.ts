@@ -18,6 +18,7 @@ import {
 import { formatCount, formatProviderName, formatUsd } from "./dashboard-formatting"
 import type { ReadyDashboardState } from "./dashboard-source"
 import { providerQuotaLabel } from "./admin-provider-quota-label"
+import { dashboardDeviceName } from "./dashboard-device-name"
 
 export type DeveloperLeaderboardRow = {
   developerId: string
@@ -175,7 +176,7 @@ export function buildRecentSyncRows(developers: ReadyDashboardState["developers"
     .flatMap((developer) =>
       developer.devices.map((device) => ({
         developerName: developer.displayName,
-        deviceName: device.deviceName || device.deviceId,
+        deviceName: dashboardDeviceName(device),
         status: device.status,
         lastContactAt: device.lastSyncAt ?? device.lastSeenAt ?? null,
       }))

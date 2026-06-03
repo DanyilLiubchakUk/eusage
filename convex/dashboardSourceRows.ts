@@ -6,6 +6,7 @@ import {
   publicDashboardSettings,
   publicTvSettings,
 } from "./dashboardSettings"
+import { displayDeviceName } from "./deviceNames"
 
 type DashboardSourceOptions = {
   includeDeveloperTokens: boolean
@@ -146,7 +147,7 @@ export async function dashboardSourceRowsForTeam(
         : null,
       devices: (devicesByDeveloper.get(developer._id) ?? []).map((device) => ({
         deviceId: device.deviceId,
-        deviceName: device.deviceName,
+        deviceName: displayDeviceName(device.deviceName, device.os),
         os: device.os,
         status: device.status,
         lastSeenAt: device.lastSeenAt,

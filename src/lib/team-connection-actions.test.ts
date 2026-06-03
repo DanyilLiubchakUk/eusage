@@ -4,6 +4,7 @@ import {
   disconnectTeam,
   loadTeamConnection,
   refreshTeamCheckIn,
+  updateTeamDeviceNameOverride,
 } from "@/lib/team-connection-actions"
 import type { TeamConnectionSettings } from "@/lib/team-settings"
 
@@ -31,10 +32,11 @@ function createDeps(seed?: {
         endpoints,
       },
     })),
-    checkInTeamDevice: vi.fn(async () => ({
+    checkInTeamDevice: vi.fn(async (input: { deviceName: string }) => ({
       ok: true as const,
       value: {
         device: {
+          deviceName: input.deviceName,
           status: "connected" as const,
           lastSeenAt: 1780340000000,
           updatedAt: 1780340000000,
@@ -45,6 +47,7 @@ function createDeps(seed?: {
       ok: true as const,
       value: {
         device: {
+          deviceName: "Alex MacBook",
           status: "disconnected" as const,
           lastSeenAt: 1780340000000,
           updatedAt: 1780340000001,
@@ -68,6 +71,7 @@ function createDeps(seed?: {
     }),
     createDeviceId: vi.fn(() => "device-1"),
     getDesktopPlatform: vi.fn(async () => "macos"),
+    getDetectedDeviceName: vi.fn(async () => "Alex MacBook"),
     getAppVersion: vi.fn(async () => "0.6.24"),
     nowIso: vi.fn(() => "2026-06-01T12:00:00.000Z"),
   }
@@ -100,6 +104,7 @@ describe("team connection actions", () => {
         teamUrl: "https://team.example.com",
         token: "eusage_dev_secret",
         deviceId: "device-1",
+        deviceName: "Alex MacBook",
         os: "macos",
         appVersion: "0.6.24",
       })
@@ -109,6 +114,9 @@ describe("team connection actions", () => {
     expect(fake.connection).toMatchObject({
       teamName: "Acme Team",
       tokenFingerprint: "abcd1234...wxyz7890",
+      deviceName: "Alex MacBook",
+      detectedDeviceName: "Alex MacBook",
+      deviceNameOverride: null,
       syncStatus: "connected",
       lastContactAt: "2026-06-01T12:00:00.000Z",
       deviceStatus: "connected",
@@ -182,6 +190,75 @@ describe("team connection actions", () => {
     expect(fake.connection).toBeNull()
   })
 
+  it("saves a device name override and sends it on check-in", async () => {
+    const fake = createDeps({
+      connection: connectedSettings(),
+      token: "eusage_dev_secret",
+    })
+
+    const result = await updateTeamDeviceNameOverride("Desk Mac", fake.deps)
+
+    expect(result.ok).toBe(true)
+    expect(fake.deps.checkInTeamDevice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceId: "device-1",
+        deviceName: "Desk Mac",
+      })
+    )
+    expect(fake.connection).toMatchObject({
+      deviceName: "Desk Mac",
+      detectedDeviceName: "Alex MacBook",
+      deviceNameOverride: "Desk Mac",
+    })
+  })
+
+  it("resets the device name override to the detected name", async () => {
+    const fake = createDeps({
+      connection: {
+        ...connectedSettings(),
+        deviceName: "Desk Mac",
+        deviceNameOverride: "Desk Mac",
+      },
+      token: "eusage_dev_secret",
+    })
+
+    const result = await updateTeamDeviceNameOverride(null, fake.deps)
+
+    expect(result.ok).toBe(true)
+    expect(fake.deps.checkInTeamDevice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceName: "Alex MacBook",
+      })
+    )
+    expect(fake.connection).toMatchObject({
+      deviceName: "Alex MacBook",
+      detectedDeviceName: "Alex MacBook",
+      deviceNameOverride: null,
+    })
+  })
+
+  it("falls back to an OS device name when detection is missing", async () => {
+    const fake = createDeps()
+    fake.deps.getDetectedDeviceName.mockResolvedValue(null)
+
+    const result = await connectTeam(
+      "eusage://connect?url=https://team.example.com&token=eusage_dev_secret",
+      fake.deps
+    )
+
+    expect(result.ok).toBe(true)
+    expect(fake.deps.checkInTeamDevice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceName: "macOS desktop",
+      })
+    )
+    expect(fake.connection).toMatchObject({
+      deviceName: "macOS desktop",
+      detectedDeviceName: null,
+      deviceNameOverride: null,
+    })
+  })
+
   it("loads as invalid without keeping old metadata after revoked token", async () => {
     const fake = createDeps({
       connection: connectedSettings(),
@@ -212,6 +289,9 @@ function connectedSettings(): TeamConnectionSettings {
     teamName: "Acme Team",
     tokenFingerprint: "abcd1234...wxyz7890",
     deviceId: "device-1",
+    deviceName: "Alex MacBook",
+    detectedDeviceName: "Alex MacBook",
+    deviceNameOverride: null,
     endpoints,
     syncStatus: "connected",
     lastContactAt: "2026-06-01T12:00:00.000Z",

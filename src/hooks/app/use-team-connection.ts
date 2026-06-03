@@ -4,6 +4,7 @@ import {
   disconnectTeam,
   loadTeamConnection,
   refreshTeamCheckIn,
+  updateTeamDeviceNameOverride,
 } from "@/lib/team-connection-actions"
 import type { TeamConnectionSettings } from "@/lib/team-settings"
 
@@ -141,10 +142,38 @@ export function useTeamConnection() {
     }
   }, [])
 
+  const updateDeviceName = useCallback(async (deviceNameOverride: string | null) => {
+    setState((current) => ({
+      ...current,
+      status: "checking",
+      message: null,
+    }))
+
+    try {
+      const result = await updateTeamDeviceNameOverride(deviceNameOverride)
+      setState({
+        status: result.ok ? "connected" : result.connection ? "error" : "invalid",
+        connection: result.connection,
+        message: result.message,
+      })
+      return result
+    } catch (error) {
+      console.error("Failed to update team device name:", error)
+      const message = "Failed to update device name."
+      setState((current) => ({
+        status: "error",
+        connection: current.connection,
+        message,
+      }))
+      return { ok: false as const, code: "settings-error" as const, message, connection: null }
+    }
+  }, [])
+
   return {
     state,
     connect,
     checkIn,
     disconnect,
+    updateDeviceName,
   }
 }

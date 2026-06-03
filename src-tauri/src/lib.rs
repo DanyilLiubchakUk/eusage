@@ -135,6 +135,16 @@ fn get_desktop_platform() -> &'static str {
 }
 
 #[tauri::command]
+fn get_detected_device_name() -> Option<String> {
+    let value = gethostname::gethostname().to_string_lossy().trim().to_string();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
+    }
+}
+
+#[tauri::command]
 fn open_devtools(#[allow(unused)] app_handle: tauri::AppHandle) {
     #[cfg(debug_assertions)]
     {
@@ -473,6 +483,7 @@ pub fn run() {
             init_panel,
             hide_panel,
             get_desktop_platform,
+            get_detected_device_name,
             open_devtools,
             save_team_token,
             read_team_token,

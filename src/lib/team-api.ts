@@ -16,6 +16,7 @@ export type TeamConfig = {
 }
 
 export type TeamDevice = {
+  deviceName: string
   status: TeamDeviceStatus
   lastSeenAt: number
   updatedAt: number
@@ -46,6 +47,7 @@ export async function checkInTeamDevice(args: {
   endpoints: TeamApiEndpoints
   token: string
   deviceId: string
+  deviceName: string
   os: string
   appVersion: string
 }): Promise<TeamApiResult<{ device: TeamDevice }>> {
@@ -54,6 +56,7 @@ export async function checkInTeamDevice(args: {
     headers: bearerJsonHeaders(args.token),
     body: JSON.stringify({
       deviceId: args.deviceId,
+      deviceName: args.deviceName,
       os: args.os,
       appVersion: args.appVersion,
     }),
@@ -164,9 +167,10 @@ function normalizeDevice(value: unknown): TeamDevice | null {
 
   const lastSeenAt = numberField(row.lastSeenAt)
   const updatedAt = numberField(row.updatedAt)
+  const deviceName = stringField(row.deviceName)
   return lastSeenAt === null || updatedAt === null
     ? null
-    : { status, lastSeenAt, updatedAt }
+    : { deviceName, status, lastSeenAt, updatedAt }
 }
 
 function normalizeApiError(value: unknown): {

@@ -5,6 +5,7 @@ import {
   type DeveloperTokenRecord,
   type PublicDeveloperRow,
 } from "./developerTokens"
+import { displayDeviceName } from "./deviceNames"
 
 export const DEVICE_STALE_AFTER_MS = 72 * 60 * 60 * 1000
 
@@ -290,7 +291,7 @@ export function publicDeviceRow(device: DeviceRecord, now: number): PublicDevice
   return {
     id: device._id,
     deviceId: device.deviceId,
-    deviceName: device.deviceName,
+    deviceName: displayDeviceName(device.deviceName, device.os),
     os: device.os,
     appVersion: device.appVersion,
     status: getDeviceStatus(device, now),
@@ -342,7 +343,7 @@ function normalizeCheckInInput(input: DeviceCheckInInput) {
   return {
     ok: true as const,
     deviceId,
-    deviceName: trimRequired(input.deviceName) ?? "Unknown device",
+    deviceName: displayDeviceName(input.deviceName, os),
     os,
     appVersion,
   }

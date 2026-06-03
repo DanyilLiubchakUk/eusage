@@ -1,5 +1,6 @@
 import { getVersion } from "@tauri-apps/api/app"
 import { invoke } from "@tauri-apps/api/core"
+import { normalizeDeviceName, resolveDeviceName } from "@/lib/team-device-name"
 import {
   fingerprintDeveloperToken,
   isInvalidTokenError,
@@ -75,6 +76,7 @@ type ActionDeps = {
   clearTeamConnectionSettings: typeof clearTeamConnectionSettings
   createDeviceId: () => string
   getDesktopPlatform: () => Promise<string>
+  getDetectedDeviceName: () => Promise<string | null>
   getAppVersion: () => Promise<string>
   nowIso: () => string
 }
@@ -92,6 +94,7 @@ const defaultDeps: ActionDeps = {
   clearTeamConnectionSettings,
   createDeviceId: () => crypto.randomUUID(),
   getDesktopPlatform: () => invoke<string>("get_desktop_platform"),
+  getDetectedDeviceName: () => invoke<string | null>("get_detected_device_name"),
   getAppVersion: () => getVersion(),
   nowIso: () => new Date().toISOString(),
 }
@@ -248,6 +251,61 @@ export async function disconnectTeam(
   }
 }
 
+export async function updateTeamDeviceNameOverride(
+  deviceNameOverride: string | null,
+  deps: Partial<ActionDeps> = {}
+): Promise<TeamConnectionActionResult> {
+  const resolved = { ...defaultDeps, ...deps }
+  const connection = await resolved.loadTeamConnectionSettings()
+  if (!connection) {
+    return {
+      ok: false,
+      code: "settings-error",
+      message: "No team connection is saved.",
+      connection: null,
+    }
+  }
+
+  const normalizedOverride =
+    deviceNameOverride === null ? null : normalizeDeviceName(deviceNameOverride)
+  if (deviceNameOverride !== null && !normalizedOverride) {
+    return {
+      ok: false,
+      code: "settings-error",
+      message: "Device name is required.",
+      connection,
+    }
+  }
+
+  const updated = await withResolvedDeviceName(
+    {
+      ...connection,
+      deviceNameOverride: normalizedOverride,
+    },
+    resolved
+  )
+  await resolved.saveTeamConnectionSettings(updated)
+
+  const token = await readStoredToken(resolved)
+  if (!token.ok) {
+    return {
+      ok: false,
+      code: "credential-error",
+      message: token.message,
+      connection: updated,
+    }
+  }
+  if (!token.value) {
+    return {
+      ok: true,
+      connection: updated,
+      message: "Device name saved locally.",
+    }
+  }
+
+  return checkInConnection(updated, token.value, resolved)
+}
+
 async function buildConnectionSettings(args: {
   config: TeamConfig
   teamUrl: string
@@ -255,17 +313,20 @@ async function buildConnectionSettings(args: {
   deviceId: string
   deps: ActionDeps
 }): Promise<TeamConnectionSettings> {
-  return {
+  return withResolvedDeviceName({
     teamUrl: args.teamUrl,
     teamName: args.config.teamName,
     tokenFingerprint: await args.deps.fingerprintDeveloperToken(args.token),
     deviceId: args.deviceId,
+    deviceName: "Desktop",
+    detectedDeviceName: null,
+    deviceNameOverride: null,
     endpoints: args.config.endpoints,
     syncStatus: "never",
     lastContactAt: null,
     deviceStatus: null,
     lastError: null,
-  }
+  }, args.deps)
 }
 
 async function saveTokenAndSettings(
@@ -293,16 +354,23 @@ async function checkInConnection(
   token: string,
   deps: ActionDeps
 ): Promise<TeamConnectionCheckInResult> {
-  const [os, appVersion] = await Promise.all([
+  const [os, appVersion, detectedDeviceName] = await Promise.all([
     deps.getDesktopPlatform(),
     deps.getAppVersion(),
+    readDetectedDeviceName(deps),
   ])
+  const deviceName = resolveDeviceName({
+    override: connection.deviceNameOverride,
+    detected: detectedDeviceName,
+    os,
+  })
 
   const result = await deps.checkInTeamDevice({
     teamUrl: connection.teamUrl,
     endpoints: connection.endpoints,
     token,
     deviceId: connection.deviceId,
+    deviceName,
     os,
     appVersion,
   })
@@ -330,6 +398,8 @@ async function checkInConnection(
 
   const updated: TeamConnectionSettings = {
     ...connection,
+    deviceName: normalizeDeviceName(result.value.device.deviceName) ?? deviceName,
+    detectedDeviceName,
     syncStatus: "connected",
     lastContactAt: deps.nowIso(),
     deviceStatus: result.value.device.status,
@@ -340,6 +410,34 @@ async function checkInConnection(
     ok: true,
     connection: updated,
     message: "Device checked in.",
+  }
+}
+
+async function withResolvedDeviceName(
+  connection: TeamConnectionSettings,
+  deps: ActionDeps
+): Promise<TeamConnectionSettings> {
+  const [os, detectedDeviceName] = await Promise.all([
+    deps.getDesktopPlatform(),
+    readDetectedDeviceName(deps),
+  ])
+  return {
+    ...connection,
+    detectedDeviceName,
+    deviceName: resolveDeviceName({
+      override: connection.deviceNameOverride,
+      detected: detectedDeviceName,
+      os,
+    }),
+  }
+}
+
+async function readDetectedDeviceName(deps: ActionDeps): Promise<string | null> {
+  try {
+    return normalizeDeviceName(await deps.getDetectedDeviceName())
+  } catch (error) {
+    console.error("Failed to detect device name:", error)
+    return null
   }
 }
 

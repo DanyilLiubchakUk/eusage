@@ -185,6 +185,65 @@ describe("desktop API", () => {
     expect(fake.tokens[0].lastUsedAt).toBe(1780343600000)
   })
 
+  it("uses OS fallback instead of Unknown device when no name is sent", async () => {
+    const fake = await createStore()
+
+    const result = await checkInDevice({
+      input: {
+        tokenHash: fake.tokenHash,
+        deviceId: "device-1",
+        os: "windows",
+        appVersion: "0.6.24",
+      },
+      now: 1780340000000,
+      store: fake.store,
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      device: {
+        deviceName: "Windows desktop",
+      },
+    })
+    expect(fake.devices[0].deviceName).toBe("Windows desktop")
+  })
+
+  it("replaces old Unknown device labels in public rows", async () => {
+    const fake = await createStore({
+      devices: [
+        {
+          _id: "device-1",
+          teamId: "team-1",
+          developerId: "developer-1",
+          deviceId: "device-1",
+          deviceName: "Unknown device",
+          os: "macos",
+          appVersion: "0.6.24",
+          status: "connected",
+          lastSeenAt: 1780340000000,
+          createdAt: 1780340000000,
+          updatedAt: 1780340000000,
+        },
+      ],
+    })
+
+    const result = await disconnectDevice({
+      input: {
+        tokenHash: fake.tokenHash,
+        deviceId: "device-1",
+      },
+      now: 1780347200000,
+      store: fake.store,
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      device: {
+        deviceName: "macOS desktop",
+      },
+    })
+  })
+
   it("marks an existing device disconnected without deleting it", async () => {
     const fake = await createStore({
       devices: [

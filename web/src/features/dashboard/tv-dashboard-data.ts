@@ -24,6 +24,7 @@ import {
   type ProviderStatusRow,
 } from "./admin-overview-tables"
 import { formatCount, formatPercentDelta, formatProviderName, formatUsd } from "./dashboard-formatting"
+import { dashboardDeviceName } from "./dashboard-device-name"
 import { dashboardSource, type ReadyDashboardState } from "./dashboard-source"
 
 export const TV_SLIDE_DEFINITIONS = [
@@ -280,7 +281,7 @@ function buildSyncHealth(developers: ReadyDashboardState["developers"]): SyncHea
   const rows = developers.flatMap((developer) =>
     developer.devices.map((device) => ({
       developerName: developer.displayName,
-      deviceName: device.deviceName || device.deviceId,
+      deviceName: dashboardDeviceName(device),
       status: device.status,
       lastContactAt: device.lastSyncAt ?? device.lastSeenAt ?? null,
     }))

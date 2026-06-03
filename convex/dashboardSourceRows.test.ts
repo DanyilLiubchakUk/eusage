@@ -45,6 +45,19 @@ const codexSample = {
   capturedAt: now,
   updatedAt: now,
 }
+const device = {
+  _id: "device-1",
+  teamId: "team-1",
+  developerId: "developer-1",
+  deviceId: "device-1",
+  deviceName: "Unknown device",
+  os: "windows",
+  appVersion: "0.6.24",
+  status: "connected",
+  lastSeenAt: now,
+  createdAt: now,
+  updatedAt: now,
+}
 
 describe("dashboard source rows", () => {
   it("keeps public TV usage when provider registry rows are missing", async () => {
@@ -107,6 +120,22 @@ describe("dashboard source rows", () => {
 
     expect(result.snapshots).toHaveLength(0)
     expect(result.metricSamples).toHaveLength(0)
+  })
+
+  it("uses OS fallback for legacy Unknown device labels", async () => {
+    const result = await dashboardSourceRowsForTeam(
+      fakeCtx({
+        developers: [developer],
+        devices: [device],
+      }),
+      team,
+      { includeDeveloperTokens: false }
+    )
+
+    expect(result.status).toBe("ready")
+    if (result.status === "ready") {
+      expect(result.developers[0].devices[0].deviceName).toBe("Windows desktop")
+    }
   })
 })
 

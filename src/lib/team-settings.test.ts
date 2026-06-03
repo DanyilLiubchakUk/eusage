@@ -35,6 +35,9 @@ const connection: TeamConnectionSettings = {
   teamName: "Acme Team",
   tokenFingerprint: "abcd1234...wxyz7890",
   deviceId: "device-1",
+  deviceName: "Alex MacBook",
+  detectedDeviceName: "Alex MacBook",
+  deviceNameOverride: null,
   endpoints: {
     teamConfig: "/api/v1/team-config",
     deviceCheckIn: "/api/v1/device/check-in",
@@ -71,6 +74,21 @@ describe("team settings", () => {
         endpoints: { ...connection.endpoints, deviceCheckIn: "api/v1/device/check-in" },
       })
     ).toBeNull()
+  })
+
+  it("keeps old saved connections readable without Unknown device", () => {
+    const legacy = {
+      ...connection,
+      deviceName: "Unknown device",
+      detectedDeviceName: undefined,
+      deviceNameOverride: undefined,
+    }
+
+    expect(normalizeTeamConnectionSettings(legacy)).toMatchObject({
+      deviceName: "Desktop",
+      detectedDeviceName: null,
+      deviceNameOverride: null,
+    })
   })
 
   it("clears the team connection key", async () => {

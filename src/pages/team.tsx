@@ -1,5 +1,13 @@
-import { FormEvent, useMemo, useState } from "react"
-import { AlertTriangle, CheckCircle2, Plug, RefreshCw, Unplug } from "lucide-react"
+import { FormEvent, useEffect, useMemo, useState } from "react"
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Plug,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Unplug,
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { DisplayPluginState } from "@/hooks/app/use-app-plugin-views"
@@ -12,7 +20,7 @@ type TeamPageProps = {
 }
 
 export function TeamPage({ plugins }: TeamPageProps) {
-  const { state, connect, checkIn, disconnect } = useTeamConnection()
+  const { state, connect, checkIn, disconnect, updateDeviceName } = useTeamConnection()
   const [connectionString, setConnectionString] = useState("")
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const providerSummary = useProviderSummary(plugins)
@@ -57,6 +65,7 @@ export function TeamPage({ plugins }: TeamPageProps) {
           confirmDisconnect={confirmDisconnect}
           providerSummary={providerSummary}
           onCheckIn={checkIn}
+          onUpdateDeviceName={updateDeviceName}
           onDisconnect={handleDisconnect}
           onCancelDisconnect={() => setConfirmDisconnect(false)}
         />
@@ -95,6 +104,7 @@ function ConnectedTeamPanel({
   confirmDisconnect,
   providerSummary,
   onCheckIn,
+  onUpdateDeviceName,
   onDisconnect,
   onCancelDisconnect,
 }: {
@@ -104,6 +114,7 @@ function ConnectedTeamPanel({
   confirmDisconnect: boolean
   providerSummary: ProviderSummary
   onCheckIn: () => void
+  onUpdateDeviceName: (deviceNameOverride: string | null) => Promise<unknown>
   onDisconnect: () => void
   onCancelDisconnect: () => void
 }) {
@@ -113,7 +124,7 @@ function ConnectedTeamPanel({
         <div className="grid grid-cols-2 gap-2 text-xs">
           <InfoRow label="Team URL" value={connection.teamUrl} wide />
           <InfoRow label="Token" value={connection.tokenFingerprint} />
-          <InfoRow label="Device" value={shortId(connection.deviceId)} />
+          <InfoRow label="Device ID" value={shortId(connection.deviceId)} />
           <InfoRow
             label="Last contact"
             value={formatLastContact(connection.lastContactAt)}
@@ -128,6 +139,12 @@ function ConnectedTeamPanel({
           message={message ?? connection.lastError}
         />
       </section>
+
+      <DeviceNameEditor
+        connection={connection}
+        busy={busy}
+        onUpdateDeviceName={onUpdateDeviceName}
+      />
 
       <section className="rounded-md border bg-muted/30 p-3">
         <div className="flex items-center justify-between gap-3">
@@ -166,6 +183,67 @@ function ConnectedTeamPanel({
         </div>
       </div>
     </div>
+  )
+}
+
+function DeviceNameEditor({
+  connection,
+  busy,
+  onUpdateDeviceName,
+}: {
+  connection: TeamConnectionSettings
+  busy: boolean
+  onUpdateDeviceName: (deviceNameOverride: string | null) => Promise<unknown>
+}) {
+  const [deviceName, setDeviceName] = useState(connection.deviceName)
+
+  useEffect(() => {
+    setDeviceName(connection.deviceName)
+  }, [connection.deviceName])
+
+  const trimmed = deviceName.trim()
+  const isSavedOverride = trimmed === (connection.deviceNameOverride ?? "")
+  const canSave = Boolean(trimmed) && trimmed !== connection.deviceName && !isSavedOverride
+
+  return (
+    <section className="rounded-md border bg-muted/30 p-3">
+      <div className="space-y-2">
+        <label className="space-y-1.5 block">
+          <span className="text-xs font-medium text-muted-foreground">Device name</span>
+          <input
+            value={deviceName}
+            onChange={(event) => setDeviceName(event.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+          />
+        </label>
+        <div className="flex items-center justify-between gap-2">
+          <span className="min-w-0 truncate text-xs text-muted-foreground">
+            Detected: {connection.detectedDeviceName ?? connection.deviceName}
+          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy || !connection.deviceNameOverride}
+              onClick={() => onUpdateDeviceName(null)}
+            >
+              <RotateCcw className="size-4" />
+              Reset
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy || !canSave}
+              onClick={() => onUpdateDeviceName(trimmed)}
+            >
+              <Save className="size-4" />
+              Save
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 

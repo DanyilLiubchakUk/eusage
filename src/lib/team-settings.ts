@@ -1,4 +1,5 @@
 import { LazyStore } from "@tauri-apps/plugin-store"
+import { normalizeDeviceName } from "@/lib/team-device-name"
 
 const SETTINGS_STORE_PATH = "settings.json"
 const TEAM_CONNECTION_KEY = "teamConnection"
@@ -19,6 +20,9 @@ export type TeamConnectionSettings = {
   teamName: string
   tokenFingerprint: string
   deviceId: string
+  deviceName: string
+  detectedDeviceName: string | null
+  deviceNameOverride: string | null
   endpoints: TeamApiEndpoints
   syncStatus: TeamSyncStatus
   lastContactAt: string | null
@@ -68,6 +72,13 @@ export function normalizeTeamConnectionSettings(
   const teamName = stringField(row.teamName)
   const tokenFingerprint = stringField(row.tokenFingerprint)
   const deviceId = stringField(row.deviceId)
+  const detectedDeviceName = normalizeDeviceName(row.detectedDeviceName)
+  const deviceNameOverride = normalizeDeviceName(row.deviceNameOverride)
+  const deviceName =
+    normalizeDeviceName(row.deviceName) ??
+    deviceNameOverride ??
+    detectedDeviceName ??
+    "Desktop"
   const endpoints = normalizeTeamApiEndpoints(row.endpoints)
   if (!teamUrl || !teamName || !tokenFingerprint || !deviceId || !endpoints) return null
 
@@ -76,6 +87,9 @@ export function normalizeTeamConnectionSettings(
     teamName,
     tokenFingerprint,
     deviceId,
+    deviceName,
+    detectedDeviceName,
+    deviceNameOverride,
     endpoints,
     syncStatus: normalizeSyncStatus(row.syncStatus),
     lastContactAt: nullableStringField(row.lastContactAt),
