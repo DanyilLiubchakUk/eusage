@@ -1,10 +1,10 @@
 import { convexQuery } from "@convex-dev/react-query"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { api } from "../../../../../convex/_generated/api"
-import { TvDashboard } from "../../../features/dashboard/tv-dashboard"
+import { api } from "../../../convex/_generated/api"
+import { TvDashboard } from "../features/dashboard/tv-dashboard"
 
-export const Route = createFileRoute("/tv/display/$token")({
+export const Route = createFileRoute("/tv_/display/$token")({
   loader: async ({ context, params }) => {
     await context.queryClient.ensureQueryData(displaySourceQuery(params.token))
   },

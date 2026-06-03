@@ -13,7 +13,7 @@ import { Route as TvRouteImport } from './routes/tv'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as DevelopersRouteImport } from './routes/developers'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as TvDisplayTokenRouteImport } from './routes/tv/display/$token'
+import { Route as TvDisplayTokenRouteImport } from './routes/tv_.display.$token'
 import { Route as ApiV1TeamConfigRouteImport } from './routes/api/v1/team-config'
 import { Route as ApiV1UsageBatchRouteImport } from './routes/api/v1/usage/batch'
 import { Route as ApiV1DeviceDisconnectRouteImport } from './routes/api/v1/device/disconnect'
@@ -40,9 +40,9 @@ const IndexRoute = IndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const TvDisplayTokenRoute = TvDisplayTokenRouteImport.update({
-  id: '/display/$token',
-  path: '/display/$token',
-  getParentRoute: () => TvRoute,
+  id: '/tv_/display/$token',
+  path: '/tv/display/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiV1TeamConfigRoute = ApiV1TeamConfigRouteImport.update({
   id: '/api/v1/team-config',
@@ -69,7 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/developers': typeof DevelopersRoute
   '/setup': typeof SetupRoute
-  '/tv': typeof TvRouteWithChildren
+  '/tv': typeof TvRoute
   '/api/v1/team-config': typeof ApiV1TeamConfigRoute
   '/tv/display/$token': typeof TvDisplayTokenRoute
   '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
@@ -80,7 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/developers': typeof DevelopersRoute
   '/setup': typeof SetupRoute
-  '/tv': typeof TvRouteWithChildren
+  '/tv': typeof TvRoute
   '/api/v1/team-config': typeof ApiV1TeamConfigRoute
   '/tv/display/$token': typeof TvDisplayTokenRoute
   '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
@@ -92,9 +92,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/developers': typeof DevelopersRoute
   '/setup': typeof SetupRoute
-  '/tv': typeof TvRouteWithChildren
+  '/tv': typeof TvRoute
   '/api/v1/team-config': typeof ApiV1TeamConfigRoute
-  '/tv/display/$token': typeof TvDisplayTokenRoute
+  '/tv_/display/$token': typeof TvDisplayTokenRoute
   '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
   '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
   '/api/v1/usage/batch': typeof ApiV1UsageBatchRoute
@@ -129,7 +129,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/tv'
     | '/api/v1/team-config'
-    | '/tv/display/$token'
+    | '/tv_/display/$token'
     | '/api/v1/device/check-in'
     | '/api/v1/device/disconnect'
     | '/api/v1/usage/batch'
@@ -139,8 +139,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DevelopersRoute: typeof DevelopersRoute
   SetupRoute: typeof SetupRoute
-  TvRoute: typeof TvRouteWithChildren
+  TvRoute: typeof TvRoute
   ApiV1TeamConfigRoute: typeof ApiV1TeamConfigRoute
+  TvDisplayTokenRoute: typeof TvDisplayTokenRoute
   ApiV1DeviceCheckInRoute: typeof ApiV1DeviceCheckInRoute
   ApiV1DeviceDisconnectRoute: typeof ApiV1DeviceDisconnectRoute
   ApiV1UsageBatchRoute: typeof ApiV1UsageBatchRoute
@@ -176,12 +177,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/tv/display/$token': {
-      id: '/tv/display/$token'
-      path: '/display/$token'
+    '/tv_/display/$token': {
+      id: '/tv_/display/$token'
+      path: '/tv/display/$token'
       fullPath: '/tv/display/$token'
       preLoaderRoute: typeof TvDisplayTokenRouteImport
-      parentRoute: typeof TvRoute
+      parentRoute: typeof rootRouteImport
     }
     '/api/v1/team-config': {
       id: '/api/v1/team-config'
@@ -214,22 +215,13 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface TvRouteChildren {
-  TvDisplayTokenRoute: typeof TvDisplayTokenRoute
-}
-
-const TvRouteChildren: TvRouteChildren = {
-  TvDisplayTokenRoute: TvDisplayTokenRoute,
-}
-
-const TvRouteWithChildren = TvRoute._addFileChildren(TvRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DevelopersRoute: DevelopersRoute,
   SetupRoute: SetupRoute,
-  TvRoute: TvRouteWithChildren,
+  TvRoute: TvRoute,
   ApiV1TeamConfigRoute: ApiV1TeamConfigRoute,
+  TvDisplayTokenRoute: TvDisplayTokenRoute,
   ApiV1DeviceCheckInRoute: ApiV1DeviceCheckInRoute,
   ApiV1DeviceDisconnectRoute: ApiV1DeviceDisconnectRoute,
   ApiV1UsageBatchRoute: ApiV1UsageBatchRoute,
