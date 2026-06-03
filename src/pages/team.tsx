@@ -206,42 +206,48 @@ function DeviceNameEditor({
   const canSave = Boolean(trimmed) && trimmed !== connection.deviceName && !isSavedOverride
 
   return (
-    <section className="rounded-md border bg-muted/30 p-3">
-      <div className="space-y-2">
-        <label className="space-y-1.5 block">
-          <span className="text-xs font-medium text-muted-foreground">Device name</span>
-          <input
-            value={deviceName}
-            onChange={(event) => setDeviceName(event.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-          />
-        </label>
-        <div className="flex items-center justify-between gap-2">
-          <span className="min-w-0 truncate text-xs text-muted-foreground">
-            Detected: {connection.detectedDeviceName ?? connection.deviceName}
-          </span>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={busy || !connection.deviceNameOverride}
-              onClick={() => onUpdateDeviceName(null)}
-            >
-              <RotateCcw className="size-4" />
-              Reset
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={busy || !canSave}
-              onClick={() => onUpdateDeviceName(trimmed)}
-            >
-              <Save className="size-4" />
-              Save
-            </Button>
-          </div>
-        </div>
+    <section className="rounded-md border bg-muted/30 p-3 space-y-2.5">
+      <div className="min-w-0">
+        <h2 className="text-xs font-semibold tracking-normal">Device name</h2>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+          Admin and TV sync health label
+        </p>
+      </div>
+
+      <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+        <input
+          aria-label="Device name"
+          value={deviceName}
+          onChange={(event) => setDeviceName(event.target.value)}
+          className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-xs outline-none"
+        />
+        <Button
+          type="button"
+          size="sm"
+          className="h-8 shrink-0"
+          disabled={busy || !canSave}
+          onClick={() => onUpdateDeviceName(trimmed)}
+        >
+          <Save className="size-4" />
+          Save
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-xs text-muted-foreground">
+          Detected: {connection.detectedDeviceName ?? connection.deviceName}
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-7 shrink-0 px-2"
+          disabled={busy || !connection.deviceNameOverride}
+          onClick={() => onUpdateDeviceName(null)}
+        >
+          <RotateCcw className="size-3.5" />
+          Reset
+        </Button>
       </div>
     </section>
   )
