@@ -36,11 +36,14 @@ When preparing a release:
    - Windows x64 installer.
    - `latest.json`.
    - updater `.sig` files.
-6. Copy the final release asset URLs and hashes into:
-   - Homebrew tap cask.
-   - Scoop bucket manifest.
+6. Confirm the workflow pushed package-manager manifest updates to:
+   - `DanyilLiubchakUk/homebrew-eusage`.
+   - `DanyilLiubchakUk/scoop-eusage`.
 
-Get release hashes:
+The publish workflow computes hashes from the final release assets and commits the
+updated Homebrew cask and Scoop manifest automatically.
+
+Manual fallback, only if the package-manager job fails:
 
 ```bash
 shasum -a 256 path/to/eUsage.dmg
@@ -125,6 +128,9 @@ scoop update eusage
 - GitHub Release publishing in this repo.
 - Homebrew tap repo with `Casks/eusage.rb`.
 - Scoop bucket repo with `bucket/eusage.json`.
+- `PACKAGE_REPOS_TOKEN` GitHub secret in `DanyilLiubchakUk/eusage`.
+  - Needs write access to `DanyilLiubchakUk/homebrew-eusage`.
+  - Needs write access to `DanyilLiubchakUk/scoop-eusage`.
 - Tauri updater signing secrets:
   - `TAURI_SIGNING_PRIVATE_KEY`
   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`

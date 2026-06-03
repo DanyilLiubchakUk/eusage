@@ -1,16 +1,19 @@
 cask "eusage" do
-  version "0.6.24"
-  sha256 "REPLACE_WITH_DMG_SHA256"
+  arch arm: "aarch64", intel: "x64"
 
-  url "https://github.com/DanyilLiubchakUk/eusage/releases/download/v#{version}/REPLACE_WITH_DMG_ASSET_NAME.dmg"
+  version "REPLACE_WITH_VERSION"
+  sha256 arm:   "REPLACE_WITH_AARCH64_DMG_SHA256",
+         intel: "REPLACE_WITH_X64_DMG_SHA256"
+
+  url "https://github.com/DanyilLiubchakUk/eusage/releases/download/v#{version}/eUsage_#{version}_#{arch}.dmg"
   name "eUsage"
   desc "Internal team AI usage tracker"
   homepage "https://github.com/DanyilLiubchakUk/eusage"
 
+  depends_on macos: :ventura
+
   app "eUsage.app"
 
-  # Private-tap only fallback for unsigned or unnotarized internal builds.
-  # Prefer install docs with: brew install --cask eusage --no-quarantine
   postflight do
     system_command "/usr/bin/xattr",
                    args: ["-cr", "#{appdir}/eUsage.app"],

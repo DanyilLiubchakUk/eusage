@@ -27,7 +27,8 @@ The free update host is GitHub Releases. No paid update server is needed.
    - macOS Intel DMG.
    - Windows x64 installer.
 6. The workflow uploads installer assets, updater signatures, and `latest.json` to the GitHub Release.
-7. Existing desktop apps see the new `latest.json`, download the matching artifact, then show `Restart to update`.
+7. The workflow updates the Homebrew cask and Scoop manifest with release URLs and hashes.
+8. Existing desktop apps see the new `latest.json`, download the matching artifact, then show `Restart to update`.
 
 GitHub Actions and GitHub Releases are enough for this path.
 
@@ -89,6 +90,7 @@ Required for both OSes:
 
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+- `PACKAGE_REPOS_TOKEN` for writing package-manager manifest updates.
 
 Required only for smooth macOS distribution:
 
