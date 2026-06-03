@@ -26,6 +26,13 @@ v1 dashboard customization includes:
 - Configure TV slide duration.
 - Configure dashboard theme/display mode.
 
+Persistence split:
+
+- Persisted: date range, global provider visibility, TV visibility, and dashboard defaults.
+- Temporary: one-off Admin Overview focus filters for developer/provider review unless the control is explicitly a settings control.
+
+Overview should not persist every exploratory filter click.
+
 Dashboards may render multiple chart types using Chart.js in React.
 
 Admin Overview is a dense analytics dashboard.

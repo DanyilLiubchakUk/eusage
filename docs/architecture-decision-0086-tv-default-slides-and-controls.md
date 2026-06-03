@@ -19,17 +19,28 @@ Default TV slides:
 - `Team Overview`
 - `Developer Leaderboard`
 - `Provider Breakdown`
-- `Cursor Pool`
+- `Cursor Budget`
 - `Sync Health`
 
 `Team Overview` leads with team usage/spend in the selected range and percent change vs the previous comparable range.
 
 `Team Overview` also shows supporting metrics:
 
-- Cursor pool.
+- Cursor budget.
 - Top provider.
 - Active developers.
 - Sync health.
+
+TV slides use one hero metric per slide:
+
+- Team Overview: team usage/spend.
+- Developer Leaderboard: top developer and top five list.
+- Provider Breakdown: top provider.
+- Cursor Budget: remaining budget.
+- Sync Health: freshness status.
+- Percent Pressure, if enabled later: worst active pressure.
+
+Supporting rows are smaller. Do not make every number visually equal.
 
 TV mode auto-rotates slides.
 
@@ -71,4 +82,4 @@ Every slide remains honest about data freshness.
 ## Alternatives Considered
 
 - Dense TV rotation with many slides: more content, but harder to read.
-- Cursor Pool only: faster, but too narrow for the TV product.
+- Cursor Budget only: faster, but too narrow for the TV product.

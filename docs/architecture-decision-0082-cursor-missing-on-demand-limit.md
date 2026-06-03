@@ -1,4 +1,4 @@
-# Decision 0082: Missing Cursor on-demand limits are excluded from fallback pool
+# Decision 0082: Missing Cursor on-demand limits are excluded from budget aggregate
 
 ## Status
 
@@ -12,13 +12,13 @@ The current Cursor plugin omits the On-demand line when no positive limit exists
 
 Treating a missing limit as `$0` would make team budget look lower than reality.
 
-Hard failing the pool chart would hide useful data for developers who did sync valid limits.
+Hard failing the budget chart would hide useful data for developers who did sync valid limits.
 
 Manual overrides would help fill gaps, but they can drift from Cursor and add more admin UI.
 
 ## Decision
 
-When using the summed per-developer fallback pool:
+When using the summed per-developer `Team On-Demand Budget` aggregate:
 
 - Include developers with valid Cursor on-demand limit data.
 - Exclude developers missing Cursor on-demand limit data.
@@ -34,7 +34,7 @@ Do not treat missing limits as `$0`.
 
 v1 does not include manual Cursor budget override UI.
 
-To support accurate pool calculation, Cursor summary extraction should preserve:
+To support accurate budget calculation, Cursor summary extraction should preserve:
 
 ```text
 spendLimitUsage.limitType
@@ -54,10 +54,14 @@ Admin and TV can still explain incomplete data.
 
 The Cursor extractor must keep structured spend-limit fields, not only the rendered `On-demand` line.
 
+The extractor should also preserve reset/window fields when Cursor exposes them, so the backend/web metric layer can detect mixed developer billing windows.
+
+If developer billing windows differ, Admin and TV show `Mixed billing windows` and do not show one reset countdown or cycle pace projection for the aggregate.
+
 If Cursor data is missing, admins fix Cursor/developer sync rather than entering local fake limits.
 
 ## Alternatives Considered
 
 - Treat missing limit as `$0`: safe-looking, but inaccurate.
-- Hide pool slide until every developer has limit data: accurate, but too brittle.
+- Hide budget slide until every developer has limit data: accurate, but too brittle.
 - Admin manually enters fallback limit per developer: useful later, but more UI and possible drift for v1.

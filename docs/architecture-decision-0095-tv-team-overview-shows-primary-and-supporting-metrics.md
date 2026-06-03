@@ -19,7 +19,7 @@ TV Team Overview primary headline:
 
 TV Team Overview supporting metrics:
 
-- Cursor pool.
+- Cursor budget.
 - Top provider.
 - Active developers.
 - Sync health.
@@ -42,5 +42,5 @@ All-time range omits percent change but still shows current totals/supporting me
 
 ## Alternatives Considered
 
-- Cursor pool first: important, but provider-specific.
+- Cursor budget first: important, but provider-specific.
 - Sync health first: important, but health rather than team performance.

@@ -18,7 +18,7 @@ Admin Overview includes:
 - Team usage over time.
 - Developer leaderboard.
 - Provider breakdown.
-- Cursor pool.
+- Cursor budget.
 - Sync health.
 - Compact detail tables.
 
@@ -28,7 +28,7 @@ KPI strip defaults:
 - Active developers.
 - Top provider.
 - Sync health.
-- Cursor pool remaining.
+- Cursor budget remaining.
 
 Compact detail tables:
 
@@ -42,14 +42,16 @@ TV has its own compact available-metrics table on the Team Overview slide.
 
 Admin metric tables should include tooltip explanations for metric meaning and source.
 
-The Admin Overview available-metrics table can show quota pressure as:
+The Admin Overview available-metrics table can show exact percent tiles and quota pressure as:
 
 - Per developer per provider.
 - Per developer average.
 - Per provider team average.
-- Team average.
+- Team average for one exact provider metric/window.
 - Worst active pressure.
 - High-pressure count.
+
+Exact percent tiles are separated by provider metric/window; unrelated percent windows are not averaged together.
 
 Detailed management controls stay on focused pages such as Developers, Providers, TV, and Settings.
 

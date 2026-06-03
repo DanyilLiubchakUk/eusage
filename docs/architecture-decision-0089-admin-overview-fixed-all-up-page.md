@@ -28,7 +28,7 @@ Overview includes:
 - Team usage over time.
 - Developer leaderboard.
 - Provider breakdown.
-- Cursor pool.
+- Cursor budget.
 - Sync health.
 - Compact detail tables.
 

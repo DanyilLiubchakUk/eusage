@@ -18,7 +18,9 @@ v1 has no manual Cursor budget override UI.
 
 Cursor budget charts use provider data only.
 
-If Cursor on-demand limit data is missing for a developer, eUsage excludes that developer from fallback pool totals and shows missing budget data count.
+If Cursor on-demand limit data is missing for a developer, eUsage excludes that developer from the `Team On-Demand Budget` aggregate and shows missing budget data count.
+
+If developer billing windows differ, eUsage shows `Mixed billing windows` and does not expose one manual reset/cycle override in v1.
 
 ## Consequences
 
@@ -33,4 +35,4 @@ Future versions can add manual overrides if real teams need them.
 ## Alternatives Considered
 
 - Per-developer fallback limits: useful, but more UI and possible drift from Cursor.
-- Team pool total override only: simpler, but cannot explain developer usage shares well.
+- Team budget total override only: simpler, but cannot explain developer usage shares well.

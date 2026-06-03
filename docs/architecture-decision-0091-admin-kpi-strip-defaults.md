@@ -18,13 +18,13 @@ Default KPI strip cards:
 - Active developers.
 - Top provider.
 - Sync health.
-- Cursor pool remaining.
+- Cursor budget remaining.
 
 ## Consequences
 
 Overview starts with useful scan-level signal.
 
-Cursor pool remains visible because it matters to the team.
+Cursor budget remains visible because it matters to the team.
 
 The KPI strip stays small.
 

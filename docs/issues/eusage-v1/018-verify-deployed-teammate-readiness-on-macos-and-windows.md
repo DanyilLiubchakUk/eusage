@@ -26,6 +26,9 @@ Prove the actual ready-for-teammates path after the local provider matrix works:
 - [ ] Cursor, Codex, Claude, and JetBrains AI Assistant pass the provider-platform manual checklist on both supported platforms or documented blockers are filed.
 - [ ] Admin shows real synced data, token status, developer status, provider status, and device sync status.
 - [ ] TV shows real synced data on the default slides with correct freshness labels.
+- [ ] Browser screenshots prove Admin Overview, Providers, TV cockpit, and TV display routes.
+- [ ] TV display is verified in a large-display viewport for readability.
+- [ ] Metric unit tests and relevant auth/token/settings/backend tests pass before ready-for-teammates is claimed.
 
 ## Blocked by
 

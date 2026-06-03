@@ -21,10 +21,14 @@ Implement the visibility and lifecycle rules that decide what Admin and TV show 
 ## Acceptance criteria
 
 - [ ] Global provider disable hides the provider from Admin and TV views but ingestion still stores new data.
+- [ ] New globally visible providers are TV-visible by default.
 - [ ] TV provider visibility can hide globally visible providers from TV only.
 - [ ] Admin can review all developers and can include inactive developers when selected.
 - [ ] Inactive developers are hidden from TV by default and remain reviewable in Admin.
 - [ ] Date range, developer filters, provider filters, and inactive rules feed the shared metric layer consistently.
+- [ ] Admin date range persists in `dashboardSettings`; TV date range persists in `tvSettings`; reloads keep the saved ranges.
+- [ ] Custom date ranges persist as preset plus `startDay` and `endDay`; invalid ranges are blocked inline and do not silently reset.
+- [ ] Persist date range, global provider visibility, TV visibility, and dashboard defaults; keep one-off Admin Overview focus filters temporary unless explicitly saved as settings.
 - [ ] Tests cover hidden provider still collected, TV-only provider hide, inactive developer Admin review, TV default hide, and filtered metric coverage.
 
 ## Blocked by

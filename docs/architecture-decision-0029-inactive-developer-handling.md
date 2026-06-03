@@ -21,6 +21,10 @@ Inactive developers:
 - Keep historical usage data.
 - Can be re-enabled by an admin issuing a new developer token.
 
+When a developer becomes inactive, TV visibility is removed even if the developer was previously included.
+
+When an admin re-enables a developer, the re-enable flow includes `Add back to TV`, checked by default.
+
 ## Consequences
 
 Revocation stops future sync without losing history.

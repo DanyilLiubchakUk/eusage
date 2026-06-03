@@ -18,6 +18,20 @@ Admin dashboard filters can focus on selected developers, but there is no global
 
 TV/display mode has separate developer visibility settings.
 
+When an admin creates a developer, the create form includes `Add to TV`.
+
+`Add to TV` is checked by default.
+
+If checked, the new active developer is included in TV visibility.
+
+If unchecked, the developer is created for Admin review and desktop sync, but stays hidden from TV until enabled in TV settings.
+
+When a developer becomes inactive, they are hidden from TV even if they were previously included.
+
+When an admin re-enables a developer, the re-enable flow includes `Add back to TV`.
+
+`Add back to TV` is checked by default.
+
 ## Consequences
 
 Admin review stays complete and trustworthy.

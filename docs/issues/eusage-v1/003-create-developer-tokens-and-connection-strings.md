@@ -20,7 +20,8 @@ Let the owner create a developer, generate one current developer token, see the 
 
 ## Acceptance criteria
 
-- [ ] The Admin Developers page can create a developer with name, optional email, token label, and metadata.
+- [ ] The Admin Developers page can create a developer with name, optional email, token label, metadata, and an `Add to TV` checkbox checked by default.
+- [ ] If `Add to TV` is checked, the new active developer is included in TV visibility; if unchecked, they stay hidden from TV until enabled in TV settings.
 - [ ] Creating a developer generates a high-entropy developer token and stores only its SHA-256 hash and fingerprint.
 - [ ] The UI shows the raw token and connection string only immediately after create.
 - [ ] Reloading or revisiting the developer row shows fingerprint, status, timestamps, and metadata, not the raw token.

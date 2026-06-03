@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by [Decision 0125](architecture-decision-0125-tv-display-link-uses-random-read-token.md) for read-only TV display links.
 
 ## Context
 
@@ -12,19 +12,19 @@ eUsage usage data belongs to the team deployment and should not be publicly read
 
 ## Decision
 
-The dashboard and TV/fullscreen mode require admin login in v1.
+The dashboard and admin TV/fullscreen setup mode require admin login in v1.
 
 The TV mode should be a full-screen read-only display experience with slide-style views, zoom/fullscreen behavior, and automatic rotation similar to the existing Cursor dashboard pattern.
 
 TV mode should include controls for pause/resume, previous/next slide, and exit fullscreen.
 
-Public read-only TV links are deferred.
+Public read-only TV links were deferred by this decision, then accepted in Decision 0125 as random-token display links.
 
 ## Consequences
 
-Team usage data is protected by Clerk admin auth.
+Admin usage data and TV settings are protected by Clerk admin auth.
 
-TV setup requires signing in as the deployment owner on the display browser.
+TV setup requires signing in as the deployment owner.
 
 The first implementation can focus on one protected display mode instead of separate public read tokens.
 

@@ -74,6 +74,14 @@ The operational state of one connected device.
 - Do not use for: Developer status, provider setup state, or usage totals.
 - Related terms: Device, Developer, Desktop App.
 
+### Sync Health
+
+How trustworthy current team data looks based on check-ins, sync timestamps, disconnect state, and sync errors.
+
+- Use when: Talking about dashboard or TV freshness bands such as fresh, aging, stale, offline, disconnected, or no data yet.
+- Do not use for: Device Status storage state, provider setup state, or usage volume.
+- Related terms: Device Status, Dashboard, TV Viewer.
+
 ### Dashboard
 
 The web UI used by admins and TV displays to view team usage.
@@ -81,6 +89,22 @@ The web UI used by admins and TV displays to view team usage.
 - Use when: Talking about the browser-based team experience.
 - Do not use for: The desktop tray/menu bar UI.
 - Related terms: Team Deployment.
+
+### TV Viewer
+
+A person looking at the read-only TV display.
+
+- Use when: Talking about someone viewing team usage on a wall display or shared browser.
+- Do not use for: Admins configuring TV settings or Developers installing the desktop app.
+- Related terms: Dashboard, TV Display Link.
+
+### TV Display Link
+
+A read-only, random-token URL that lets a TV browser show curated dashboard slides without Clerk sign-in.
+
+- Use when: Talking about public-by-link TV access for one team deployment.
+- Do not use for: Admin settings, dashboard editing, developer desktop sync, or fully public unauthenticated `/tv`.
+- Related terms: TV Viewer, Dashboard, Admin.
 
 ### Team Usage
 
@@ -135,14 +159,14 @@ Provider-reported dollar budget, spend, or remaining allowance for an account or
 Shared Cursor dollar allowance available to a team.
 
 - Use when: Talking about pooled Cursor budget values shared across developers.
-- Do not use for: Cursor percent-used limits, per-developer on-demand budget, tokens burned, or estimated cost.
+- Do not use for: Summed per-developer on-demand budget, Cursor percent-used limits, tokens burned, or estimated cost.
 - Related terms: Provider Budget, Cursor On-Demand Budget, Quota Pressure.
 
 ### Cursor On-Demand Budget
 
-Per-developer Cursor dollar allowance.
+Per-developer Cursor dollar allowance. Can also describe a team aggregate made by summing visible developers' on-demand budgets when no true shared Cursor Pool exists.
 
-- Use when: Talking about individual Cursor budget values for one developer.
+- Use when: Talking about individual Cursor budget values for one developer, or a fallback team budget aggregate across developers.
 - Do not use for: Shared Cursor Pool, Cursor percent-used limits, tokens burned, or estimated cost.
 - Related terms: Provider Budget, Cursor Pool, Quota Pressure.
 

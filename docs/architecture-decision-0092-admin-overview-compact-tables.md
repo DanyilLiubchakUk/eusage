@@ -32,5 +32,5 @@ TV remains slide-based and readable.
 
 ## Alternatives Considered
 
-- Add Cursor per-developer table too: useful, but Cursor Pool section already covers it.
+- Add Cursor per-developer table too: useful, but Cursor Budget section already covers it.
 - No compact tables: cleaner, but weaker all-up page.

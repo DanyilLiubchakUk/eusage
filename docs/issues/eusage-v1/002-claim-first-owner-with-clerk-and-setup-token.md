@@ -24,6 +24,8 @@ Implement the bootstrap path where a Clerk-authenticated admin enters the deploy
 - [ ] The team row and owner admin row are created once and are visible to the dashboard shell.
 - [ ] Wrong, missing, or reused setup tokens fail clearly and do not create a second owner.
 - [ ] After setup completes, the setup route no longer accepts the setup token and links to the dashboard.
+- [ ] Admin auth uses a shared shell that separates Clerk loading, signed-out, not-owner, and ready states.
+- [ ] Normal admin reloads do not flash `Dashboard unavailable` or `not-authenticated` before real content appears.
 - [ ] Tests cover success, wrong token, duplicate submit, and setup-complete behavior.
 
 ## Blocked by

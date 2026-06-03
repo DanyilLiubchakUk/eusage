@@ -28,6 +28,18 @@ All time does not show percent-delta comparison.
 
 The default admin dashboard range can be chosen in dashboard config, but the available choices match TV mode.
 
+The selected Admin date range is persisted in `dashboardSettings`.
+
+Reloading Admin keeps the saved date range.
+
+Custom date ranges persist as preset plus `startDay` and `endDay`.
+
+Invalid custom ranges are blocked inline and do not save.
+
+End date before start date is rejected.
+
+Invalid custom ranges must not silently reset to default.
+
 ## Consequences
 
 Date filtering behavior is consistent across admin dashboard and TV mode.

@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Cursor on-demand fallback pool sums per-developer budget and usage when no provider-reported pooled fields exist.
+Cursor on-demand fallback sums per-developer budget and usage when no provider-reported pooled fields exist.
 
 Cursor may provide explicit `individualUsed`, or it may provide `individualLimit` and `individualRemaining`.
 
@@ -14,7 +14,7 @@ The screenshot-style UI can derive used from limit minus remaining, but explicit
 
 ## Decision
 
-For each developer included in Cursor fallback pool:
+For each developer included in the `Team On-Demand Budget` aggregate:
 
 1. Use `individualUsed` when present.
 2. Otherwise use `individualLimit - individualRemaining`.
@@ -23,7 +23,7 @@ If neither used nor remaining can be derived, exclude that developer and count m
 
 ## Consequences
 
-The pool chart uses the best provider value available.
+The budget chart uses the best provider value available.
 
 Screenshot-style data still works when explicit used is missing.
 

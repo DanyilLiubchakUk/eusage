@@ -20,6 +20,8 @@ Each required provider on each platform must pass a manual checklist:
 - Team upload succeeds.
 - Admin shows provider/developer row.
 - TV includes the provider metric.
+- Browser screenshot proves affected Admin and TV surfaces.
+- TV large-display viewport screenshot proves TV readability when the provider affects TV slides.
 
 Required providers:
 

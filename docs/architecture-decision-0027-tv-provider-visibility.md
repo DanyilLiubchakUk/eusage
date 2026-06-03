@@ -18,6 +18,8 @@ Global provider visibility is the top-level filter. If a provider is globally hi
 
 If a provider is globally visible, TV/display config can still hide it from TV mode only.
 
+New globally visible providers are TV-visible by default.
+
 ## Consequences
 
 Admins can keep detailed providers visible in the admin dashboard while curating TV mode.

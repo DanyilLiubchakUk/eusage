@@ -14,6 +14,8 @@ When an admin disables a provider globally, they want that provider hidden from 
 
 New providers are visible by default.
 
+New globally visible providers are TV-visible by default.
+
 Global provider disable means hidden from all views:
 
 - Admin dashboard.

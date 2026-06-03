@@ -37,33 +37,59 @@ Table rows:
 - Quota pressure.
 - Credits.
 - Requests.
-- Cursor pool.
+- Cursor budget.
 - Sync health.
 
 Rows stay stable so the team can see every supported metric family.
 If a metric has no data yet, the value shows `No data yet` with status explaining why.
 
+Provider percent usage is shown only when the provider reports a percent/window/quota value or the extractor can derive it from provider-reported limit and remaining values.
+
+Do not invent percent usage for providers that only expose tokens, cost, credits, or requests.
+
+Missing provider percent values are excluded from quota pressure and shown through coverage, not treated as `0%`.
+
 Admin Overview also includes compact metric tables.
 
-Quota pressure supports these aggregations on TV slides and Admin Overview:
+Quota pressure uses exact percent tiles. Each tile represents one provider metric and one window/scope, for example:
+
+- `Claude 5h`.
+- `Claude weekly`.
+- `Codex session`.
+- `Codex weekly`.
+- `Cursor API`.
+- `Cursor plan`.
+
+Do not average unrelated percent windows together into one blended number.
+
+Each exact percent tile can show:
+
+- Average across visible developers reporting that exact metric.
+- Worst developer for that exact metric.
+- Coverage, for example `4/5 reporting`.
+- Window/scope label, for example `5h window`, `weekly`, or `billing cycle`.
+
+Quota pressure supports these exact-window aggregations on TV slides and Admin Overview:
 
 - Per developer per provider.
 - Per developer average across visible providers.
 - Per provider team average across visible developers.
-- Team average across visible developer-provider reports.
+- Team average for one exact provider metric/window across visible developer reports.
 - Worst active developer-provider pressure.
 - High-pressure count.
 
-TV Team Overview can show quota pressure as team average plus worst active pressure.
-Example: `Avg 42%; worst Claude 96% - Alex; Alex avg 82%`.
-Admin can show the full matrix/table with sorting and filters.
+TV Team Overview can show worst active pressure plus the top three exact percent tiles.
+Example: `Worst Claude 5h 96% - Alex; Codex weekly avg 42%`.
+Admin can show the full exact-window matrix/table with sorting and filters.
 
 Quota pressure averages use a simple average of visible reported percent values only.
 Visible means the current date range, selected developers, selected providers, hidden/inactive rules, and dashboard filters.
+If a percent value is only a current provider window or billing-cycle value, show it with that scope label instead of pretending it is derived from the selected date range.
+When daily percent samples exist, date range filters can aggregate those samples.
 Missing reports are excluded from the average.
 Coverage must be shown, for example `12/15 reporting`.
-Per-developer averages use the same rule across visible providers and show provider coverage, for example `2/3 providers`.
-Per-provider team averages use the same rule across visible developers and show developer coverage, for example `2/3 developers`.
+Per-developer averages use the same exact-window rule across visible providers and show provider/window coverage, for example `2/3 windows`.
+Per-provider team averages use the same exact-window rule across visible developers and show developer coverage, for example `2/3 developers`.
 Worst active pressure shows both:
 
 - Worst single developer-provider value.

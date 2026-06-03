@@ -14,6 +14,26 @@ Clerk can handle admin sign-up, sign-in, sessions, and password/OAuth UX. Using 
 
 Use Clerk for admin auth only.
 
+Admin routes use a shared admin shell for auth state.
+
+The shell handles:
+
+- Clerk loading.
+- Signed-out sign-in state.
+- Owner check.
+- Admin navigation.
+- Page content after auth is settled.
+
+Admin page data fetching waits until Clerk auth is ready.
+
+Backend `not-authenticated` during Clerk hydration is not a user-facing dashboard error. During hydration, show a quiet loading/skeleton state instead of an error card.
+
+Loading presentation:
+
+- First app load can use a full-page calm skeleton.
+- Once the admin shell is known, keep the admin navigation visible.
+- During page-level reloads, skeleton only the page content.
+
 The first admin flow is:
 
 1. Team deploys eUsage with Clerk, Convex, Vercel, and `SETUP_TOKEN` environment variables.
@@ -29,6 +49,8 @@ Developer desktop apps do not use Clerk. They use admin-created developer tokens
 Admin login is polished without building custom password/session code.
 
 Every team deployment must also create and configure its own Clerk app.
+
+Admins do not see transient `Dashboard unavailable` or `not-authenticated` flashes during normal reloads.
 
 The setup token remains necessary because Clerk proves identity, while `SETUP_TOKEN` proves ownership of the deployment.
 

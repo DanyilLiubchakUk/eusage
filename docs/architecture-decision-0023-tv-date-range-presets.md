@@ -26,6 +26,18 @@ For Last 7, Last 30, Last 90, and Custom range, TV comparison metrics use the pr
 
 All time does not show percent-delta comparison.
 
+The selected TV date range is persisted in `tvSettings`.
+
+Reloading `/tv` or `/tv/display/:token` keeps the saved TV date range.
+
+Custom date ranges persist as preset plus `startDay` and `endDay`.
+
+Invalid custom ranges are blocked inline and do not save.
+
+End date before start date is rejected.
+
+Invalid custom ranges must not silently reset to default.
+
 ## Consequences
 
 The default TV view focuses on recent activity.

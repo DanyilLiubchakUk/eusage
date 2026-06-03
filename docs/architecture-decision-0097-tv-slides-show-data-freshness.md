@@ -38,7 +38,7 @@ Per-slide timestamp sources:
 - Team Overview: visible `usageSnapshots` and chart `metricSamples`.
 - Developer Leaderboard: visible developer/provider `usageSnapshots`.
 - Provider Breakdown: visible provider `usageSnapshots`.
-- Cursor Pool: visible Cursor `usageSnapshots`.
+- Cursor Budget: visible Cursor `usageSnapshots`.
 - Sync Health: visible devices using `lastSyncAt ?? lastSeenAt`.
 
 Do not add a temporary freshness table.
@@ -48,11 +48,21 @@ Normal Convex reactive queries update the base data when rows change.
 
 If a slide has no data, show `Updates: No data yet`.
 
+TV no-data states are quiet and explicit:
+
+- Zero synced data: show `Waiting for first sync`.
+- Missing provider or metric row: show `No data yet`.
+- Stale developer/provider data: keep the last visible data and mark it with freshness.
+- Sync error with previous data: keep the last visible data and show a small `Sync issue` note.
+- Invalid or revoked display link: show the full unavailable state, not a no-data state.
+
+No-data slides stay visible when enabled. Do not hide empty slides by default, and do not use warning banners for normal missing data.
+
 ## Consequences
 
 TV users can tell the worst and newest visible freshness for each slide.
 
-The freshness label should be present on Team Overview, Developer Leaderboard, Provider Breakdown, Cursor Pool, and Sync Health.
+The freshness label should be present on Team Overview, Developer Leaderboard, Provider Breakdown, Cursor Budget, and Sync Health.
 Freshness status colors appear only on Sync Health.
 Other slides show the freshness text without status color.
 

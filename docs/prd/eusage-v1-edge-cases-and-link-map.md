@@ -79,6 +79,13 @@ Metric Engine -> TV Slides
 - Device never uploads usage but checks in: admin sees connected device, no usage yet.
 - Device has no check-in for 72 hours: status becomes stale.
 - Network outage lasts over 72 hours: device may appear stale; acceptable v1 behavior.
+- Sync Health Fresh: last sync/check-in is 30 minutes old or newer.
+- Sync Health Aging: older than 30 minutes and up to 4 hours.
+- Sync Health Stale: older than 4 hours and up to 24 hours.
+- Sync Health Offline: older than 24 hours.
+- Sync Health Disconnected: explicit disconnect state wins over time.
+- Sync Health Never synced: show `No data yet`.
+- Active sync error: show small `Sync issue`.
 - Desktop sends disconnect event: device becomes disconnected.
 - Admin archives device: hidden from normal device lists, usage remains.
 - Reinstall creates new device ID: admin can archive old device.
@@ -153,11 +160,14 @@ Metric Engine -> TV Slides
 - Store source facts only when provider-reported, extractor-estimated, or needed after raw payload expiry.
 - Do not store chart totals that can always be recalculated from source rows.
 - Missing metric field: exclude from average and show coverage.
-- Quota pressure average: simple average of visible reported percent values only.
-- Per-developer average: visible providers with reported values only.
-- Per-provider average: visible developers with reported values only.
-- Team average: visible developer-provider reports only.
-- Worst active pressure: show worst single developer-provider value and worst per-developer average.
+- Provider percent usage exists only when provider reports percent/quota/window data or enough provider limit/remaining data to derive it safely.
+- Providers without percent data are excluded from quota pressure and shown in coverage gaps, not treated as `0%`.
+- Quota pressure uses exact percent tiles such as `Claude 5h`, `Claude weekly`, `Codex session`, `Codex weekly`, `Cursor API`, and `Cursor plan`.
+- Do not average unrelated percent windows together.
+- Percent tile average: visible developers reporting that exact provider metric/window only.
+- Percent tile worst: worst visible developer reporting that exact provider metric/window.
+- Percent tile coverage: show reporting count, for example `4/5 reporting`.
+- Worst active pressure: show worst single exact-window developer value and top exact-window tiles.
 - Threshold 80 percent: warning.
 - Threshold 95 percent: critical.
 - Last 7, 30, 90, custom: compare to immediately previous equal-length range.
@@ -168,11 +178,12 @@ Metric Engine -> TV Slides
 - Provider period missing: use day bucket fallback.
 - Provider returns historical machine data on first sync: preserve provider period when present so history lands on correct timeline.
 
-## Cursor Pool Edge Cases
+## Cursor Budget Edge Cases
 
 - Pooled fields present: use pooled total, used, remaining; do not sum across developers.
 - Pooled fields present on multiple developer rows: choose provider-reported pooled model, not sum.
-- Pooled fields missing: fallback to summed per-developer on-demand limit and used.
+- Pooled fields missing: show `Team On-Demand Budget` from summed per-developer on-demand limit and used.
+- Summed per-developer on-demand values are not labeled as a shared pool.
 - Developer has limit and explicit used: use explicit used.
 - Developer has limit and remaining only: used equals limit minus remaining.
 - Developer has no limit: exclude from fallback and count missing.
@@ -180,6 +191,11 @@ Metric Engine -> TV Slides
 - All developers missing limit: show no usable pool data, with missing-data count.
 - Pool remaining negative: show over limit state, not broken chart.
 - Missing data note appears as small note, not alarm banner.
+- Pool/on-demand budget total, used, and remaining are current billing-cycle/provider-window values and do not change when Admin/TV date range changes.
+- Date range can change Cursor budget history, pace, and developer share charts only when daily samples exist for that range.
+- Pool slide/card labels the headline scope as current billing cycle, provider pool, or `Team On-Demand Budget`.
+- Mixed developer billing windows in a summed on-demand budget show `Mixed billing windows`, no single reset countdown, and no cycle pace projection.
+- Desktop/Rust extractor returns raw Cursor pooled fields, individual fields, and reset/window fields when available; backend/web metric layer chooses shared-pool vs on-demand-budget labels.
 - No manual budget overrides in v1.
 
 ## Dashboard and TV Edge Cases
@@ -189,6 +205,11 @@ Metric Engine -> TV Slides
 - Provider globally disabled: hidden everywhere, still stored.
 - Provider TV-disabled only: hidden on TV, visible in Admin.
 - TV has no data for slide: show no-data state and `Updates: No data yet`.
+- TV with zero synced team data: show `Waiting for first sync`.
+- TV missing provider or metric row: show `No data yet`.
+- TV stale developer/provider data: keep previous visible data and mark freshness.
+- TV sync error with previous data: keep previous visible data and show small `Sync issue`.
+- TV normal no-data states are quiet placeholders, not hidden slides and not warning banners.
 - Slide has mixed data timestamps: oldest and newest visible timestamps are used.
 - Freshness age under one minute: show seconds only.
 - Freshness age over one day: show days, hours, minutes, seconds.
@@ -198,6 +219,15 @@ Metric Engine -> TV Slides
 - Slide duration empty or invalid: reject or reset to default.
 - Admin overview tooltip not available on TV: TV labels and source/status text must stand alone.
 - Chart container small: text must not overlap or resize layout badly.
+- TV slide hierarchy: one hero metric per slide; supporting rows stay smaller.
+- Hero metrics: Team Overview usage/spend, Developer Leaderboard top developer/top five, Provider Breakdown top provider, Cursor Budget remaining budget, Sync Health freshness status, Percent Pressure worst active pressure if enabled later.
+
+## Provider Page Edge Cases
+
+- Providers page is management-first.
+- Show global provider visibility, readiness/status, reporting developers, last synced data, setup/debug hints, exact percent tiles for that provider, and simple provider-only charts.
+- Simple provider-only charts can show trends when samples exist.
+- Providers page does not show raw payload viewer, dashboard builder, or deep cross-provider analytics in v1.
 
 ## Windows Edge Cases
 
@@ -231,6 +261,9 @@ Metric Engine -> TV Slides
 - Local proof is not ready for teammates.
 - Ready for teammates requires deployed Vercel app, Convex Cloud project, Clerk login, one macOS desktop, one Windows desktop, and real data in Admin and TV.
 - Provider tests passing is not enough; each provider/platform pair needs manual checklist.
+- Visual changes need browser screenshots for Admin and TV when affected.
+- TV visual changes need a large-display viewport screenshot.
+- Ready-for-teammates needs deployed Vercel/Convex/Clerk proof plus one macOS desktop and one Windows desktop connected.
 - Deployment should happen after local four-provider matrix works.
 - UI polish should wait until real data loop and cross-OS provider behavior work.
 

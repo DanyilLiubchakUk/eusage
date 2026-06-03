@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Admin and TV need the same derived metrics: totals, averages, percent changes, Cursor pool fallback, burn, pace, projections, and chart aggregates.
+Admin and TV need the same derived metrics: totals, averages, percent changes, Cursor pool/on-demand budget, exact percent tiles, burn, pace, projections, and chart aggregates.
 
 Convex should return source rows.
 React components should not duplicate metric math inline.
@@ -25,8 +25,8 @@ Convex query functions return source rows and simple filtered datasets.
 
 Metric functions must have unit tests from day one for:
 
-- Cursor pool calculation.
-- Quota averages and coverage.
+- Cursor pool/on-demand budget calculation.
+- Exact percent tiles and quota coverage.
 - Date-range comparison.
 - Oldest-update formatting.
 

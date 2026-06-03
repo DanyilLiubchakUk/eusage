@@ -26,11 +26,15 @@ After the Cursor thin slice, provider order is:
 
 Done means:
 
+- Metric unit tests pass.
+- Auth, token, settings, and sync-health backend tests pass where the slice touches them.
 - Desktop team connection works.
 - Provider reads real local data when installed and signed in.
 - Desktop uploads usage.
 - Admin shows provider/developer data.
 - TV shows real synced data.
+- Browser screenshots prove affected Admin and TV surfaces.
+- TV large-display viewport screenshot proves wall-display readability when TV visuals change.
 - macOS menu bar and Windows tray flows both work.
 
 Each provider/platform pair must pass a manual checklist:

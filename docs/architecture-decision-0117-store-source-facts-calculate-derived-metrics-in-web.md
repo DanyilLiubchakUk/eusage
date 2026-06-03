@@ -31,8 +31,8 @@ Shared pure TypeScript functions in `web/src/lib/metrics` calculate:
 - Totals.
 - Averages.
 - Percent changes.
-- Quota pressure averages.
-- Cursor pool fallback totals.
+- Exact percent tiles and quota coverage.
+- Cursor pool/on-demand budget values.
 - Burn, pace, projections, and chart aggregates.
 
 Admin and TV must reuse those functions instead of calculating metrics inline in React components.

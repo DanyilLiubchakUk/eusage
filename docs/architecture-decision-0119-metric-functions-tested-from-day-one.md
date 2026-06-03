@@ -9,7 +9,7 @@ Accepted
 Metric calculations are product core.
 They are pure TypeScript functions, so they are cheap to test.
 
-Manual UI testing is not enough for calculations like Cursor pool fallback, quota averages, and date comparisons.
+Manual UI testing is not enough for calculations like Cursor pool/on-demand budget, exact percent tiles, quota coverage, and date comparisons.
 
 ## Decision
 
@@ -23,8 +23,8 @@ bun test:web
 
 Initial test coverage:
 
-- Cursor pool calculation.
-- Quota averages and coverage.
+- Cursor pool/on-demand budget calculation.
+- Exact percent tiles and quota coverage.
 - Date-range comparison.
 - Oldest-update formatting.
 
