@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.6.25
+
+### New Features
+- feat: add app shell theme controls by @DanyilLiubchak
+- feat: improve dashboard metric ranges by @DanyilLiubchak
+- feat: add admin dashboard management controls by @DanyilLiubchak
+
+### Bug Fixes
+- fix: reduce team sync batch latency by @DanyilLiubchak
+
+### Chores
+- style: refresh tv dashboard display by @DanyilLiubchak
+- ci: update package manager manifests on release by @DanyilLiubchak
+- docs: add github release setup checklist by @DanyilLiubchak
+
+---
+
+### Changelog
+
+**Full Changelog**: [v0.6.24...v0.6.25](https://github.com/DanyilLiubchakUk/eusage/compare/v0.6.24...v0.6.25)
+
+- [9d1c47f](https://github.com/DanyilLiubchakUk/eusage/commit/9d1c47fee8f3b5acf096f6f8abe316874fd8472b) fix: reduce team sync batch latency by @DanyilLiubchak
+- [3bca5af](https://github.com/DanyilLiubchakUk/eusage/commit/3bca5af2a88e9a5fb0dff0e1b7261fc707f70893) feat: add app shell theme controls by @DanyilLiubchak
+- [0678afd](https://github.com/DanyilLiubchakUk/eusage/commit/0678afdaf0fa7406eba50550e29da2b596e7c7fd) feat: improve dashboard metric ranges by @DanyilLiubchak
+- [f881b13](https://github.com/DanyilLiubchakUk/eusage/commit/f881b13e6f8c9fc9bc1398dacddc0115e7bdac95) feat: add admin dashboard management controls by @DanyilLiubchak
+- [8efd0e0](https://github.com/DanyilLiubchakUk/eusage/commit/8efd0e03525902560f2232f2b6eb60a397850348) style: refresh tv dashboard display by @DanyilLiubchak
+- [84ecf74](https://github.com/DanyilLiubchakUk/eusage/commit/84ecf74b82764036a4f9cf036251a036ceb0c656) ci: update package manager manifests on release by @DanyilLiubchak
+- [a89e8ae](https://github.com/DanyilLiubchakUk/eusage/commit/a89e8ae8f4f3b1f05f1aa1ef7dc19db23e67f918) docs: add github release setup checklist by @DanyilLiubchak
+
 ## v0.6.24
 
 ### New Features
