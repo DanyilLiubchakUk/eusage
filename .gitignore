@@ -42,3 +42,6 @@ package-lock.json
 src-tauri/resources/bundled_plugins/*
 !src-tauri/resources/bundled_plugins/.gitkeep
 .vercel
+
+# clerk configuration (can include secrets)
+/.clerk/
