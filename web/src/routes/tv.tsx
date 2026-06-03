@@ -9,6 +9,7 @@ import {
   DashboardSignInRequired,
   DashboardUnavailable,
 } from "../features/dashboard/dashboard-placeholders"
+import { DASHBOARD_SOURCE_REFETCH_INTERVAL_MS } from "../features/dashboard/dashboard-refresh"
 import { TvDashboard } from "../features/dashboard/tv-dashboard"
 
 export const Route = createFileRoute("/tv")({
@@ -26,7 +27,10 @@ function TvRoute() {
     api.tvDisplayLinks.get,
     canReadDashboard ? {} : "skip"
   )
-  const { data } = useQuery(dashboardSourceQuery)
+  const { data } = useQuery({
+    ...dashboardSourceQuery,
+    refetchInterval: DASHBOARD_SOURCE_REFETCH_INTERVAL_MS,
+  })
   const { data: displayLinkState } = useQuery(tvDisplayLinkQuery)
   const queryClient = useQueryClient()
   const updateTvSettings = useConvexMutation(api.dashboard.updateTvSettings)

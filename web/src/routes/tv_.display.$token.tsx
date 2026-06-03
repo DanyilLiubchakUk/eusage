@@ -2,6 +2,7 @@ import { convexQuery } from "@convex-dev/react-query"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { api } from "../../../convex/_generated/api"
+import { DASHBOARD_SOURCE_REFETCH_INTERVAL_MS } from "../features/dashboard/dashboard-refresh"
 import { TvDashboard } from "../features/dashboard/tv-dashboard"
 
 export const Route = createFileRoute("/tv_/display/$token")({
@@ -14,7 +15,10 @@ export const Route = createFileRoute("/tv_/display/$token")({
 
 function TvDisplayRoute() {
   const { token } = Route.useParams()
-  const { data } = useSuspenseQuery(displaySourceQuery(token))
+  const { data } = useSuspenseQuery({
+    ...displaySourceQuery(token),
+    refetchInterval: DASHBOARD_SOURCE_REFETCH_INTERVAL_MS,
+  })
 
   if (data.status !== "ready") {
     return <TvLinkUnavailable />
