@@ -201,7 +201,6 @@ function DeviceNameEditor({
     setDeviceName(connection.deviceName)
   }, [connection.deviceName])
 
-  const detectedName = connection.detectedDeviceName ?? connection.deviceName
   const trimmed = deviceName.trim()
   const isSavedOverride = trimmed === (connection.deviceNameOverride ?? "")
   const canSave = Boolean(trimmed) && trimmed !== connection.deviceName && !isSavedOverride
@@ -209,13 +208,7 @@ function DeviceNameEditor({
 
   return (
     <section>
-      <h3 className="text-lg font-semibold mb-0">Device Name</h3>
-      <p
-        className="mb-2 truncate text-sm text-muted-foreground"
-        title={`Detected: ${detectedName}`}
-      >
-        Admin and TV sync label. Detected: {detectedName}
-      </p>
+      <h3 className="text-lg font-semibold mb-2">Device Name</h3>
 
       <div
         className={cn(
