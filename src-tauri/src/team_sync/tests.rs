@@ -105,20 +105,20 @@ fn repeated_updates_replace_same_pending_provider() {
 fn upload_wait_uses_debounce_until_hard_deadline() {
     assert_eq!(
         next_upload_wait(
-            Duration::from_secs(30),
+            TEAM_SYNC_DEBOUNCE_WINDOW,
             TEAM_SYNC_MAX_PENDING_AGE,
-            Duration::from_secs(14 * 60)
+            Duration::from_secs(45)
         ),
-        Duration::from_secs(30)
+        TEAM_SYNC_DEBOUNCE_WINDOW
     );
 
     assert_eq!(
         next_upload_wait(
-            Duration::from_secs(30),
+            TEAM_SYNC_DEBOUNCE_WINDOW,
             TEAM_SYNC_MAX_PENDING_AGE,
-            Duration::from_secs(14 * 60 + 45)
+            Duration::from_secs(58)
         ),
-        Duration::from_secs(15)
+        Duration::from_secs(2)
     );
 }
 
@@ -127,7 +127,7 @@ fn hard_deadline_uploads_even_when_generation_keeps_changing() {
     assert!(!should_upload_after_wait(
         1,
         2,
-        Duration::from_secs(14 * 60),
+        Duration::from_secs(45),
         TEAM_SYNC_MAX_PENDING_AGE
     ));
 
@@ -144,7 +144,7 @@ fn quiet_debounce_still_uploads_before_hard_deadline() {
     assert!(should_upload_after_wait(
         2,
         2,
-        Duration::from_secs(30),
+        TEAM_SYNC_DEBOUNCE_WINDOW,
         TEAM_SYNC_MAX_PENDING_AGE
     ));
 }

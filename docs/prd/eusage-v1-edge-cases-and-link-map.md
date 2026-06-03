@@ -126,7 +126,8 @@ Metric Engine -> TV Slides
 - No team connection: do not upload.
 - Provider probe succeeded: enqueue provider result for batch.
 - Same provider updates during debounce: replace older pending provider result.
-- No provider changes for 30 seconds: send whole batch.
+- No provider changes for 5 seconds: send whole batch.
+- Provider changes keep arriving: send pending batch after 1 minute.
 - Manual refresh and auto refresh both use same path.
 - Upload network failure: keep batch in memory and retry on next refresh.
 - App quits with pending batch: try bounded flush; do not block quit forever.

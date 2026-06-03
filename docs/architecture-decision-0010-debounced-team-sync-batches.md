@@ -20,7 +20,9 @@ When a successful provider result is added or updated in the pending batch, the 
 
 If no provider result changes for the debounce window, the desktop app sends the whole pending batch to the team's Vercel API.
 
-The v1 debounce window is 30 seconds and must be represented by a named variable so it can be changed easily.
+The v1 debounce window is 5 seconds and must be represented by a named variable so it can be changed easily.
+
+If provider results keep changing, the desktop app still sends the pending batch after 1 minute.
 
 If a team upload fails for a retryable reason, such as network failure or temporary server failure, the desktop app keeps the failed batch in memory and retries it on the next refresh while the app stays open.
 

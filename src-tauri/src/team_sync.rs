@@ -21,8 +21,8 @@ use std::time::{Duration, Instant};
 const UPLOAD_SCHEMA_VERSION: &str = "1.0.0";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const QUIT_FLUSH_TIMEOUT: Duration = Duration::from_secs(3);
-pub const TEAM_SYNC_DEBOUNCE_WINDOW: Duration = Duration::from_secs(30);
-const TEAM_SYNC_MAX_PENDING_AGE: Duration = Duration::from_secs(15 * 60);
+pub const TEAM_SYNC_DEBOUNCE_WINDOW: Duration = Duration::from_secs(5);
+const TEAM_SYNC_MAX_PENDING_AGE: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Clone)]
 struct PendingProvider {
