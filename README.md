@@ -287,6 +287,8 @@ Desktop releases use GitHub Releases and the Tauri updater. See [Desktop release
 
 Free technical-team installs can use a private Homebrew tap on macOS and a private Scoop bucket on Windows. See [Desktop package managers](docs/desktop-package-managers.md).
 
+For one-time GitHub setup across `eusage`, `homebrew-eusage`, and `scoop-eusage`, see [GitHub release setup](docs/github-release-setup.md).
+
 Windows v1 can ship free as an unsigned x64 installer, with expected SmartScreen warnings. macOS can be distributed free only with manual Gatekeeper bypass for a tiny internal team; smooth outside-App-Store install needs paid Apple Developer signing and notarization.
 
 ## Development

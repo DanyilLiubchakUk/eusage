@@ -6,6 +6,8 @@ Use free package managers for first install, then keep the existing GitHub Relea
 
 This is for a small technical team. It is not the public-user distribution path.
 
+For one-time GitHub repo and secret setup, see [GitHub release setup](github-release-setup.md).
+
 ## How updates work
 
 Package managers install eUsage the first time.

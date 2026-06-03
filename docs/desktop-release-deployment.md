@@ -34,6 +34,8 @@ GitHub Actions and GitHub Releases are enough for this path.
 
 For first-install package-manager setup, see [Desktop package managers](desktop-package-managers.md).
 
+For one-time GitHub repo and secret setup, see [GitHub release setup](github-release-setup.md).
+
 ## Windows install
 
 Windows v1 uses an unsigned x64 installer. This is free.
