@@ -281,6 +281,12 @@ The desktop app uses the app URL from the connection string to discover non-secr
 
 Usage upload uses `POST /api/v1/usage/batch` with the same bearer token. The first supported upload schema is `1.0.0`. A valid mock provider upload stores the redacted raw payload for 90 days, upserts the latest usage snapshot for the provider/device/period/data identity, and upserts daily metric samples. If one provider payload is invalid, valid providers in the same batch still sync; rejected provider IDs are returned and short-lived sync errors are stored without raw payloads or secret values.
 
+## Desktop Releases
+
+Desktop releases use GitHub Releases and the Tauri updater. See [Desktop release deployment](docs/desktop-release-deployment.md).
+
+Windows v1 can ship free as an unsigned x64 installer, with expected SmartScreen warnings. macOS can be distributed free only with manual Gatekeeper bypass for a tiny internal team; smooth outside-App-Store install needs paid Apple Developer signing and notarization.
+
 ## Development
 
 See [Local Development Setup](docs/local-development.md) for macOS and Windows setup.
