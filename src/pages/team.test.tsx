@@ -59,6 +59,8 @@ describe("TeamPage", () => {
   it("submits the pasted connection string", async () => {
     render(<TeamPage plugins={[]} />)
 
+    expect(screen.getByLabelText("Connection string")).toHaveAttribute("maxlength", "512")
+
     await userEvent.type(
       screen.getByLabelText("Connection string"),
       "eusage://connect?url=https://team.example.com&token=eusage_dev_secret"
@@ -67,6 +69,18 @@ describe("TeamPage", () => {
 
     expect(teamHook.connect).toHaveBeenCalledWith(
       "eusage://connect?url=https://team.example.com&token=eusage_dev_secret"
+    )
+  })
+
+  it("validates the connection string before connect", async () => {
+    render(<TeamPage plugins={[]} />)
+
+    await userEvent.type(screen.getByLabelText("Connection string"), "https://team.example.com")
+    await userEvent.click(screen.getByRole("button", { name: "Connect" }))
+
+    expect(teamHook.connect).not.toHaveBeenCalled()
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Connection string must start with eusage://connect."
     )
   })
 
@@ -147,6 +161,8 @@ describe("TeamPage", () => {
     }
 
     render(<TeamPage plugins={[]} />)
+
+    expect(screen.getByLabelText("Device name")).toHaveAttribute("maxlength", "80")
 
     await userEvent.clear(screen.getByLabelText("Device name"))
     await userEvent.type(screen.getByLabelText("Device name"), "Desk Mac Pro")

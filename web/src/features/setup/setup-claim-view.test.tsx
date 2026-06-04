@@ -123,6 +123,29 @@ describe("SetupClaimView", () => {
     )
   })
 
+  it("validates setup fields before claim", async () => {
+    const user = userEvent.setup()
+    const onClaim = vi.fn(async () => successResult)
+
+    renderClaimView({ onClaim })
+
+    await user.clear(screen.getByLabelText("Team name"))
+    await user.click(screen.getByRole("button", { name: "Claim deployment" }))
+
+    expect(onClaim).not.toHaveBeenCalled()
+    expect(screen.getByText("Team name is required.")).toBeInTheDocument()
+    expect(screen.getByText("Setup token is required.")).toBeInTheDocument()
+  })
+
+  it("renders setup form placeholders", () => {
+    renderClaimView({})
+
+    expect(screen.getByPlaceholderText("eLink Design")).toBeInTheDocument()
+    expect(screen.getByPlaceholderText("Paste setup token")).toBeInTheDocument()
+    expect(screen.getByLabelText("Team name")).toHaveAttribute("maxlength", "80")
+    expect(screen.getByLabelText("Setup token")).toHaveAttribute("maxlength", "256")
+  })
+
   it("guards duplicate submits while the claim is pending", async () => {
     const user = userEvent.setup()
     const onClaim = vi.fn(

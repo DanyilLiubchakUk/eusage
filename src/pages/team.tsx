@@ -1,8 +1,7 @@
-import { FormEvent, useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   AlertTriangle,
   CheckCircle2,
-  Plug,
   RefreshCw,
   RotateCcw,
   Save,
@@ -14,6 +13,12 @@ import type { DisplayPluginState } from "@/hooks/app/use-app-plugin-views"
 import { useTeamConnection } from "@/hooks/app/use-team-connection"
 import type { TeamConnectionSettings } from "@/lib/team-settings"
 import { cn } from "@/lib/utils"
+import { TeamConnectionForm } from "@/pages/team-connection-form"
+import {
+  DEVICE_NAME_FORM_MAX_LENGTH,
+  teamDeviceNameFormSchema,
+  teamFormError,
+} from "@/pages/team-form-validation"
 
 type TeamPageProps = {
   plugins: DisplayPluginState[]
@@ -22,7 +27,6 @@ type TeamPageProps = {
 
 export function TeamPage({ plugins, onConnected }: TeamPageProps) {
   const { state, connect, checkIn, disconnect, updateDeviceName } = useTeamConnection()
-  const [connectionString, setConnectionString] = useState("")
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const providerSummary = useProviderSummary(plugins)
   const busy =
@@ -31,13 +35,12 @@ export function TeamPage({ plugins, onConnected }: TeamPageProps) {
     state.status === "checking" ||
     state.status === "loading"
 
-  const handleConnect = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const handleConnect = async (connectionString: string) => {
     const result = await connect(connectionString)
     if (result.ok) {
-      setConnectionString("")
       onConnected?.()
     }
+    return result.ok
   }
 
   const handleDisconnect = async () => {
@@ -81,28 +84,11 @@ export function TeamPage({ plugins, onConnected }: TeamPageProps) {
           Loading team connection...
         </section>
       ) : (
-        <form onSubmit={handleConnect} className="space-y-3">
-          <label className="space-y-1.5 block">
-            <span className="text-xs font-medium text-muted-foreground">
-              Connection string
-            </span>
-            <textarea
-              value={connectionString}
-              onChange={(event) => setConnectionString(event.target.value)}
-              rows={4}
-              spellCheck={false}
-              placeholder="eusage://connect?url=https://your-eusage.vercel.app&token=eusage_dev_..."
-              className="w-full resize-none rounded-md border bg-background px-3 py-2 text-xs font-mono outline-none transition-colors focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-            />
-          </label>
-          <div className="flex items-center justify-between gap-3">
-            <StatusMessage status={state.status} message={state.message} />
-            <Button type="submit" size="sm" disabled={busy || !connectionString.trim()}>
-              <Plug className="size-4" />
-              Connect
-            </Button>
-          </div>
-        </form>
+        <TeamConnectionForm
+          busy={busy}
+          statusSlot={<StatusMessage status={state.status} message={state.message} />}
+          onConnect={handleConnect}
+        />
       )}
     </div>
   )
@@ -200,14 +186,27 @@ function DeviceNameEditor({
   onUpdateDeviceName: (deviceNameOverride: string | null) => Promise<unknown>
 }) {
   const [deviceName, setDeviceName] = useState(connection.deviceName)
+  const [formError, setFormError] = useState<string | null>(null)
+  const errorId = "team-device-name-error"
 
   useEffect(() => {
     setDeviceName(connection.deviceName)
+    setFormError(null)
   }, [connection.deviceName])
 
   const trimmed = deviceName.trim()
   const isSavedOverride = trimmed === (connection.deviceNameOverride ?? "")
   const canSave = Boolean(trimmed) && trimmed !== connection.deviceName && !isSavedOverride
+
+  function saveDeviceName() {
+    const validation = teamDeviceNameFormSchema.safeParse({ deviceName })
+    if (!validation.success) {
+      setFormError(teamFormError(validation.error))
+      return
+    }
+    setFormError(null)
+    void onUpdateDeviceName(validation.data.deviceName)
+  }
 
   return (
     <section className="space-y-2">
@@ -234,7 +233,13 @@ function DeviceNameEditor({
         <input
           aria-label="Device name"
           value={deviceName}
-          onChange={(event) => setDeviceName(event.target.value)}
+          maxLength={DEVICE_NAME_FORM_MAX_LENGTH}
+          aria-invalid={Boolean(formError)}
+          aria-describedby={formError ? errorId : undefined}
+          onChange={(event) => {
+            setDeviceName(event.target.value)
+            setFormError(null)
+          }}
           className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground"
         />
         <Button
@@ -243,11 +248,16 @@ function DeviceNameEditor({
           aria-label="Save"
           className="ml-1"
           disabled={busy || !canSave}
-          onClick={() => onUpdateDeviceName(trimmed)}
+          onClick={saveDeviceName}
         >
           <Save className="size-3.5" />
         </Button>
       </div>
+      {formError ? (
+        <p id={errorId} className="m-0 text-xs font-medium text-destructive" role="alert">
+          {formError}
+        </p>
+      ) : null}
     </section>
   )
 }

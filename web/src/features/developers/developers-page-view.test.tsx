@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
@@ -127,10 +127,8 @@ function renderDevelopersPage(props: {
       auth={{
         isLoaded: props.isLoaded ?? true,
         isSignedIn: props.isSignedIn ?? true,
-        userLabel: props.isSignedIn === false ? null : "owner@example.com",
       }}
       signInSlot={<button type="button">Sign in</button>}
-      userSlot={<span>owner@example.com</span>}
       teamUrl="http://localhost:3000"
       onCreate={props.onCreate ?? vi.fn(async () => successResult)}
       onRotate={props.onRotate ?? vi.fn(async () => rotateResult)}
@@ -168,6 +166,56 @@ describe("DevelopersPageView", () => {
     ).toBeInTheDocument()
   })
 
+  it("validates developer fields before create", async () => {
+    const user = userEvent.setup()
+    const onCreate = vi.fn(async () => successResult)
+
+    renderDevelopersPage({ onCreate })
+
+    await user.clear(screen.getByLabelText("Token label"))
+    await user.type(screen.getByLabelText("Email"), "bad-email")
+    await user.click(screen.getByRole("button", { name: "Create developer" }))
+
+    expect(onCreate).not.toHaveBeenCalled()
+    expect(screen.getByText("Developer name is required.")).toBeInTheDocument()
+    expect(screen.getByText("Enter a valid email address.")).toBeInTheDocument()
+    expect(screen.getByText("Token label is required.")).toBeInTheDocument()
+  })
+
+  it("rejects token labels longer than 16 characters before create", async () => {
+    const user = userEvent.setup()
+    const onCreate = vi.fn(async () => successResult)
+
+    renderDevelopersPage({ onCreate })
+
+    await user.type(screen.getByLabelText("Developer name"), "Alex Dev")
+    fireEvent.change(screen.getByLabelText("Token label"), {
+      target: { value: "12345678901234567" },
+    })
+    await user.click(screen.getByRole("button", { name: "Create developer" }))
+
+    expect(onCreate).not.toHaveBeenCalled()
+    expect(screen.getByText("Use 16 characters or fewer.")).toBeInTheDocument()
+  })
+
+  it("renders developer form placeholders", () => {
+    renderDevelopersPage()
+
+    expect(screen.getByPlaceholderText("Avery Johnson")).toBeInTheDocument()
+    expect(screen.getByPlaceholderText("avery@company.com")).toBeInTheDocument()
+    expect(screen.getByPlaceholderText("Avery MacBook")).toBeInTheDocument()
+    expect(screen.getByLabelText("Token label")).toHaveAttribute("maxlength", "16")
+    expect(screen.getByPlaceholderText("Team, device notes, or internal owner context")).toBeInTheDocument()
+  })
+
+  it("does not render duplicate admin state or user controls inside the create form", () => {
+    renderDevelopersPage()
+
+    expect(screen.queryByText("Backend state")).not.toBeInTheDocument()
+    expect(screen.queryByText("Clerk user")).not.toBeInTheDocument()
+    expect(screen.queryByText("owner@example.com")).not.toBeInTheDocument()
+  })
+
   it("shows fingerprint metadata without raw token on a fresh render", async () => {
     const user = userEvent.setup()
     const { unmount } = renderDevelopersPage()
@@ -188,6 +236,7 @@ describe("DevelopersPageView", () => {
     expect(screen.getByText("Alex Dev")).toBeInTheDocument()
     expect(screen.getByText("2f8a7f04...e2498b5e")).toBeInTheDocument()
     expect(screen.getByText("Team lead")).toBeInTheDocument()
+    expect(screen.queryByText("Access token")).not.toBeInTheDocument()
     expect(screen.queryByText("eusage_dev_secret_raw_token")).not.toBeInTheDocument()
   })
 
@@ -204,6 +253,28 @@ describe("DevelopersPageView", () => {
     expect(
       screen.getByText("Last seen 2026-06-01T18:53:20.000Z")
     ).toBeInTheDocument()
+  })
+
+  it("keeps many developer devices in one capped device section", () => {
+    const devices = Array.from({ length: 10 }, (_, index) => ({
+      ...developer.devices[0],
+      id: `device-row-${index + 1}`,
+      deviceId: `device-${index + 1}`,
+      deviceName: `Alex Device ${index + 1}`,
+    }))
+
+    renderDevelopersPage({
+      state: {
+        ...readyState,
+        developers: [{ ...developer, devices }],
+      },
+    })
+
+    const deviceRegion = screen.getByRole("region", { name: "Devices for Alex Dev" })
+
+    expect(within(deviceRegion).getByText("10 devices")).toBeInTheDocument()
+    expect(within(deviceRegion).getByText("Alex Device 1")).toBeInTheDocument()
+    expect(within(deviceRegion).getByText("Alex Device 10")).toBeInTheDocument()
   })
 
   it("asks signed-out users to sign in before managing developers", () => {

@@ -43,6 +43,7 @@ export type SetupClaimErrorCode =
   | "not-authenticated"
   | "setup-token-not-configured"
   | "team-name-required"
+  | "team-name-too-long"
   | "setup-token-required"
   | "invalid-setup-token"
   | "invalid-reporting-time-zone"
@@ -88,6 +89,7 @@ export type SetupOwnerRecord = {
 
 export type NewSetupTeamRecord = Omit<SetupTeamRecord, "_id">
 export type NewSetupOwnerRecord = SetupOwnerRecord
+export const SETUP_TEAM_NAME_MAX_LENGTH = 80
 
 export type SetupClaimStore = {
   getTeam: () => Promise<SetupTeamRecord | null>
@@ -175,6 +177,9 @@ export async function claimFirstOwner(args: {
   const teamName = args.input.teamName.trim()
   if (!teamName) {
     return setupError("team-name-required", "Team name is required.")
+  }
+  if (teamName.length > SETUP_TEAM_NAME_MAX_LENGTH) {
+    return setupError("team-name-too-long", "Use 80 characters or fewer.")
   }
 
   const setupToken = args.input.setupToken.trim()

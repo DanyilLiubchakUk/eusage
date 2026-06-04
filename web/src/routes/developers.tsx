@@ -1,16 +1,16 @@
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
 import {
   SignInButton,
-  UserButton,
   useAuth,
-  useUser,
 } from "@clerk/tanstack-react-start"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { Button } from "@/components/ui/button"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { DevelopersPageView } from "../features/developers/developers-page-view"
 import { AppShell } from "../features/shell/app-shell"
+import { PageState } from "../features/shell/page-state"
 
 export const Route = createFileRoute("/developers")({
   component: DevelopersRoute,
@@ -18,7 +18,6 @@ export const Route = createFileRoute("/developers")({
 
 function DevelopersRoute() {
   const { isLoaded, isSignedIn } = useAuth()
-  const { user } = useUser()
   const auth = {
     isLoaded,
     isSignedIn: isSignedIn === true,
@@ -30,13 +29,11 @@ function DevelopersRoute() {
   const rotateDeveloperToken = useConvexMutation(api.developers.rotate)
   const revokeDeveloperToken = useConvexMutation(api.developers.revoke)
   const reenableDeveloper = useConvexMutation(api.developers.reenable)
-  const userLabel =
-    user?.primaryEmailAddress?.emailAddress ?? user?.fullName ?? user?.id ?? null
   const signInSlot = (
     <SignInButton mode="modal">
-      <button className="setup-button" type="button">
+      <Button type="button">
         Sign in
-      </button>
+      </Button>
     </SignInButton>
   )
   const signedOutState = {
@@ -51,39 +48,37 @@ function DevelopersRoute() {
   return (
     <AppShell>
       <DevelopersPageView
-      state={data ?? signedOutState}
-      auth={{
-        ...auth,
-        userLabel,
-      }}
-      signInSlot={signInSlot}
-      userSlot={<UserButton />}
-      teamUrl={browserOrigin()}
-      onCreate={async (input) => {
-        const result = await createDeveloper(input)
-        await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
-        return result
-      }}
-      onRotate={async (input) => {
-        const result = await rotateDeveloperToken({
-          developerId: input.developerId as Id<"developers">,
-          tokenLabel: input.tokenLabel,
-        })
-        await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
-        return result
-      }}
-      onRevoke={async (input) => {
-        const result = await revokeDeveloperToken({
-          developerId: input.developerId as Id<"developers">,
-        })
-        await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
-        return result
-      }}
-      onReenable={async (input) => {
-        const result = await reenableDeveloper({
-          developerId: input.developerId as Id<"developers">,
-          tokenLabel: input.tokenLabel,
-        })
+        state={data ?? signedOutState}
+        auth={{
+          ...auth,
+        }}
+        signInSlot={signInSlot}
+        teamUrl={browserOrigin()}
+        onCreate={async (input) => {
+          const result = await createDeveloper(input)
+          await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
+          return result
+        }}
+        onRotate={async (input) => {
+          const result = await rotateDeveloperToken({
+            developerId: input.developerId as Id<"developers">,
+            tokenLabel: input.tokenLabel,
+          })
+          await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
+          return result
+        }}
+        onRevoke={async (input) => {
+          const result = await revokeDeveloperToken({
+            developerId: input.developerId as Id<"developers">,
+          })
+          await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
+          return result
+        }}
+        onReenable={async (input) => {
+          const result = await reenableDeveloper({
+            developerId: input.developerId as Id<"developers">,
+            tokenLabel: input.tokenLabel,
+          })
           await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
           return result
         }}
@@ -95,12 +90,9 @@ function DevelopersRoute() {
 function DevelopersLoading() {
   return (
     <AppShell>
-      <main className="admin-page">
-        <section className="setup-card" aria-label="Developers loading">
-          <strong>Loading developers...</strong>
-          <p>Checking sign-in.</p>
-        </section>
-      </main>
+      <PageState label="Developers loading" title="Loading developers...">
+        <p className="m-0">Checking sign-in.</p>
+      </PageState>
     </AppShell>
   )
 }

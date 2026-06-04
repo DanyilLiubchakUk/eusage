@@ -114,6 +114,77 @@ describe("developer tokens", () => {
     expect(JSON.stringify(fake.tokens)).not.toContain(rawToken)
   })
 
+  it("rejects developer creation when the token label is longer than 16 characters", async () => {
+    const fake = createStore()
+
+    const result = await createDeveloperWithToken({
+      input: {
+        displayName: "Alex Dev",
+        tokenLabel: "12345678901234567",
+      },
+      identity: { clerkUserId: "user_owner" },
+      now: 1780320000000,
+      rawToken: "eusage_dev_secret_raw_token",
+      store: fake.store,
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: "error",
+      code: "token-label-too-long",
+      message: "Use 16 characters or fewer.",
+    })
+    expect(fake.developers).toHaveLength(0)
+    expect(fake.tokens).toHaveLength(0)
+  })
+
+  it("rejects oversized or invalid developer fields before storing rows", async () => {
+    const cases = [
+      {
+        input: {
+          displayName: "A".repeat(81),
+          tokenLabel: "Laptop",
+        },
+        code: "developer-name-too-long",
+      },
+      {
+        input: {
+          displayName: "Alex Dev",
+          email: "not-an-email",
+          tokenLabel: "Laptop",
+        },
+        code: "developer-email-invalid",
+      },
+      {
+        input: {
+          displayName: "Alex Dev",
+          tokenLabel: "Laptop",
+          metadataNotes: "M".repeat(501),
+        },
+        code: "developer-metadata-too-long",
+      },
+    ] as const
+
+    for (const testCase of cases) {
+      const fake = createStore()
+      const result = await createDeveloperWithToken({
+        input: testCase.input,
+        identity: { clerkUserId: "user_owner" },
+        now: 1780320000000,
+        rawToken: "eusage_dev_secret_raw_token",
+        store: fake.store,
+      })
+
+      expect(result).toMatchObject({
+        ok: false,
+        status: "error",
+        code: testCase.code,
+      })
+      expect(fake.developers).toHaveLength(0)
+      expect(fake.tokens).toHaveLength(0)
+    }
+  })
+
   it("rejects non-owner developer creation", async () => {
     const fake = createStore()
 

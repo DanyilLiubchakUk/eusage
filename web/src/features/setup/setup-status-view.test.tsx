@@ -61,5 +61,6 @@ describe("SetupStatusView", () => {
       "href",
       "/developers"
     )
+    expect(screen.queryByRole("link", { name: "View setup status" })).not.toBeInTheDocument()
   })
 })

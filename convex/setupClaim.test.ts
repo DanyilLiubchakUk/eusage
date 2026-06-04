@@ -167,6 +167,27 @@ describe("claimFirstOwner", () => {
     expect(fake.owner).toBeNull()
   })
 
+  it("rejects an oversized team name without creating rows", async () => {
+    const fake = createStore()
+
+    const result = await claimFirstOwner({
+      input: { teamName: "A".repeat(81), setupToken: "correct" },
+      identity,
+      expectedSetupToken: "correct",
+      now: 1780320000000,
+      store: fake.store,
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: "error",
+      code: "team-name-too-long",
+      message: "Use 80 characters or fewer.",
+    })
+    expect(fake.team).toBeNull()
+    expect(fake.owner).toBeNull()
+  })
+
   it("only creates one owner on duplicate submit", async () => {
     const fake = createStore()
     const claim = {

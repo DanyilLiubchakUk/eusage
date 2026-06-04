@@ -48,6 +48,11 @@ export type DeveloperTokenRecord = {
 
 export type NewDeveloperRecord = Omit<DeveloperRecord, "_id">
 export type NewDeveloperTokenRecord = Omit<DeveloperTokenRecord, "_id">
+export const DEVELOPER_NAME_MAX_LENGTH = 80
+export const DEVELOPER_EMAIL_MAX_LENGTH = 254
+export const DEVELOPER_METADATA_NOTES_MAX_LENGTH = 500
+export const DEVELOPER_TOKEN_LABEL_MAX_LENGTH = 16
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export type PublicDeveloperRow = {
   id: string
@@ -81,7 +86,12 @@ export type CreateDeveloperErrorCode =
   | "not-owner"
   | "setup-state-invalid"
   | "developer-name-required"
+  | "developer-name-too-long"
+  | "developer-email-too-long"
+  | "developer-email-invalid"
+  | "developer-metadata-too-long"
   | "token-label-required"
+  | "token-label-too-long"
 
 export type CreateDeveloperResult =
   | {
@@ -133,10 +143,16 @@ export async function createDeveloperWithToken(args: {
   if (!displayName) {
     return createError("developer-name-required", "Developer name is required.")
   }
+  if (displayName.length > DEVELOPER_NAME_MAX_LENGTH) {
+    return createError("developer-name-too-long", "Use 80 characters or fewer.")
+  }
 
   const tokenLabel = args.input.tokenLabel.trim()
   if (!tokenLabel) {
     return createError("token-label-required", "Token label is required.")
+  }
+  if (tokenLabel.length > DEVELOPER_TOKEN_LABEL_MAX_LENGTH) {
+    return createError("token-label-too-long", "Use 16 characters or fewer.")
   }
 
   const developer: NewDeveloperRecord = {
@@ -148,10 +164,23 @@ export async function createDeveloperWithToken(args: {
   }
 
   const email = trimOptional(args.input.email)
-  if (email) developer.email = email
+  if (email) {
+    if (email.length > DEVELOPER_EMAIL_MAX_LENGTH) {
+      return createError("developer-email-too-long", "Use 254 characters or fewer.")
+    }
+    if (!emailPattern.test(email)) {
+      return createError("developer-email-invalid", "Enter a valid email address.")
+    }
+    developer.email = email
+  }
 
   const metadataNotes = trimOptional(args.input.metadataNotes)
-  if (metadataNotes) developer.metadata = { notes: metadataNotes }
+  if (metadataNotes) {
+    if (metadataNotes.length > DEVELOPER_METADATA_NOTES_MAX_LENGTH) {
+      return createError("developer-metadata-too-long", "Use 500 characters or fewer.")
+    }
+    developer.metadata = { notes: metadataNotes }
+  }
 
   const createdDeveloper = await args.store.createDeveloper(developer)
   const rawToken = args.rawToken ?? generateDeveloperToken()

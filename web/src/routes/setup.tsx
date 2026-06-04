@@ -7,9 +7,11 @@ import {
 } from "@clerk/tanstack-react-start"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { Button } from "@/components/ui/button"
 import { api } from "../../../convex/_generated/api"
 import { SetupClaimView } from "../features/setup/setup-claim-view"
 import { AppShell } from "../features/shell/app-shell"
+import { PageState } from "../features/shell/page-state"
 
 const setupQuery = convexQuery(api.setup.get, {})
 
@@ -41,9 +43,9 @@ function SetupRoute() {
         }}
         signInSlot={
           <SignInButton mode="modal">
-            <button className="setup-button" type="button">
+            <Button type="button">
               Sign in
-            </button>
+            </Button>
           </SignInButton>
         }
         userSlot={<UserButton />}
@@ -60,12 +62,9 @@ function SetupRoute() {
 function SetupLoading() {
   return (
     <AppShell>
-      <main className="setup-page">
-        <section className="setup-card" aria-label="Setup loading">
-          <strong>Loading setup...</strong>
-          <p>Checking backend state.</p>
-        </section>
-      </main>
+      <PageState label="Setup loading" title="Loading setup...">
+        <p className="m-0">Checking backend state.</p>
+      </PageState>
     </AppShell>
   )
 }

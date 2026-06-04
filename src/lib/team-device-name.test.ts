@@ -12,6 +12,10 @@ describe("team device name", () => {
     expect(normalizeDeviceName("Unknown device")).toBeNull()
   })
 
+  it("rejects oversized device names", () => {
+    expect(normalizeDeviceName("A".repeat(81))).toBeNull()
+  })
+
   it("uses override before detected name", () => {
     expect(
       resolveDeviceName({
