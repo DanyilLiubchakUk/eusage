@@ -38,6 +38,7 @@ export type AppContentActionProps = {
   traySettingsPreview: TraySettingsPreview
   onGlobalShortcutChange: (value: GlobalShortcut) => void
   onStartOnLoginChange: (value: boolean) => void
+  onTeamConnected: () => void
 }
 
 export type AppContentProps = AppContentDerivedProps & AppContentActionProps
@@ -59,6 +60,7 @@ export function AppContent({
   traySettingsPreview,
   onGlobalShortcutChange,
   onStartOnLoginChange,
+  onTeamConnected,
 }: AppContentProps) {
   const { activeView } = useAppUiStore(
     useShallow((state) => ({
@@ -129,7 +131,7 @@ export function AppContent({
   }
 
   if (activeView === "team") {
-    return <TeamPage plugins={displayPlugins} />
+    return <TeamPage plugins={displayPlugins} onConnected={onTeamConnected} />
   }
 
   const handleRetry = selectedPlugin

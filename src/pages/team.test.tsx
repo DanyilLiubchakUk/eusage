@@ -57,6 +57,19 @@ describe("TeamPage", () => {
     )
   })
 
+  it("calls onConnected after connecting", async () => {
+    const onConnected = vi.fn()
+    render(<TeamPage plugins={[]} onConnected={onConnected} />)
+
+    await userEvent.type(
+      screen.getByLabelText("Connection string"),
+      "eusage://connect?url=https://team.example.com&token=eusage_dev_secret"
+    )
+    await userEvent.click(screen.getByRole("button", { name: "Connect" }))
+
+    expect(onConnected).toHaveBeenCalledTimes(1)
+  })
+
   it("shows connected metadata and requires disconnect confirmation", async () => {
     teamHook.state = {
       status: "connected",

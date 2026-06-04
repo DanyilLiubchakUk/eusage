@@ -78,6 +78,38 @@ describe("useProbeRefreshActions", () => {
     nowSpy.mockRestore()
   })
 
+  it("force refreshes all enabled plugins without cooldown checks", () => {
+    const startBatch = vi.fn().mockResolvedValue(undefined)
+    const setLoadingForPlugins = vi.fn()
+    const resetAutoUpdateSchedule = vi.fn()
+
+    const { result } = renderHook(() =>
+      useProbeRefreshActions({
+        pluginSettings: { order: ["a", "b", "c"], disabled: [] },
+        pluginStatesRef: {
+          current: {
+            a: { data: null, loading: true, error: null, lastManualRefreshAt: null, lastUpdatedAt: null },
+            b: { data: null, loading: false, error: null, lastManualRefreshAt: 950_000, lastUpdatedAt: null },
+            c: { data: null, loading: false, error: null, lastManualRefreshAt: null, lastUpdatedAt: null },
+          },
+        },
+        manualRefreshIdsRef: { current: new Set<string>(["b"]) },
+        resetAutoUpdateSchedule,
+        setLoadingForPlugins,
+        setErrorForPlugins: vi.fn(),
+        startBatch,
+      })
+    )
+
+    act(() => {
+      result.current.handleForceRefreshAll()
+    })
+
+    expect(resetAutoUpdateSchedule).toHaveBeenCalledTimes(1)
+    expect(setLoadingForPlugins).toHaveBeenCalledWith(["a", "b", "c"])
+    expect(startBatch).toHaveBeenCalledWith(["a", "b", "c"])
+  })
+
   it("returns early when settings are unavailable or no plugins are eligible", () => {
     const startBatch = vi.fn()
     const resetAutoUpdateSchedule = vi.fn()

@@ -17,9 +17,10 @@ import { cn } from "@/lib/utils"
 
 type TeamPageProps = {
   plugins: DisplayPluginState[]
+  onConnected?: () => void
 }
 
-export function TeamPage({ plugins }: TeamPageProps) {
+export function TeamPage({ plugins, onConnected }: TeamPageProps) {
   const { state, connect, checkIn, disconnect, updateDeviceName } = useTeamConnection()
   const [connectionString, setConnectionString] = useState("")
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
@@ -33,7 +34,10 @@ export function TeamPage({ plugins }: TeamPageProps) {
   const handleConnect = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const result = await connect(connectionString)
-    if (result.ok) setConnectionString("")
+    if (result.ok) {
+      setConnectionString("")
+      onConnected?.()
+    }
   }
 
   const handleDisconnect = async () => {

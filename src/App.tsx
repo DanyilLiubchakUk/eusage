@@ -90,6 +90,7 @@ function App() {
     setAutoUpdateNextAt,
     handleRetryPlugin,
     handleRefreshAll,
+    handleForceRefreshAll,
   } = useProbe({
     pluginSettings,
     autoUpdateInterval,
@@ -254,6 +255,7 @@ function App() {
         traySettingsPreview,
         onGlobalShortcutChange: handleGlobalShortcutChange,
         onStartOnLoginChange: handleStartOnLoginChange,
+        onTeamConnected: handleForceRefreshAll,
       }}
     />
   )
