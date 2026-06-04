@@ -114,6 +114,22 @@ Consumed provider usage by visible developers in the selected dashboard range.
 - Do not use for: Provider quota percentages, rate-limit pressure, Cursor API usage percent, Codex session percent, or sync health.
 - Related terms: Dashboard, Provider, Quota Pressure.
 
+### Reporting Time Zone
+
+The single calendar timezone a team uses to define dashboard days and date ranges.
+
+- Use when: Talking about what counts as today, yesterday, Last 7 days, or a custom dashboard range for the team.
+- Do not use for: A viewer's display preference, provider reset windows, or exact sync freshness times.
+- Related terms: Dashboard, Reporting Day, Team Usage.
+
+### Reporting Day
+
+One calendar day in the team's Reporting Time Zone.
+
+- Use when: Talking about daily consumed usage buckets on Admin or TV.
+- Do not use for: Exact sync timestamps, provider billing cycles, or quota states that are only observed at collection time.
+- Related terms: Reporting Time Zone, Team Usage, Local Consumed Usage.
+
 ### Provider Account Usage
 
 Consumed usage for one developer/provider account, independent of which device reported it.
@@ -177,6 +193,14 @@ How close visible developers are to provider limits.
 - Use when: Talking about percent-used values such as Cursor API usage percent or Codex session and weekly percent.
 - Do not use for: Tokens burned, estimated cost, credits, or requests.
 - Related terms: Team Usage, Provider.
+
+### Observed Quota State
+
+A provider budget, quota, credit, or percent-used value captured at one point in time.
+
+- Use when: Talking about current Cursor or JetBrains usage state such as used, limit, remaining, or percent used.
+- Do not use for: Daily consumed usage that can be assigned to a Reporting Day.
+- Related terms: Provider Budget, Quota Pressure, Cursor Pool.
 
 ### Desktop App
 
