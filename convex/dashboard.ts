@@ -9,6 +9,11 @@ import {
   normalizeTvSlides,
 } from "./dashboardSettings"
 import { dashboardSourceRowsForTeam, unavailableDashboardSource } from "./dashboardSourceRows"
+import {
+  LOCAL_SEED_CONFIRM,
+  isLocalSeedOrigin,
+  seedLocalDashboardData,
+} from "./dashboardSeed"
 import { normalizeReportingTimeZone } from "./reportingTimeZone"
 
 export const sourceRows = query({
@@ -237,6 +242,29 @@ export const clearTeamData = mutation({
     return {
       status: "ok" as const,
       deleted,
+    }
+  },
+})
+
+export const seedLocalMockData = mutation({
+  args: {
+    confirm: v.literal(LOCAL_SEED_CONFIRM),
+    clientOrigin: v.string(),
+  },
+  handler: async (ctx, input) => {
+    const ownerState = await getOwnerTeamState(ctx)
+    if (ownerState.status !== "ready") return ownerState
+    if (!isLocalSeedOrigin(input.clientOrigin)) {
+      return {
+        status: "not-local-dev" as const,
+        message: "Mock seed data is only available from http://localhost:3000.",
+      }
+    }
+
+    const result = await seedLocalDashboardData(ctx, ownerState.team._id)
+    return {
+      status: "ok" as const,
+      ...result,
     }
   },
 })

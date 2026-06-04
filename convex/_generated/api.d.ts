@@ -9,6 +9,8 @@
  */
 
 import type * as dashboard from "../dashboard.js";
+import type * as dashboardSeed from "../dashboardSeed.js";
+import type * as dashboardSeedRows from "../dashboardSeedRows.js";
 import type * as dashboardSettings from "../dashboardSettings.js";
 import type * as dashboardSourceRows from "../dashboardSourceRows.js";
 import type * as desktopApi from "../desktopApi.js";
@@ -37,6 +39,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   dashboard: typeof dashboard;
+  dashboardSeed: typeof dashboardSeed;
+  dashboardSeedRows: typeof dashboardSeedRows;
   dashboardSettings: typeof dashboardSettings;
   dashboardSourceRows: typeof dashboardSourceRows;
   desktopApi: typeof desktopApi;
