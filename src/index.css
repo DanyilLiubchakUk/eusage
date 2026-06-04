@@ -66,7 +66,7 @@
   --accent-foreground: #254434;
   --destructive: oklch(0.577 0.245 27.325);
   --border: #c4d8cc;
-  --input: #c4d8cc;
+  --input: #dce1df;
   --ring: #3d6a52;
   --chart-1: #254434;
   --chart-2: #3d6a52;
@@ -105,7 +105,7 @@
   --accent-foreground: #ededed;
   --destructive: #ef4444;
   --border: rgba(154, 208, 176, 0.14);
-  --input: rgba(154, 208, 176, 0.14);
+  --input: rgba(237, 237, 237, 0.16);
   --ring: #5f9275;
   --chart-1: #9ad0b0;
   --chart-2: #5f9275;

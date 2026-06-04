@@ -220,7 +220,7 @@ function DeviceNameEditor({
 
       <div
         className={cn(
-          "flex h-8 items-center rounded-md border bg-muted/50 px-2 transition-colors",
+          "flex h-8 items-center rounded-md border bg-input/45 px-2 transition-colors",
           "focus-within:border-primary/60 focus-within:bg-background"
         )}
       >
