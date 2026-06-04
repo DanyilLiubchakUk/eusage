@@ -10,6 +10,10 @@ export type MetricDateRangeInput =
       endDay: string
     }
 
+export type MetricDateRangeOptions = {
+  reportingTimeZone?: string
+}
+
 export type ResolvedMetricDateRange = {
   preset: DateRangePreset
   label: string
