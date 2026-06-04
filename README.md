@@ -86,7 +86,7 @@ Official v1 path:
 - v1 has no hard-delete usage UI. Admins archive or inactivate records; full data reset is manual in Convex.
 - Usage snapshots are upserted by developer, device, provider, and usage period/data identity. Same data overwrites latest snapshot.
 - Usage snapshots are the dashboard source of truth. v1 does not store every usage upload as immutable history.
-- Daily `metricSamples` store small source metric history for over-time charts. Admin/TV calculate burn, pace, projection, and comparisons from those samples.
+- Daily `metricSamples` store small source metric history for over-time charts. Daily consumed usage samples include Reporting Day bucket metadata with UTC boundaries. Admin/TV calculate burn, pace, projection, and comparisons from those samples.
 - For overlapping account-level provider snapshots from multiple devices, v1 dashboard totals use the latest device snapshot. Local consumed usage samples such as Codex/Claude ccusage token and cost rows are device-scoped and summed across devices.
 - If provider period is missing, usage snapshots fall back to one day bucket per developer and provider.
 - Admin Overview is a dense analytics dashboard; TV mode is separate fullscreen slides.

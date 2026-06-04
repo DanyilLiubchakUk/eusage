@@ -116,6 +116,7 @@ Codex source facts are extracted on desktop before upload:
 - Provider fields: plan type/name, session percent, weekly percent, optional review percent, reset times, window seconds, optional credits, optional additional model windows
 - Top-level summary fields: today's token total, today's estimated cost, session quota percent, optional credits remaining
 - Metric samples: session percent, weekly percent, review percent, optional credits remaining, daily total/input/output/cached tokens, daily estimated cost, and additional rate-limit windows
+- Daily token and estimated-cost samples include Reporting Day bucket metadata with UTC start/end boundaries.
 - Raw payload shape: usage body, selected response headers, and ccusage daily rows, with secret-shaped fields replaced by `[REDACTED]`
 
 Dashboard merge scope:

@@ -234,6 +234,12 @@ These are source measurements for over-time charts, not precomputed chart aggreg
 - `sampleDay`
 - `periodStart` optional
 - `periodEnd` optional
+- `bucket` optional Reporting Day metadata:
+  - `kind`: `reportingDay`
+  - `day`: `YYYY-MM-DD`
+  - `reportingTimeZone`
+  - `startMs`
+  - `endMs`
 - `source`: `providerReported`, `normalized`, `estimated`
 - `coverage` optional object
 - `summaryVersion`: semver string
@@ -338,7 +344,7 @@ teamId + developerId + deviceId + providerId + periodKey + dataIdentity
 teamId + providerId + developerId? + metricKey + sampleDay + periodStart? + periodEnd?
 ```
 
-Local consumed usage samples use device-scoped upsert key:
+Local consumed usage samples use device-scoped upsert key and must include Reporting Day bucket metadata:
 
 ```text
 teamId + providerId + developerId? + deviceId + metricKey + sampleDay + periodStart? + periodEnd?

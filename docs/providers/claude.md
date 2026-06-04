@@ -117,6 +117,7 @@ Claude source facts are extracted on desktop before upload:
 - Provider fields: plan name, subscription type, rate-limit tier, five-hour session percent/reset/window, seven-day weekly percent/reset/window, optional model windows, extra usage spent, monthly limit, currency, today tokens, and today estimated cost.
 - Top-level summary fields: session quota percent, optional extra usage budget fields, optional extra usage credits used, today's token total, and today's estimated cost.
 - Metric samples: session percent, weekly percent, optional model-window percents, extra usage spent/monthly limit, daily total/input/output/cache creation/cache read tokens, and daily estimated cost.
+- Daily token and estimated-cost samples include Reporting Day bucket metadata with UTC start/end boundaries.
 - Raw payload shape: usage body, auth metadata, and ccusage daily rows, with secret-shaped fields replaced by `[REDACTED]`.
 
 Dashboard merge scope:
