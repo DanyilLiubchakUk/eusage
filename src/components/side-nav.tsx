@@ -259,7 +259,7 @@ export function SideNav({
         }}
         aria-label="Help"
       >
-        <CircleHelp className="size-6" />
+        <CircleHelp className="size-6" style={import.meta.env.DEV ? { color: "#ff9705" } : undefined} />
       </NavButton>
 
       {/* Team */}
