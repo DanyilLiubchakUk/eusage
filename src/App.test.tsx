@@ -249,6 +249,10 @@ import { App } from "@/App"
 import { useAppPluginStore } from "@/stores/app-plugin-store"
 import { useAppPreferencesStore } from "@/stores/app-preferences-store"
 import { useAppUiStore } from "@/stores/app-ui-store"
+import {
+  TRAY_ICON_DARK_SYSTEM_COLOR,
+  TRAY_ICON_LIGHT_SYSTEM_COLOR,
+} from "@/lib/tray-bars-icon"
 
 describe("App", () => {
   beforeEach(() => {
@@ -479,6 +483,7 @@ describe("App", () => {
 
     await waitFor(() => expect(state.renderTrayBarsIconMock).toHaveBeenCalled())
     await waitFor(() => expect(state.traySetIconMock).toHaveBeenCalled())
+    expect(state.traySetIconAsTemplateMock).toHaveBeenCalledWith(false)
   })
 
   it("renders first provider tray icon on launch before probe data", async () => {
@@ -511,7 +516,41 @@ describe("App", () => {
     await waitFor(() => expect(state.renderTrayBarsIconMock).toHaveBeenCalled())
     const firstCall = state.renderTrayBarsIconMock.mock.calls[0]?.[0]
     expect(firstCall.providerIconUrl).toBe("icon-a")
+    expect(firstCall.foregroundColor).toBe(TRAY_ICON_LIGHT_SYSTEM_COLOR)
     await waitFor(() => expect(state.traySetTitleMock).toHaveBeenCalledWith("--%"))
+  })
+
+  it("updates tray icon color when the system theme changes", async () => {
+    state.loadThemeModeMock.mockResolvedValue("light")
+    let matches = false
+    const handlers: Array<(event: MediaQueryListEvent) => void> = []
+    const mq = {
+      get matches() {
+        return matches
+      },
+      addEventListener: vi.fn((_event: string, handler: (event: MediaQueryListEvent) => void) => {
+        handlers.push(handler)
+      }),
+      removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList
+    const mmSpy = vi.spyOn(window, "matchMedia").mockReturnValue(mq)
+
+    render(<App />)
+    await waitFor(() => expect(state.renderTrayBarsIconMock).toHaveBeenCalled())
+    expect(state.renderTrayBarsIconMock.mock.calls[0]?.[0].foregroundColor).toBe(
+      TRAY_ICON_LIGHT_SYSTEM_COLOR
+    )
+
+    state.renderTrayBarsIconMock.mockClear()
+    matches = true
+    handlers.forEach((handler) => handler({ matches: true } as MediaQueryListEvent))
+
+    await waitFor(() => expect(state.renderTrayBarsIconMock).toHaveBeenCalled())
+    expect(state.renderTrayBarsIconMock.mock.calls.at(-1)?.[0].foregroundColor).toBe(
+      TRAY_ICON_DARK_SYSTEM_COLOR
+    )
+
+    mmSpy.mockRestore()
   })
 
   it("bars style path passed to renderTrayBarsIcon when loadMenubarIconStyle returns bars", async () => {
@@ -1820,7 +1859,7 @@ describe("App", () => {
     resolveResourcePath?.("/resource/icons/tray-icon.png")
 
     await waitFor(() => expect(state.traySetIconMock).toHaveBeenCalledWith({}))
-    expect(state.traySetIconAsTemplateMock).toHaveBeenCalledWith(true)
+    expect(state.traySetIconAsTemplateMock).toHaveBeenCalledWith(false)
     expect(state.traySetTitleMock).toHaveBeenCalledWith("--%")
   })
 

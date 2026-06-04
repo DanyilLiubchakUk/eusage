@@ -4,7 +4,12 @@ import { TrayIcon } from "@tauri-apps/api/tray"
 import type { PluginMeta } from "@/lib/plugin-types"
 import type { DisplayMode, MenubarIconStyle, PluginSettings } from "@/lib/settings"
 import { getEnabledPluginIds } from "@/lib/settings"
-import { getTrayIconSizePx, renderTrayBarsIcon } from "@/lib/tray-bars-icon"
+import {
+  getTrayIconSizePx,
+  renderTrayBarsIcon,
+  TRAY_ICON_DARK_SYSTEM_COLOR,
+  TRAY_ICON_LIGHT_SYSTEM_COLOR,
+} from "@/lib/tray-bars-icon"
 import { getTrayPrimaryBars, type TrayPrimaryBar } from "@/lib/tray-primary-progress"
 import { formatTrayPercentText, formatTrayTooltip } from "@/lib/tray-tooltip"
 import type { PluginState } from "@/hooks/app/types"
@@ -31,6 +36,13 @@ const EMPTY_TRAY_SETTINGS_PREVIEW: TraySettingsPreview = {
   bars: [],
   providerBars: [],
   providerPercentText: "--%",
+}
+
+function getSystemTrayIconColor(): string {
+  if (typeof window.matchMedia !== "function") return TRAY_ICON_LIGHT_SYSTEM_COLOR
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? TRAY_ICON_DARK_SYSTEM_COLOR
+    : TRAY_ICON_LIGHT_SYSTEM_COLOR
 }
 
 function isSameTraySettingsPreview(a: TraySettingsPreview, b: TraySettingsPreview): boolean {
@@ -151,8 +163,13 @@ export function useTrayIcon({
       }
 
       const restoreGaugeIcon = () => {
-        const gaugePath = trayGaugeIconPathRef.current
-        if (gaugePath) {
+        const fallbackToResourceIcon = () => {
+          const gaugePath = trayGaugeIconPathRef.current
+          if (!gaugePath) {
+            finalizeUpdate()
+            return
+          }
+
           Promise.all([
             tray.setIcon(gaugePath),
             tray.setIconAsTemplate(true),
@@ -165,9 +182,29 @@ export function useTrayIcon({
             .finally(() => {
               finalizeUpdate()
             })
-        } else {
-          finalizeUpdate()
         }
+
+        let usedResourceFallback = false
+        renderTrayBarsIcon({
+          bars: [],
+          sizePx: getTrayIconSizePx(window.devicePixelRatio),
+          style: "provider",
+          foregroundColor: getSystemTrayIconColor(),
+        })
+          .then(async (img) => {
+            await tray.setIcon(img)
+            await tray.setIconAsTemplate(false)
+            await setTrayTitle("")
+            await setTrayTooltip("eUsage")
+          })
+          .catch((e) => {
+            console.error("Failed to restore generated tray gauge icon:", e)
+            usedResourceFallback = true
+            fallbackToResourceIcon()
+          })
+          .finally(() => {
+            if (!usedResourceFallback) finalizeUpdate()
+          })
       }
 
       const currentSettings = pluginSettingsRef.current
@@ -186,6 +223,7 @@ export function useTrayIcon({
 
       const style = menubarIconStyleRef.current
       const sizePx = getTrayIconSizePx(window.devicePixelRatio)
+      const foregroundColor = getSystemTrayIconColor()
       const nextActiveView = activeViewRef.current
       const activeProviderId =
         nextActiveView !== "home" && nextActiveView !== "settings" ? nextActiveView : null
@@ -251,10 +289,11 @@ export function useTrayIcon({
           bars: barsForPreview,
           sizePx,
           style: "bars",
+          foregroundColor,
         })
           .then(async (img) => {
             await tray.setIcon(img)
-            await tray.setIconAsTemplate(true)
+            await tray.setIconAsTemplate(false)
             await setTrayTitle("")
             await updateTooltip()
           })
@@ -279,10 +318,11 @@ export function useTrayIcon({
           sizePx,
           style: "donut",
           providerIconUrl,
+          foregroundColor,
         })
           .then(async (img) => {
             await tray.setIcon(img)
-            await tray.setIconAsTemplate(true)
+            await tray.setIconAsTemplate(false)
             await setTrayTitle("")
             await updateTooltip()
           })
@@ -301,10 +341,11 @@ export function useTrayIcon({
         style: "provider",
         percentText: supportsNativeTrayTitle ? undefined : providerPercentText,
         providerIconUrl,
+        foregroundColor,
       })
         .then(async (img) => {
           await tray.setIcon(img)
-          await tray.setIconAsTemplate(true)
+          await tray.setIconAsTemplate(false)
           await setTrayTitle(providerPercentText)
           await updateTooltip()
         })
@@ -358,6 +399,14 @@ export function useTrayIcon({
     if (!trayReady) return
     scheduleTrayIconUpdate("settings", 0)
   }, [activeView, menubarIconStyle, scheduleTrayIconUpdate, trayReady])
+
+  useEffect(() => {
+    if (!trayReady || typeof window.matchMedia !== "function") return
+    const mq = window.matchMedia("(prefers-color-scheme: dark)")
+    const handler = () => scheduleTrayIconUpdate("settings", 0)
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [scheduleTrayIconUpdate, trayReady])
 
   useEffect(() => {
     return () => {
