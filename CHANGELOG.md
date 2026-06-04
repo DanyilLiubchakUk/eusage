@@ -1,5 +1,48 @@
 # Changelog
 
+## v0.6.27
+
+### New Features
+- Add usage trend bars for Claude and Codex plugin cards, backed by new plugin `barChart` output, runtime normalization, docs, and tests by @DanyilLiubchak
+- Add cached team connection state with loading feedback so the Team page does not flash stale/disconnected state during refresh by @DanyilLiubchak
+
+### Bug Fixes
+- Make the provider rail scrollable so long provider lists remain usable by @rohithgoud30
+- Add Claude tray fallback priorities so primary tray progress picks the right Claude usage window by @DanyilLiubchak
+- Keep tray icons branded by the system theme by @DanyilLiubchak
+- Show bundled release notes correctly in the app changelog dialog by @DanyilLiubchak
+- Fix the development help icon color in the side nav by @DanyilLiubchak
+
+### UI / Branding
+- Apply eUsage green branding across app controls, dashboard styling, icons, and tray assets by @DanyilLiubchak
+- Refresh desktop app icons, web favicon, and platform icon assets by @DanyilLiubchak
+- Polish Team page status layout and spacing by @DanyilLiubchak
+- Update About dialog attribution by @DanyilLiubchak
+
+### Refactor
+- Simplify Team page layout by removing the last-contact row and tightening spacing by @DanyilLiubchak
+
+---
+
+### Changelog
+
+**Full Changelog**: [v0.6.26...v0.6.27](https://github.com/DanyilLiubchakUk/eusage/compare/v0.6.26...v0.6.27)
+
+- [206e785](https://github.com/DanyilLiubchakUk/eusage/commit/206e7857d1f11fdd20d757e7014565c0e8e33528) fix(side-nav): make provider rail scrollable by @rohithgoud30
+- [04854f2](https://github.com/DanyilLiubchakUk/eusage/commit/04854f2f6e202d55d3dcb13735c27fbf5901792b) fix: add Claude tray fallback priorities by @DanyilLiubchak
+- [6e4f31c](https://github.com/DanyilLiubchakUk/eusage/commit/6e4f31ce9c3ecbe98c007cdb3e5b7b9577c4754f) feat: add usage trend bars by @DanyilLiubchak
+- [fb32f92](https://github.com/DanyilLiubchakUk/eusage/commit/fb32f921d8007ea3c8fc348c5ab72241d1962743) fix(side-nav): update help icon color for development environment by @DanyilLiubchak
+- [be43ded](https://github.com/DanyilLiubchakUk/eusage/commit/be43ded7d1653d50f0bf3aa58abfc55b3ff9e603) style: apply eusage green branding by @DanyilLiubchak
+- [84e6e18](https://github.com/DanyilLiubchakUk/eusage/commit/84e6e18a4a51bd415614d0e8625bee83490e7e05) fix: keep tray icons branded by system theme by @DanyilLiubchak
+- [ce13297](https://github.com/DanyilLiubchakUk/eusage/commit/ce13297c1da7b675d572b42745904b98c0f1399e) fix: show bundled release notes by @DanyilLiubchak
+- [5683e23](https://github.com/DanyilLiubchakUk/eusage/commit/5683e23afc48998cc902b9e1fcf2854e8c2ea472) chore: update about attribution by @DanyilLiubchak
+- [8c63161](https://github.com/DanyilLiubchakUk/eusage/commit/8c63161a74d06fa6ce8d58b35a3a95298342a980) style: refresh eusage app icons by @DanyilLiubchak
+- [6e8449e](https://github.com/DanyilLiubchakUk/eusage/commit/6e8449e0cc1e9eab4f820432a3002b6b3af5eae9) Polish team page status layout by @DanyilLiubchak
+- [56ec45a](https://github.com/DanyilLiubchakUk/eusage/commit/56ec45aa5d901bb9bf5be23fd34c7b81434bebe5) Tune green control surfaces by @DanyilLiubchak
+- [f3466f0](https://github.com/DanyilLiubchakUk/eusage/commit/f3466f049cabc382a2e3cf11d1ff8f7e19d88ddc) feat: enhance team connection handling with cached state and loading indicator by @DanyilLiubchak
+- [217449d](https://github.com/DanyilLiubchakUk/eusage/commit/217449df55678716989b012babbb23be7d118246) refactor: simplify team page layout by removing last contact row and adjusting spacing by @DanyilLiubchak
+- [9c56773](https://github.com/DanyilLiubchakUk/eusage/commit/9c56773350300e93327313b15b26106ee21d6af2) Add web favicon by @DanyilLiubchak
+
 ## v0.6.26
 
 ### New Features
