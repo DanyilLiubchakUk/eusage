@@ -608,6 +608,7 @@ describe("codex plugin", () => {
     vi.setSystemTime(new Date("2026-02-20T16:00:00.000Z"))
 
     const ctx = makeCtx()
+    ctx.nowIso = "2026-02-20T16:00:00.000Z"
     ctx.host.fs.writeText("~/.codex/auth.json", JSON.stringify({
       tokens: { access_token: "token" },
       last_refresh: new Date().toISOString(),
@@ -649,12 +650,75 @@ describe("codex plugin", () => {
       expect(ctx.host.ccusage.query).toHaveBeenCalled()
       const firstCall = ctx.host.ccusage.query.mock.calls[0][0]
       expect(firstCall.provider).toBe("codex")
+      expect(firstCall.timezone).toBe("UTC")
       const since = new Date()
       since.setDate(since.getDate() - 30)
       const sinceYear = String(since.getFullYear())
       const sinceMonth = String(since.getMonth() + 1).padStart(2, "0")
       const sinceDay = String(since.getDate()).padStart(2, "0")
       expect(firstCall.since).toBe(sinceYear + sinceMonth + sinceDay)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("groups Codex token usage by the team reporting timezone at day boundary", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-02-20T04:30:00.000Z"))
+
+    try {
+      const ctx = makeCtx()
+      ctx.nowIso = "2026-02-20T04:30:00.000Z"
+      ctx.app.reportingTimeZone = "America/New_York"
+      ctx.host.fs.writeText("~/.codex/auth.json", JSON.stringify({
+        tokens: { access_token: "token" },
+        last_refresh: new Date().toISOString(),
+      }))
+      ctx.host.http.request.mockReturnValue({
+        status: 200,
+        headers: { "x-codex-primary-used-percent": "10" },
+        bodyText: JSON.stringify({}),
+      })
+      ctx.host.ccusage.query.mockReturnValue({
+        status: "ok",
+        data: {
+          daily: [
+            { date: "2026-02-19", totalTokens: 150, costUSD: 0.75 },
+          ],
+        },
+      })
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+
+      const today = result.lines.find((l) => l.label === "Today")
+      expect(today).toBeTruthy()
+      expect(today.value).toContain("150 tokens")
+      expect(today.value).toContain("$0.75")
+
+      const firstCall = ctx.host.ccusage.query.mock.calls[0][0]
+      expect(firstCall.timezone).toBe("America/New_York")
+      expect(firstCall.since).toBe("20260120")
+
+      const expectedBucket = {
+        kind: "reportingDay",
+        day: "2026-02-19",
+        reportingTimeZone: "America/New_York",
+        startMs: Date.parse("2026-02-19T05:00:00.000Z"),
+        endMs: Date.parse("2026-02-20T05:00:00.000Z"),
+      }
+      expect(result.sourceFacts.periodKey).toBe("codex:2026-02-19")
+      expect(result.sourceFacts.periodStart).toBe(expectedBucket.startMs)
+      expect(result.sourceFacts.periodEnd).toBe(expectedBucket.endMs)
+      expect(result.sourceFacts.metricSamples).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            metricKey: "codex.tokens.total",
+            sampleDay: "2026-02-19",
+            bucket: expectedBucket,
+          }),
+        ])
+      )
     } finally {
       vi.useRealTimers()
     }

@@ -207,7 +207,7 @@ describe("claude plugin", () => {
     expect(result.lines.find((line) => line.label === "Session")).toBeTruthy()
     expect(ctx.host.fs.readText).toHaveBeenCalledWith(configCredFile)
     expect(ctx.host.ccusage.query).toHaveBeenCalledWith(
-      expect.objectContaining({ homePath: configDir })
+      expect.objectContaining({ homePath: configDir, timezone: "UTC" })
     )
   })
 
@@ -2005,6 +2005,7 @@ describe("claude plugin", () => {
       vi.setSystemTime(new Date("2026-02-20T16:00:00.000Z"))
       try {
         const ctx = makeProbeCtx({ ccusageResult: okUsage([]) })
+        ctx.nowIso = "2026-02-20T16:00:00.000Z"
         const plugin = await loadPlugin()
         plugin.probe(ctx)
         expect(ctx.host.ccusage.query).toHaveBeenCalled()
@@ -2013,6 +2014,55 @@ describe("claude plugin", () => {
         const since = new Date()
         since.setDate(since.getDate() - 30)
         expect(firstCall.since).toBe(localCompactDayKey(since))
+        expect(firstCall.timezone).toBe("UTC")
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it("groups Claude token usage by the team reporting timezone at day boundary", async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date("2026-02-20T04:30:00.000Z"))
+      try {
+        const ctx = makeProbeCtx({
+          ccusageResult: okUsage([
+            { date: "2026-02-19", inputTokens: 100, outputTokens: 50, cacheCreationTokens: 0, cacheReadTokens: 0, totalTokens: 150, totalCost: 0.75 },
+          ]),
+        })
+        ctx.nowIso = "2026-02-20T04:30:00.000Z"
+        ctx.app.reportingTimeZone = "America/New_York"
+
+        const plugin = await loadPlugin()
+        const result = plugin.probe(ctx)
+
+        const today = result.lines.find((l) => l.label === "Today")
+        expect(today).toBeTruthy()
+        expect(today.value).toContain("150 tokens")
+        expect(today.value).toContain("$0.75")
+
+        const firstCall = ctx.host.ccusage.query.mock.calls[0][0]
+        expect(firstCall.timezone).toBe("America/New_York")
+        expect(firstCall.since).toBe("20260120")
+
+        const expectedBucket = {
+          kind: "reportingDay",
+          day: "2026-02-19",
+          reportingTimeZone: "America/New_York",
+          startMs: Date.parse("2026-02-19T05:00:00.000Z"),
+          endMs: Date.parse("2026-02-20T05:00:00.000Z"),
+        }
+        expect(result.sourceFacts.periodKey).toBe("claude:2026-02-19")
+        expect(result.sourceFacts.periodStart).toBe(expectedBucket.startMs)
+        expect(result.sourceFacts.periodEnd).toBe(expectedBucket.endMs)
+        expect(result.sourceFacts.metricSamples).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              metricKey: "claude.tokens.total",
+              sampleDay: "2026-02-19",
+              bucket: expectedBucket,
+            }),
+          ])
+        )
       } finally {
         vi.useRealTimers()
       }

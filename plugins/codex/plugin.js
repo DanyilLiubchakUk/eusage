@@ -17,6 +17,7 @@
   const SUMMARY_VERSION = "1.0.0"
   const CODEX_EXTRACTOR_VERSION = "1.0.0"
   const REDACTED_VALUE = "[REDACTED]"
+  const DEFAULT_REPORTING_TIME_ZONE = "UTC"
 
   function joinPath(base, leaf) {
     return base.replace(/[\\/]+$/, "") + "/" + leaf
@@ -338,19 +339,33 @@
   var PERIOD_SESSION_MS = 5 * 60 * 60 * 1000    // 5 hours
   var PERIOD_WEEKLY_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 
-  function queryTokenUsage(ctx) {
+  function reportingTimeZone(ctx) {
+    if (ctx.util.reportingTimeZoneOrDefault) {
+      return ctx.util.reportingTimeZoneOrDefault(ctx.app && ctx.app.reportingTimeZone)
+    }
+    const value = ctx.app && typeof ctx.app.reportingTimeZone === "string"
+      ? ctx.app.reportingTimeZone.trim()
+      : ""
+    return value || DEFAULT_REPORTING_TIME_ZONE
+  }
+
+  function queryTokenUsage(ctx, reportingTimeZone) {
     if (!ctx.host.ccusage || typeof ctx.host.ccusage.query !== "function") {
       return { status: "no_runner", data: null }
     }
 
-    const since = new Date()
     // Inclusive range: today + previous 30 days = 31 calendar days.
-    since.setDate(since.getDate() - 30)
-    const y = since.getFullYear()
-    const m = since.getMonth() + 1
-    const d = since.getDate()
-    const sinceStr = "" + y + (m < 10 ? "0" : "") + m + (d < 10 ? "0" : "") + d
-    const queryOpts = { provider: "codex", since: sinceStr }
+    const sinceDay = addReportingDays(sampleDay(ctx, reportingTimeZone), -30)
+    let sinceStr = sinceDay ? sinceDay.replace(/-/g, "") : ""
+    if (!sinceStr) {
+      const since = new Date()
+      since.setDate(since.getDate() - 30)
+      const y = since.getFullYear()
+      const m = since.getMonth() + 1
+      const d = since.getDate()
+      sinceStr = "" + y + (m < 10 ? "0" : "") + m + (d < 10 ? "0" : "") + d
+    }
+    const queryOpts = { provider: "codex", since: sinceStr, timezone: reportingTimeZone }
     const codexHome = readCodexHome(ctx)
     if (codexHome) {
       queryOpts.homePath = codexHome
@@ -450,30 +465,44 @@
     if (trimmed) target[key] = trimmed
   }
 
-  function sampleDay(ctx) {
+  function sampleDay(ctx, reportingTimeZone) {
     const parsed = ctx.util.parseDateMs(ctx.nowIso)
-    const date = new Date(Number.isFinite(parsed) ? parsed : Date.now())
-    return date.toISOString().slice(0, 10)
+    const timestamp = Number.isFinite(parsed) ? parsed : Date.now()
+    if (ctx.util.formatReportingDay) {
+      const day = ctx.util.formatReportingDay(timestamp, reportingTimeZone)
+      if (day) return day
+    }
+    return new Date(timestamp).toISOString().slice(0, 10)
   }
 
-  function dayStartMs(day) {
+  function addReportingDays(day, amount) {
+    const start = Date.parse(day + "T00:00:00.000Z")
+    if (!Number.isFinite(start)) return null
+    return new Date(start + amount * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  }
+
+  function dayStartMs(ctx, day, reportingTimeZone) {
+    if (ctx.util.reportingDayToUtcBoundary) {
+      const boundary = ctx.util.reportingDayToUtcBoundary(day, reportingTimeZone)
+      if (Number.isFinite(boundary)) return boundary
+    }
     const ms = Date.parse(day + "T00:00:00.000Z")
     return Number.isFinite(ms) ? ms : null
   }
 
-  function dayEndMs(day) {
-    const start = dayStartMs(day)
-    return start === null ? null : start + 24 * 60 * 60 * 1000
+  function dayEndMs(ctx, day, reportingTimeZone) {
+    const nextDay = addReportingDays(day, 1)
+    return nextDay ? dayStartMs(ctx, nextDay, reportingTimeZone) : null
   }
 
-  function reportingDayBucket(day) {
-    const startMs = dayStartMs(day)
-    const endMs = dayEndMs(day)
+  function reportingDayBucket(ctx, day, reportingTimeZone) {
+    const startMs = dayStartMs(ctx, day, reportingTimeZone)
+    const endMs = dayEndMs(ctx, day, reportingTimeZone)
     if (startMs === null || endMs === null) return null
     return {
       kind: "reportingDay",
       day,
-      reportingTimeZone: "UTC",
+      reportingTimeZone,
       startMs,
       endMs,
     }
@@ -546,9 +575,9 @@
     )
   }
 
-  function addTokenUsageSamples(samples, usageDay, sampleSourceDay) {
+  function addTokenUsageSamples(ctx, samples, usageDay, sampleSourceDay, reportingTimeZone) {
     if (!usageDay || typeof usageDay !== "object") return
-    const bucket = reportingDayBucket(sampleSourceDay)
+    const bucket = reportingDayBucket(ctx, sampleSourceDay, reportingTimeZone)
     addMetricSample(samples, "codex.tokens.total", usageDay.totalTokens, "tokens", sampleSourceDay, "providerReported", null, bucket)
     addMetricSample(samples, "codex.tokens.input", usageDay.inputTokens, "tokens", sampleSourceDay, "providerReported", null, bucket)
     addMetricSample(samples, "codex.tokens.output", usageDay.outputTokens, "tokens", sampleSourceDay, "providerReported", null, bucket)
@@ -573,7 +602,8 @@
   }
 
   function buildCodexSourceFacts(ctx, resp, data, tokenUsageResult) {
-    const day = sampleDay(ctx)
+    const timeZone = reportingTimeZone(ctx)
+    const day = sampleDay(ctx, timeZone)
     const nowSec = Math.floor(Date.now() / 1000)
     const rateLimit = data.rate_limit || null
     const primaryWindow = rateLimit && rateLimit.primary_window ? rateLimit.primary_window : null
@@ -656,7 +686,7 @@
       for (let i = 0; i < tokenUsageResult.data.daily.length; i++) {
         const usageDay = tokenUsageResult.data.daily[i]
         const usageDayKey = dayKeyFromUsageDate(usageDay.date)
-        if (usageDayKey) addTokenUsageSamples(samples, usageDay, usageDayKey)
+        if (usageDayKey) addTokenUsageSamples(ctx, samples, usageDay, usageDayKey, timeZone)
         if (usageDayKey === day) todayEntry = usageDay
       }
 
@@ -673,8 +703,8 @@
     }
 
     return {
-      periodStart: dayStartMs(day),
-      periodEnd: dayEndMs(day),
+      periodStart: dayStartMs(ctx, day, timeZone),
+      periodEnd: dayEndMs(ctx, day, timeZone),
       periodKey: "codex:" + day,
       dataIdentity: "codex:daily:" + day,
       summary,
@@ -952,14 +982,14 @@
         }
       }
 
-      const tokenUsageResult = queryTokenUsage(ctx)
+      const timeZone = reportingTimeZone(ctx)
+      const tokenUsageResult = queryTokenUsage(ctx, timeZone)
       if (tokenUsageResult.status === "ok") {
         const tokenUsage = tokenUsageResult.data
-        const now = new Date()
-        const todayKey = dayKeyFromDate(now)
-        const yesterday = new Date(now.getTime())
-        yesterday.setDate(yesterday.getDate() - 1)
-        const yesterdayKey = dayKeyFromDate(yesterday)
+        const todayKey = ctx.util.formatReportingDay
+          ? ctx.util.formatReportingDay(Date.now(), timeZone)
+          : dayKeyFromDate(new Date())
+        const yesterdayKey = addReportingDays(todayKey, -1)
 
         let todayEntry = null
         let yesterdayEntry = null

@@ -11,6 +11,7 @@ export const makeCtx = () => {
       platform: "darwin",
       appDataDir: "/tmp/openusage-test",
       pluginDataDir: "/tmp/openusage-test/plugin",
+      reportingTimeZone: "UTC",
     },
     host: {
       fs: {
@@ -253,6 +254,79 @@ export const makeCtx = () => {
         return Number.isFinite(n) ? n : null
       }
       return null
+    },
+    reportingTimeZoneOrDefault: (value) => {
+      if (typeof value !== "string") return "UTC"
+      const reportingTimeZone = value.trim()
+      if (!reportingTimeZone) return "UTC"
+      try {
+        new Intl.DateTimeFormat("en-US", { timeZone: reportingTimeZone })
+        return reportingTimeZone
+      } catch (e) {
+        return "UTC"
+      }
+    },
+    formatReportingDay: (timestamp, reportingTimeZone) => {
+      const timeZone = ctx.util.reportingTimeZoneOrDefault(reportingTimeZone)
+      if (timeZone === "UTC") return ctx.util.formatUtcDay(timestamp)
+      const parts = ctx.util.timeZoneParts(timestamp, timeZone)
+      if (!parts) return ctx.util.formatUtcDay(timestamp)
+      return ctx.util.padDatePart(parts.year) + "-" + ctx.util.padDatePart(parts.month) + "-" + ctx.util.padDatePart(parts.day)
+    },
+    reportingDayToUtcBoundary: (day, reportingTimeZone) => {
+      const match = String(day || "").match(/^(\d{4})-(\d{2})-(\d{2})$/)
+      if (!match) return null
+      const year = Number(match[1])
+      const month = Number(match[2])
+      const dayOfMonth = Number(match[3])
+      const utcGuess = Date.UTC(year, month - 1, dayOfMonth)
+      if (!Number.isFinite(utcGuess)) return null
+      if (ctx.util.formatUtcDay(utcGuess) !== day) return null
+      const timeZone = ctx.util.reportingTimeZoneOrDefault(reportingTimeZone)
+      if (timeZone === "UTC") return utcGuess
+      const firstPass = utcGuess - ctx.util.timeZoneOffsetMs(utcGuess, timeZone)
+      return utcGuess - ctx.util.timeZoneOffsetMs(firstPass, timeZone)
+    },
+    formatUtcDay: (timestamp) => {
+      const date = new Date(Number(timestamp))
+      const dateMs = date.getTime()
+      if (!Number.isFinite(dateMs)) return null
+      return date.toISOString().slice(0, 10)
+    },
+    padDatePart: (value) => {
+      const text = String(value)
+      return text.length < 2 ? "0" + text : text
+    },
+    timeZoneOffsetMs: (timestamp, reportingTimeZone) => {
+      const parts = ctx.util.timeZoneParts(timestamp, reportingTimeZone)
+      if (!parts) return 0
+      const utcAsLocal = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second)
+      return utcAsLocal - timestamp
+    },
+    timeZoneParts: (timestamp, reportingTimeZone) => {
+      const date = new Date(Number(timestamp))
+      if (!Number.isFinite(date.getTime())) return null
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: reportingTimeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+      })
+      const parts = formatter.formatToParts(date)
+      const out = {}
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i]
+        if (part.type !== "literal") out[part.type] = Number(part.value)
+      }
+      if (!out.year || !out.month || !out.day) return null
+      if (!Number.isFinite(out.hour)) out.hour = 0
+      if (!Number.isFinite(out.minute)) out.minute = 0
+      if (!Number.isFinite(out.second)) out.second = 0
+      return out
     },
     toIso: (value) => {
       if (value === null || value === undefined) return null
