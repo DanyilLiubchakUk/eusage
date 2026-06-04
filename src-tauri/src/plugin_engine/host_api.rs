@@ -4,6 +4,8 @@ use aes_gcm::{
     AesGcm, Nonce,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
+use chrono_tz::Tz;
 use rquickjs::{Ctx, Exception, Function, Object};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -594,6 +596,10 @@ pub(crate) fn inject_host_api_with_deadline<'js>(
     app_obj.set("version", app_version)?;
     app_obj.set("platform", std::env::consts::OS)?;
     app_obj.set("appDataDir", app_data_dir.to_string_lossy().to_string())?;
+    app_obj.set(
+        "reportingTimeZone",
+        read_reporting_time_zone(app_data_dir).unwrap_or_else(|| "UTC".to_string()),
+    )?;
     let plugin_data_dir = app_data_dir.join("plugins_data").join(plugin_id);
     if let Err(err) = std::fs::create_dir_all(&plugin_data_dir) {
         log::warn!(
@@ -617,12 +623,105 @@ pub(crate) fn inject_host_api_with_deadline<'js>(
     inject_keychain(ctx, &host, plugin_id)?;
     inject_sqlite(ctx, &host)?;
     inject_ls(ctx, &host, plugin_id)?;
+    inject_time_zone(ctx, &host)?;
     inject_ccusage(ctx, &host, plugin_id, deadline)?;
 
     probe_ctx.set("host", host)?;
     globals.set("__openusage_ctx", probe_ctx)?;
 
     Ok(())
+}
+
+fn read_reporting_time_zone(app_data_dir: &Path) -> Option<String> {
+    let data = std::fs::read_to_string(app_data_dir.join("settings.json")).ok()?;
+    let value = serde_json::from_str::<serde_json::Value>(&data).ok()?;
+    let reporting_time_zone = value
+        .get("teamConnection")
+        .and_then(|connection| connection.get("reportingTimeZone"))
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+    Some(reporting_time_zone.to_string())
+}
+
+fn inject_time_zone<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> {
+    let time_zone_obj = Object::new(ctx.clone())?;
+
+    time_zone_obj.set(
+        "isValid",
+        Function::new(ctx.clone(), |reporting_time_zone: String| {
+            parse_reporting_time_zone(&reporting_time_zone).is_some()
+        })?,
+    )?;
+
+    time_zone_obj.set(
+        "formatReportingDay",
+        Function::new(
+            ctx.clone(),
+            |timestamp_ms: f64, reporting_time_zone: String| -> Option<String> {
+                if !timestamp_ms.is_finite() {
+                    return None;
+                }
+                let tz = parse_reporting_time_zone(&reporting_time_zone)?;
+                format_reporting_day_ms(timestamp_ms as i64, tz)
+            },
+        )?,
+    )?;
+
+    time_zone_obj.set(
+        "reportingDayToUtcBoundary",
+        Function::new(
+            ctx.clone(),
+            |day: String, reporting_time_zone: String| -> Option<i64> {
+                let tz = parse_reporting_time_zone(&reporting_time_zone)?;
+                reporting_day_to_utc_boundary_ms(&day, tz)
+            },
+        )?,
+    )?;
+
+    host.set("timeZone", time_zone_obj)?;
+    Ok(())
+}
+
+fn parse_reporting_time_zone(reporting_time_zone: &str) -> Option<Tz> {
+    let value = reporting_time_zone.trim();
+    if value.is_empty() {
+        return None;
+    }
+    value.parse::<Tz>().ok()
+}
+
+fn format_reporting_day_ms(timestamp_ms: i64, reporting_time_zone: Tz) -> Option<String> {
+    let utc = DateTime::<Utc>::from_timestamp_millis(timestamp_ms)?;
+    let local = utc.with_timezone(&reporting_time_zone);
+    Some(format!(
+        "{:04}-{:02}-{:02}",
+        local.year(),
+        local.month(),
+        local.day()
+    ))
+}
+
+fn reporting_day_to_utc_boundary_ms(day: &str, reporting_time_zone: Tz) -> Option<i64> {
+    let date = NaiveDate::parse_from_str(day, "%Y-%m-%d").ok()?;
+    let utc_guess = date.and_hms_opt(0, 0, 0)?.and_utc().timestamp_millis();
+    let mut lo = utc_guess - 48 * 60 * 60 * 1000;
+    let mut hi = utc_guess + 48 * 60 * 60 * 1000;
+
+    while lo < hi {
+        let mid = lo + (hi - lo) / 2;
+        let mid_day = format_reporting_day_ms(mid, reporting_time_zone)?;
+        if mid_day.as_str() < day {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+
+    match format_reporting_day_ms(lo, reporting_time_zone).as_deref() {
+        Some(found_day) if found_day == day => Some(lo),
+        _ => None,
+    }
 }
 
 fn inject_log<'js>(ctx: &Ctx<'js>, host: &Object<'js>, plugin_id: &str) -> rquickjs::Result<()> {
@@ -1085,6 +1184,94 @@ pub fn inject_utils(ctx: &rquickjs::Ctx<'_>) -> rquickjs::Result<()> {
                         return Number.isFinite(n) ? n : null;
                     }
                     return null;
+                },
+                reportingTimeZoneOrDefault: function(value) {
+                    if (typeof value !== "string") return "UTC";
+                    var reportingTimeZone = value.trim();
+                    if (!reportingTimeZone) return "UTC";
+                    if (ctx.host && ctx.host.timeZone && ctx.host.timeZone.isValid) {
+                        return ctx.host.timeZone.isValid(reportingTimeZone) ? reportingTimeZone : "UTC";
+                    }
+                    if (typeof Intl === "undefined" || !Intl.DateTimeFormat) {
+                        return "UTC";
+                    }
+                    try {
+                        new Intl.DateTimeFormat("en-US", { timeZone: reportingTimeZone });
+                        return reportingTimeZone;
+                    } catch (e) {
+                        return "UTC";
+                    }
+                },
+                formatReportingDay: function(timestamp, reportingTimeZone) {
+                    var timeZone = ctx.util.reportingTimeZoneOrDefault(reportingTimeZone);
+                    if (ctx.host && ctx.host.timeZone && ctx.host.timeZone.formatReportingDay) {
+                        var nativeDay = ctx.host.timeZone.formatReportingDay(Number(timestamp), timeZone);
+                        if (nativeDay) return nativeDay;
+                    }
+                    if (timeZone === "UTC") return ctx.util.formatUtcDay(timestamp);
+                    var parts = ctx.util.timeZoneParts(timestamp, timeZone);
+                    if (!parts) return ctx.util.formatUtcDay(timestamp);
+                    return ctx.util.padDatePart(parts.year) + "-" + ctx.util.padDatePart(parts.month) + "-" + ctx.util.padDatePart(parts.day);
+                },
+                reportingDayToUtcBoundary: function(day, reportingTimeZone) {
+                    var match = String(day || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                    if (!match) return null;
+                    var year = Number(match[1]);
+                    var month = Number(match[2]);
+                    var dayOfMonth = Number(match[3]);
+                    var utcGuess = Date.UTC(year, month - 1, dayOfMonth);
+                    if (!Number.isFinite(utcGuess)) return null;
+                    if (ctx.util.formatUtcDay(utcGuess) !== day) return null;
+                    var timeZone = ctx.util.reportingTimeZoneOrDefault(reportingTimeZone);
+                    if (ctx.host && ctx.host.timeZone && ctx.host.timeZone.reportingDayToUtcBoundary) {
+                        var nativeBoundary = ctx.host.timeZone.reportingDayToUtcBoundary(day, timeZone);
+                        if (Number.isFinite(nativeBoundary)) return nativeBoundary;
+                    }
+                    if (timeZone === "UTC") return utcGuess;
+                    var firstPass = utcGuess - ctx.util.timeZoneOffsetMs(utcGuess, timeZone);
+                    return utcGuess - ctx.util.timeZoneOffsetMs(firstPass, timeZone);
+                },
+                formatUtcDay: function(timestamp) {
+                    var date = new Date(Number(timestamp));
+                    var dateMs = date.getTime();
+                    if (!Number.isFinite(dateMs)) return null;
+                    return date.toISOString().slice(0, 10);
+                },
+                padDatePart: function(value) {
+                    var text = String(value);
+                    return text.length < 2 ? "0" + text : text;
+                },
+                timeZoneOffsetMs: function(timestamp, reportingTimeZone) {
+                    var parts = ctx.util.timeZoneParts(timestamp, reportingTimeZone);
+                    if (!parts) return 0;
+                    var utcAsLocal = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+                    return utcAsLocal - timestamp;
+                },
+                timeZoneParts: function(timestamp, reportingTimeZone) {
+                    if (typeof Intl === "undefined" || !Intl.DateTimeFormat) return null;
+                    var date = new Date(Number(timestamp));
+                    if (!Number.isFinite(date.getTime())) return null;
+                    var formatter = new Intl.DateTimeFormat("en-US", {
+                        timeZone: reportingTimeZone,
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                        hourCycle: "h23"
+                    });
+                    var parts = formatter.formatToParts(date);
+                    var out = {};
+                    for (var i = 0; i < parts.length; i++) {
+                        var part = parts[i];
+                        if (part.type !== "literal") out[part.type] = Number(part.value);
+                    }
+                    if (!out.year || !out.month || !out.day) return null;
+                    if (!Number.isFinite(out.hour)) out.hour = 0;
+                    if (!Number.isFinite(out.minute)) out.minute = 0;
+                    if (!Number.isFinite(out.second)) out.second = 0;
+                    return out;
                 },
                 toIso: function(value) {
                     if (value === null || value === undefined) return null;
@@ -1564,6 +1751,7 @@ struct CcusageQueryOpts {
     provider: Option<String>,
     since: Option<String>,
     until: Option<String>,
+    timezone: Option<String>,
     home_path: Option<String>,
     claude_path: Option<String>,
 }
@@ -1922,6 +2110,16 @@ fn append_ccusage_common_args(
     {
         args.push("--until".to_string());
         args.push(until.to_string());
+    }
+
+    if let Some(timezone) = opts
+        .timezone
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        args.push("--timezone".to_string());
+        args.push(timezone.to_string());
     }
 }
 
@@ -2935,6 +3133,52 @@ mod tests {
     }
 
     #[test]
+    fn host_api_exposes_saved_reporting_timezone() {
+        let test_id = format!(
+            "openusage-reporting-timezone-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time")
+                .as_nanos()
+        );
+        let dir = std::env::temp_dir().join(test_id);
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        std::fs::write(
+            dir.join("settings.json"),
+            r#"{"teamConnection":{"reportingTimeZone":"America/New_York"}}"#,
+        )
+        .expect("write settings");
+
+        let rt = Runtime::new().expect("runtime");
+        let ctx = Context::full(&rt).expect("context");
+        ctx.with(|ctx| {
+            inject_host_api(&ctx, "test", &dir, "0.0.0").expect("inject host api");
+            inject_utils(&ctx).expect("inject utils");
+
+            let reporting_time_zone: String = ctx
+                .eval(r#"__openusage_ctx.app.reportingTimeZone"#)
+                .expect("reporting timezone");
+            assert_eq!(reporting_time_zone, "America/New_York");
+
+            let day: String = ctx
+                .eval(
+                    r#"__openusage_ctx.util.formatReportingDay(1771561800000, __openusage_ctx.app.reportingTimeZone)"#,
+                )
+                .expect("reporting day");
+            assert_eq!(day, "2026-02-19");
+
+            let boundary: f64 = ctx
+                .eval(
+                    r#"__openusage_ctx.util.reportingDayToUtcBoundary("2026-02-19", __openusage_ctx.app.reportingTimeZone)"#,
+                )
+                .expect("reporting boundary");
+            assert_eq!(boundary as i64, 1771477200000);
+        });
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn crypto_api_decrypts_node_generated_envelope_from_js() {
         let (key_b64, envelope, expected_plaintext) = node_generated_aes_256_gcm_vector_for_test();
         let rt = Runtime::new().expect("runtime");
@@ -3525,6 +3769,7 @@ mod tests {
             provider: None,
             since: Some("20260101".to_string()),
             until: Some("20260131".to_string()),
+            timezone: Some("America/New_York".to_string()),
             home_path: None,
             claude_path: None,
         };
@@ -3551,7 +3796,9 @@ mod tests {
                 "--since",
                 "20260101",
                 "--until",
-                "20260131"
+                "20260131",
+                "--timezone",
+                "America/New_York"
             ]
         );
 
@@ -3575,7 +3822,9 @@ mod tests {
                 "--since",
                 "20260101",
                 "--until",
-                "20260131"
+                "20260131",
+                "--timezone",
+                "America/New_York"
             ]
         );
 
@@ -3599,7 +3848,9 @@ mod tests {
                 "--since",
                 "20260101",
                 "--until",
-                "20260131"
+                "20260131",
+                "--timezone",
+                "America/New_York"
             ]
         );
 
@@ -3625,7 +3876,9 @@ mod tests {
                 "--since",
                 "20260101",
                 "--until",
-                "20260131"
+                "20260131",
+                "--timezone",
+                "America/New_York"
             ]
         );
 
@@ -3648,7 +3901,9 @@ mod tests {
                 "--since",
                 "20260101",
                 "--until",
-                "20260131"
+                "20260131",
+                "--timezone",
+                "America/New_York"
             ]
         );
     }
@@ -3659,6 +3914,7 @@ mod tests {
             provider: Some("codex".to_string()),
             since: Some("20260101".to_string()),
             until: Some("20260131".to_string()),
+            timezone: Some("America/Los_Angeles".to_string()),
             home_path: None,
             claude_path: None,
         };
@@ -3684,7 +3940,9 @@ mod tests {
                 "--since",
                 "20260101",
                 "--until",
-                "20260131"
+                "20260131",
+                "--timezone",
+                "America/Los_Angeles"
             ]
         );
 
@@ -3710,7 +3968,9 @@ mod tests {
                 "--since",
                 "20260101",
                 "--until",
-                "20260131"
+                "20260131",
+                "--timezone",
+                "America/Los_Angeles"
             ]
         );
 
@@ -3733,7 +3993,9 @@ mod tests {
                 "--since",
                 "20260101",
                 "--until",
-                "20260131"
+                "20260131",
+                "--timezone",
+                "America/Los_Angeles"
             ]
         );
     }
@@ -3744,6 +4006,7 @@ mod tests {
             provider: None,
             since: Some("20260101".to_string()),
             until: Some("20260131".to_string()),
+            timezone: None,
             home_path: None,
             claude_path: None,
         };
@@ -3974,6 +4237,7 @@ mod tests {
             provider: Some("codex".to_string()),
             since: None,
             until: None,
+            timezone: None,
             home_path: None,
             claude_path: None,
         };
@@ -4003,6 +4267,7 @@ mod tests {
             provider: None,
             since: None,
             until: None,
+            timezone: None,
             home_path: Some("/tmp/shared-home".to_string()),
             claude_path: Some("/tmp/claude-home".to_string()),
         };
@@ -4019,6 +4284,7 @@ mod tests {
             provider: None,
             since: None,
             until: None,
+            timezone: None,
             home_path: None,
             claude_path: Some("/tmp/legacy-claude-path".to_string()),
         };
@@ -4178,6 +4444,7 @@ esac
             provider: Some("codex".to_string()),
             since: Some("20260101".to_string()),
             until: None,
+            timezone: Some("UTC".to_string()),
             home_path: None,
             claude_path: None,
         };
@@ -4195,6 +4462,7 @@ esac
 
         let calls = std::fs::read_to_string(&args_path).expect("read args log");
         assert!(calls.contains("ccusage@20.0.2 codex daily"));
+        assert!(calls.contains("--timezone UTC"));
         assert!(calls.contains("@ccusage/codex@18.0.11 daily"));
 
         let _ = std::fs::remove_dir_all(&dir);

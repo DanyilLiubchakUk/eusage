@@ -18,6 +18,7 @@ export type TeamApiEndpoints = {
 export type TeamConnectionSettings = {
   teamUrl: string
   teamName: string
+  reportingTimeZone: string
   tokenFingerprint: string
   deviceId: string
   deviceName: string
@@ -70,6 +71,7 @@ export function normalizeTeamConnectionSettings(
 
   const teamUrl = stringField(row.teamUrl)
   const teamName = stringField(row.teamName)
+  const reportingTimeZone = normalizeReportingTimeZone(row.reportingTimeZone)
   const tokenFingerprint = stringField(row.tokenFingerprint)
   const deviceId = stringField(row.deviceId)
   const detectedDeviceName = normalizeDeviceName(row.detectedDeviceName)
@@ -80,11 +82,12 @@ export function normalizeTeamConnectionSettings(
     detectedDeviceName ??
     "Desktop"
   const endpoints = normalizeTeamApiEndpoints(row.endpoints)
-  if (!teamUrl || !teamName || !tokenFingerprint || !deviceId || !endpoints) return null
+  if (!teamUrl || !teamName || !reportingTimeZone || !tokenFingerprint || !deviceId || !endpoints) return null
 
   return {
     teamUrl,
     teamName,
+    reportingTimeZone,
     tokenFingerprint,
     deviceId,
     deviceName,
@@ -142,4 +145,17 @@ function stringField(value: unknown): string {
 
 function nullableStringField(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null
+}
+
+function normalizeReportingTimeZone(value: unknown): string | null {
+  if (value === undefined) return "UTC"
+  if (typeof value !== "string") return null
+  const reportingTimeZone = value.trim()
+  if (!reportingTimeZone) return null
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: reportingTimeZone })
+    return reportingTimeZone
+  } catch {
+    return null
+  }
 }

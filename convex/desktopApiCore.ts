@@ -6,6 +6,7 @@ import {
   type PublicDeveloperRow,
 } from "./developerTokens"
 import { displayDeviceName } from "./deviceNames"
+import { reportingTimeZoneOrDefault } from "./reportingTimeZone"
 
 export const DEVICE_STALE_AFTER_MS = 72 * 60 * 60 * 1000
 
@@ -50,6 +51,7 @@ export type PublicTeamConfigResult =
       ok: true
       team: {
         name: string
+        reportingTimeZone: string
       }
     }
   | DesktopApiError
@@ -104,6 +106,9 @@ export type DeviceCheckInResult =
       ok: true
       message: string
       developerId: string
+      team: {
+        reportingTimeZone: string
+      }
       device: PublicDeviceRow
     }
   | DesktopApiError
@@ -113,6 +118,9 @@ export type DeviceDisconnectResult =
       ok: true
       message: string
       developerId: string
+      team: {
+        reportingTimeZone: string
+      }
       device: PublicDeviceRow
     }
   | DesktopApiError
@@ -161,6 +169,7 @@ export async function getPublicTeamConfig(args: {
     ok: true,
     team: {
       name: team.name,
+      reportingTimeZone: reportingTimeZoneOrDefault(team.reportingTimeZone),
     },
   }
 }
@@ -248,6 +257,9 @@ export async function checkInDevice(args: {
     ok: true,
     message: "Device checked in.",
     developerId: auth.developer._id,
+    team: {
+      reportingTimeZone: reportingTimeZoneOrDefault(auth.team.reportingTimeZone),
+    },
     device: publicDeviceRow(device, args.now),
   }
 }
@@ -283,6 +295,9 @@ export async function disconnectDevice(args: {
     ok: true,
     message: "Device disconnected.",
     developerId: auth.developer._id,
+    team: {
+      reportingTimeZone: reportingTimeZoneOrDefault(auth.team.reportingTimeZone),
+    },
     device: publicDeviceRow(updatedDevice, args.now),
   }
 }

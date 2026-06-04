@@ -10,6 +10,7 @@ export const DEFAULT_TEAM_API_ENDPOINTS: TeamApiEndpoints = {
 
 export type TeamConfig = {
   teamName: string
+  reportingTimeZone: string
   appVersion: string
   apiVersion: string
   endpoints: TeamApiEndpoints
@@ -20,6 +21,10 @@ export type TeamDevice = {
   status: TeamDeviceStatus
   lastSeenAt: number
   updatedAt: number
+}
+
+export type TeamResponseMetadata = {
+  reportingTimeZone: string
 }
 
 export type TeamApiResult<T> =
@@ -50,7 +55,7 @@ export async function checkInTeamDevice(args: {
   deviceName: string
   os: string
   appVersion: string
-}): Promise<TeamApiResult<{ device: TeamDevice }>> {
+}): Promise<TeamApiResult<{ device: TeamDevice; team: TeamResponseMetadata | null }>> {
   const result = await requestJson(joinTeamUrl(args.teamUrl, args.endpoints.deviceCheckIn), {
     method: "POST",
     headers: bearerJsonHeaders(args.token),
@@ -69,7 +74,7 @@ export async function disconnectTeamDevice(args: {
   endpoints: TeamApiEndpoints
   token: string
   deviceId: string
-}): Promise<TeamApiResult<{ device: TeamDevice }>> {
+}): Promise<TeamApiResult<{ device: TeamDevice; team: TeamResponseMetadata | null }>> {
   const result = await requestJson(joinTeamUrl(args.teamUrl, args.endpoints.deviceDisconnect), {
     method: "POST",
     headers: bearerJsonHeaders(args.token),
@@ -83,13 +88,13 @@ export async function disconnectTeamDevice(args: {
 function normalizeDeviceApiResult(
   result: TeamApiResult<unknown>,
   invalidMessage: string
-): TeamApiResult<{ device: TeamDevice }> {
+): TeamApiResult<{ device: TeamDevice; team: TeamResponseMetadata | null }> {
   if (!result.ok) return result
 
   const row = result.value as Record<string, unknown>
   const device = normalizeDevice(row.device)
   if (!device) return apiError("team-config-invalid", invalidMessage)
-  return { ok: true, value: { device } }
+  return { ok: true, value: { device, team: normalizeTeamResponseMetadata(row.team) } }
 }
 
 async function requestJson(url: string, init?: RequestInit): Promise<TeamApiResult<unknown>> {
@@ -131,11 +136,20 @@ function normalizeTeamConfig(value: unknown): TeamConfig | null {
   if (!endpoints) return null
 
   const teamName = stringField(row.teamName)
+  const reportingTimeZone = normalizeReportingTimeZone(row.reportingTimeZone)
   const appVersion = stringField(row.appVersion)
   const apiVersion = stringField(row.apiVersion)
-  if (!teamName || !appVersion || !apiVersion) return null
+  if (!teamName || !reportingTimeZone || !appVersion || !apiVersion) return null
 
-  return { teamName, appVersion, apiVersion, endpoints }
+  return { teamName, reportingTimeZone, appVersion, apiVersion, endpoints }
+}
+
+function normalizeTeamResponseMetadata(value: unknown): TeamResponseMetadata | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const reportingTimeZone = normalizeReportingTimeZone(
+    (value as Record<string, unknown>).reportingTimeZone
+  )
+  return reportingTimeZone ? { reportingTimeZone } : null
 }
 
 function normalizeEndpoints(value: unknown): TeamApiEndpoints | null {
@@ -227,4 +241,17 @@ function stringField(value: unknown): string {
 
 function numberField(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function normalizeReportingTimeZone(value: unknown): string | null {
+  if (value === undefined) return "UTC"
+  if (typeof value !== "string") return null
+  const reportingTimeZone = value.trim()
+  if (!reportingTimeZone) return null
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: reportingTimeZone })
+    return reportingTimeZone
+  } catch {
+    return null
+  }
 }

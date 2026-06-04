@@ -5,6 +5,7 @@ import {
   checkInDevice,
   disconnectDevice,
   getDeviceStatus,
+  getPublicTeamConfig,
   type DesktopApiStore,
   type DeviceRecord,
   type NewDeviceRecord,
@@ -27,6 +28,7 @@ async function createStore(seed?: {
     _id: "team-1",
     name: "Acme Team",
     slug: "acme-team",
+    reportingTimeZone: "America/New_York",
   }
   const developers: DeveloperRecord[] = [
     {
@@ -101,6 +103,18 @@ async function createStore(seed?: {
 }
 
 describe("desktop API", () => {
+  it("returns public team reporting timezone metadata", async () => {
+    const fake = await createStore()
+
+    await expect(getPublicTeamConfig({ store: fake.store })).resolves.toMatchObject({
+      ok: true,
+      team: {
+        name: "Acme Team",
+        reportingTimeZone: "America/New_York",
+      },
+    })
+  })
+
   it("rejects missing bearer auth before device writes", async () => {
     const fake = await createStore()
 
@@ -171,6 +185,11 @@ describe("desktop API", () => {
 
     expect(first.ok).toBe(true)
     expect(second.ok).toBe(true)
+    expect(first).toMatchObject({
+      team: {
+        reportingTimeZone: "America/New_York",
+      },
+    })
     expect(fake.devices).toHaveLength(1)
     expect(fake.devices[0]).toMatchObject({
       developerId: "developer-1",

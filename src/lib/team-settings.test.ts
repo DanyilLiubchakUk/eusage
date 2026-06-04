@@ -33,6 +33,7 @@ vi.mock("@tauri-apps/plugin-store", () => ({
 const connection: TeamConnectionSettings = {
   teamUrl: "https://team.example.com",
   teamName: "Acme Team",
+  reportingTimeZone: "America/New_York",
   tokenFingerprint: "abcd1234...wxyz7890",
   deviceId: "device-1",
   deviceName: "Alex MacBook",
@@ -82,9 +83,11 @@ describe("team settings", () => {
       deviceName: "Unknown device",
       detectedDeviceName: undefined,
       deviceNameOverride: undefined,
+      reportingTimeZone: undefined,
     }
 
     expect(normalizeTeamConnectionSettings(legacy)).toMatchObject({
+      reportingTimeZone: "UTC",
       deviceName: "Desktop",
       detectedDeviceName: null,
       deviceNameOverride: null,

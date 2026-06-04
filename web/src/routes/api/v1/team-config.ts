@@ -19,6 +19,7 @@ export const Route = createFileRoute("/api/v1/team-config")({
         return desktopApiJson(
           buildTeamConfigResponse({
             teamName: result.team.name,
+            reportingTimeZone: result.team.reportingTimeZone,
           })
         )
       },

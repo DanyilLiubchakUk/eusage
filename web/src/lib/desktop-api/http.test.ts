@@ -10,10 +10,14 @@ import { hashDeveloperToken } from "../../../../convex/developerTokens"
 
 describe("desktop API HTTP helpers", () => {
   it("builds safe public team config metadata", () => {
-    const response = buildTeamConfigResponse({ teamName: "Acme Team" })
+    const response = buildTeamConfigResponse({
+      teamName: "Acme Team",
+      reportingTimeZone: "America/New_York",
+    })
 
     expect(response).toMatchObject({
       teamName: "Acme Team",
+      reportingTimeZone: "America/New_York",
       apiVersion: "v1",
       endpoints: {
         teamConfig: "/api/v1/team-config",

@@ -11,6 +11,7 @@ export type DeveloperTeamRecord = {
   _id: string
   name: string
   slug: string
+  reportingTimeZone?: string
 }
 
 export type DeveloperOwnerRecord = {

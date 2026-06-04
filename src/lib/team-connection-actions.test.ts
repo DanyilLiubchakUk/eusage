@@ -27,6 +27,7 @@ function createDeps(seed?: {
       ok: true as const,
       value: {
         teamName: "Acme Team",
+        reportingTimeZone: "America/New_York",
         appVersion: "0.6.24",
         apiVersion: "v1",
         endpoints,
@@ -41,6 +42,9 @@ function createDeps(seed?: {
           lastSeenAt: 1780340000000,
           updatedAt: 1780340000000,
         },
+        team: {
+          reportingTimeZone: "America/New_York",
+        },
       },
     })),
     disconnectTeamDevice: vi.fn(async () => ({
@@ -51,6 +55,9 @@ function createDeps(seed?: {
           status: "disconnected" as const,
           lastSeenAt: 1780340000000,
           updatedAt: 1780340000001,
+        },
+        team: {
+          reportingTimeZone: "America/New_York",
         },
       },
     })),
@@ -113,6 +120,7 @@ describe("team connection actions", () => {
     expect(JSON.stringify(fake.connection)).not.toContain("eusage_dev_secret")
     expect(fake.connection).toMatchObject({
       teamName: "Acme Team",
+      reportingTimeZone: "America/New_York",
       tokenFingerprint: "abcd1234...wxyz7890",
       deviceName: "Alex MacBook",
       detectedDeviceName: "Alex MacBook",
@@ -281,12 +289,39 @@ describe("team connection actions", () => {
     expect(fake.token).toBeNull()
     expect(fake.connection).toBeNull()
   })
+
+  it("updates saved reporting timezone from device check-in metadata", async () => {
+    const fake = createDeps({
+      connection: connectedSettings(),
+      token: "eusage_dev_secret",
+    })
+    fake.deps.checkInTeamDevice.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        device: {
+          deviceName: "Alex MacBook",
+          status: "connected",
+          lastSeenAt: 1780340000000,
+          updatedAt: 1780340000000,
+        },
+        team: {
+          reportingTimeZone: "America/Los_Angeles",
+        },
+      },
+    })
+
+    const result = await refreshTeamCheckIn(fake.deps)
+
+    expect(result.ok).toBe(true)
+    expect(fake.connection?.reportingTimeZone).toBe("America/Los_Angeles")
+  })
 })
 
 function connectedSettings(): TeamConnectionSettings {
   return {
     teamUrl: "https://team.example.com",
     teamName: "Acme Team",
+    reportingTimeZone: "America/New_York",
     tokenFingerprint: "abcd1234...wxyz7890",
     deviceId: "device-1",
     deviceName: "Alex MacBook",
