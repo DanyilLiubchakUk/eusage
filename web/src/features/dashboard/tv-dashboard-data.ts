@@ -62,11 +62,13 @@ const MAX_DURATION_SECONDS = 300
 
 export function buildTvDashboardModel(state: ReadyDashboardState, now: number) {
   const source = dashboardSource(state, "tv")
-  const range = resolveMetricDateRange(source.dateRange, now)
+  const rangeOptions = { reportingTimeZone: source.reportingTimeZone }
+  const range = resolveMetricDateRange(source.dateRange, now, rangeOptions)
   const usage = calculateDashboardUsage({
     snapshots: source.snapshots,
     range: source.dateRange,
     now,
+    options: rangeOptions,
   })
   const sampledUsage = calculateSampledUsage({
     samples: source.metricSamples,
@@ -138,8 +140,9 @@ export function buildTvDashboardModel(state: ReadyDashboardState, now: number) {
 
   return {
     teamName: state.team.name,
+    reportingTimeZone: source.reportingTimeZone,
     dateRange: source.dateRange,
-    dateBounds: buildDashboardDateRangeBounds(source.metricSamples, now),
+    dateBounds: buildDashboardDateRangeBounds(source.metricSamples, now, source.reportingTimeZone),
     rangeLabel: range.label,
     slideSettings,
     slides,

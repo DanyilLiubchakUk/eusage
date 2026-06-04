@@ -24,6 +24,7 @@ const owner = {
 const team = {
   name: "Acme Team",
   slug: "acme-team",
+  reportingTimeZone: "UTC",
   setupCompletedAt: 1780320000000,
 }
 
@@ -54,7 +55,11 @@ function renderClaimView(props: {
   state?: SetupState
   isLoaded?: boolean
   isSignedIn?: boolean
-  onClaim?: (input: { teamName: string; setupToken: string }) => Promise<SetupClaimResult>
+  onClaim?: (input: {
+    teamName: string
+    setupToken: string
+    reportingTimeZone: string
+  }) => Promise<SetupClaimResult>
 }) {
   return render(
     <SetupClaimView
@@ -89,6 +94,7 @@ describe("SetupClaimView", () => {
     expect(onClaim).toHaveBeenCalledWith({
       teamName: "Acme Team",
       setupToken: "correct",
+      reportingTimeZone: expect.any(String),
     })
     expect(await screen.findByText("Setup complete.")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Open dashboard" })).toHaveAttribute(

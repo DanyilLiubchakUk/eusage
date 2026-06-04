@@ -1,4 +1,5 @@
 import {
+  DEFAULT_REPORTING_TIME_ZONE,
   resolveVisibleMetricSource,
   type MetricDateRangeInput,
   type UsageMetricSampleSourceRow,
@@ -54,6 +55,7 @@ export function dashboardSource(state: ReadyDashboardState, view: "admin" | "tv"
   return {
     ...visibleSource,
     dateRange: settingsDateRange(settings),
+    reportingTimeZone: teamReportingTimeZone(state.team),
   }
 }
 
@@ -93,4 +95,11 @@ function isMetricDateRangeInput(value: unknown): value is MetricDateRangeInput {
     typeof (value as { startDay?: unknown }).startDay === "string" &&
     typeof (value as { endDay?: unknown }).endDay === "string"
   )
+}
+
+function teamReportingTimeZone(team: ReadyDashboardState["team"]) {
+  const reportingTimeZone = (team as { reportingTimeZone?: unknown }).reportingTimeZone
+  if (reportingTimeZone === undefined) return DEFAULT_REPORTING_TIME_ZONE
+  if (typeof reportingTimeZone === "string") return reportingTimeZone
+  throw new Error("Team reporting time zone setting is invalid.")
 }

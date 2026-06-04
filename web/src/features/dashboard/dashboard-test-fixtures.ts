@@ -7,6 +7,7 @@ export const readyState = {
   team: {
     name: "Acme Team",
     slug: "acme-team",
+    reportingTimeZone: "UTC",
   },
   developers: [
     {
@@ -168,6 +169,7 @@ export function quietState(): DashboardSourceState {
     team: {
       name: "Quiet Team",
       slug: "quiet-team",
+      reportingTimeZone: "UTC",
     },
     developers: [],
     snapshots: [],

@@ -39,6 +39,7 @@ describe("SetupStatusView", () => {
       team: {
         name: "Acme Team",
         slug: "acme-team",
+        reportingTimeZone: "UTC",
         setupCompletedAt: 1780320000000,
       },
       owner: {

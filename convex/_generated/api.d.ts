@@ -17,6 +17,7 @@ import type * as developerTokenLifecycle from "../developerTokenLifecycle.js";
 import type * as developerTokens from "../developerTokens.js";
 import type * as developers from "../developers.js";
 import type * as deviceNames from "../deviceNames.js";
+import type * as reportingTimeZone from "../reportingTimeZone.js";
 import type * as setup from "../setup.js";
 import type * as setupClaim from "../setupClaim.js";
 import type * as tokenSecrets from "../tokenSecrets.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   developerTokens: typeof developerTokens;
   developers: typeof developers;
   deviceNames: typeof deviceNames;
+  reportingTimeZone: typeof reportingTimeZone;
   setup: typeof setup;
   setupClaim: typeof setupClaim;
   tokenSecrets: typeof tokenSecrets;

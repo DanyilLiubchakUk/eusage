@@ -15,7 +15,11 @@ type SetupClaimViewProps = {
   }
   signInSlot: ReactNode
   userSlot: ReactNode
-  onClaim: (input: { teamName: string; setupToken: string }) => Promise<SetupClaimResult>
+  onClaim: (input: {
+    teamName: string
+    setupToken: string
+    reportingTimeZone: string
+  }) => Promise<SetupClaimResult>
 }
 
 export function SetupClaimView({
@@ -37,7 +41,11 @@ export function SetupClaimView({
 
     submittingRef.current = true
     setIsSubmitting(true)
-    const result = await onClaim({ teamName, setupToken })
+    const result = await onClaim({
+      teamName,
+      setupToken,
+      reportingTimeZone: browserReportingTimeZone(),
+    })
     setClaimResult(result)
     submittingRef.current = false
     setIsSubmitting(false)
@@ -152,4 +160,8 @@ function setupCopy(state: SetupState) {
   }
 
   return "Enter the deploy-time setup token to create the first owner."
+}
+
+function browserReportingTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
 }

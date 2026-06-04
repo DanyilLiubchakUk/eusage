@@ -39,11 +39,13 @@ export type {
 
 export function buildAdminOverviewModel(state: ReadyDashboardState, now: number) {
   const source = dashboardSource(state, "admin")
-  const range = resolveMetricDateRange(source.dateRange, now)
+  const rangeOptions = { reportingTimeZone: source.reportingTimeZone }
+  const range = resolveMetricDateRange(source.dateRange, now, rangeOptions)
   const usage = calculateDashboardUsage({
     snapshots: source.snapshots,
     range: source.dateRange,
     now,
+    options: rangeOptions,
   })
   const sampledUsage = calculateSampledUsage({
     samples: source.metricSamples,
@@ -83,8 +85,9 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
 
   return {
     teamName: state.team.name,
+    reportingTimeZone: source.reportingTimeZone,
     dateRange: source.dateRange,
-    dateBounds: buildDashboardDateRangeBounds(source.metricSamples, now),
+    dateBounds: buildDashboardDateRangeBounds(source.metricSamples, now, source.reportingTimeZone),
     providerFilters: buildProviderFilters(state, source.visibleProviderIds),
     rangeLabel: usage.range.label,
     freshnessLabel,

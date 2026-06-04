@@ -6,6 +6,8 @@ import {
   DashboardUnavailable,
   TvDashboardPlaceholder,
 } from "./dashboard-placeholders"
+import { buildAdminOverviewModel } from "./admin-overview-data"
+import { buildTvDashboardModel } from "./tv-dashboard-data"
 import type { DashboardSourceState } from "./dashboard"
 import {
   now,
@@ -103,6 +105,50 @@ describe("dashboard placeholders", () => {
 
     expect(changes).toEqual([{ preset: "last30" }])
     expect(screen.queryByText("Saved")).not.toBeInTheDocument()
+  })
+
+  it("lets Admin persist the team reporting timezone", async () => {
+    const user = userEvent.setup()
+    const changes: string[] = []
+    render(
+      <AdminDashboardPlaceholder
+        state={readyState}
+        now={now}
+        onReportingTimeZoneChange={async (value) => {
+          changes.push(value)
+        }}
+      />
+    )
+
+    await user.clear(screen.getByLabelText("Reporting timezone"))
+    await user.type(screen.getByLabelText("Reporting timezone"), "America/New_York")
+    await user.click(screen.getByRole("button", { name: "Apply pending reporting timezone" }))
+
+    expect(changes).toEqual(["America/New_York"])
+  })
+
+  it("uses the team reporting timezone for Admin and TV ranges", () => {
+    const state = {
+      ...(readyState as Extract<DashboardSourceState, { status: "ready" }>),
+      team: {
+        ...(readyState as Extract<DashboardSourceState, { status: "ready" }>).team,
+        reportingTimeZone: "America/New_York",
+      },
+    } as Extract<DashboardSourceState, { status: "ready" }>
+    const lateNightUtc = Date.UTC(2026, 5, 1, 2)
+
+    const admin = buildAdminOverviewModel(state, lateNightUtc)
+    const tv = buildTvDashboardModel(state, lateNightUtc)
+
+    expect(admin.reportingTimeZone).toBe("America/New_York")
+    expect(tv.reportingTimeZone).toBe("America/New_York")
+    expect(admin.dateBounds.maxDay).toBe("2026-05-31")
+    expect(tv.dateBounds.maxDay).toBe("2026-05-31")
+    expect(admin.kpis[0].value).toBe("0 tokens")
+    expect(tv.slides[0]).toMatchObject({
+      kind: "team-overview",
+      headline: "0 tokens",
+    })
   })
 
   it("limits custom Admin date inputs to visible metric days", () => {

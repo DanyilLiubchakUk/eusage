@@ -1,0 +1,178 @@
+.admin-overview-meta {
+  display: grid;
+  justify-items: end;
+  gap: 0.45rem;
+  max-width: 52rem;
+}
+
+.admin-overview-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.admin-overview-filter-row > span {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.admin-date-range,
+.admin-reporting-time-zone {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.admin-date-range select,
+.admin-date-range input,
+.admin-date-range button,
+.admin-reporting-time-zone input,
+.admin-reporting-time-zone button {
+  height: 2.1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.admin-date-range select,
+.admin-date-range input,
+.admin-reporting-time-zone input {
+  padding: 0 0.55rem;
+}
+
+.admin-date-range button,
+.admin-reporting-time-zone button {
+  padding: 0 0.8rem;
+  border-color: var(--accent-border);
+  color: var(--accent-strong);
+  cursor: pointer;
+}
+
+.admin-date-range .admin-date-range-apply,
+.admin-reporting-time-zone .admin-date-range-apply {
+  display: inline-grid;
+  place-items: center;
+  width: 2.1rem;
+  min-width: 2.1rem;
+  padding: 0;
+  border-color: var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--accent-strong);
+}
+
+.admin-date-range .admin-date-range-apply:hover:not(:disabled),
+.admin-date-range .admin-date-range-apply:focus-visible,
+.admin-reporting-time-zone .admin-date-range-apply:hover:not(:disabled),
+.admin-reporting-time-zone .admin-date-range-apply:focus-visible {
+  border-color: var(--accent-border);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.admin-date-range .admin-date-range-apply-pending,
+.admin-reporting-time-zone .admin-date-range-apply-pending {
+  border-color: var(--accent-strong);
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.admin-date-range .admin-date-range-apply-pending:hover:not(:disabled),
+.admin-date-range .admin-date-range-apply-pending:focus-visible,
+.admin-reporting-time-zone .admin-date-range-apply-pending:hover:not(:disabled),
+.admin-reporting-time-zone .admin-date-range-apply-pending:focus-visible {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+  color: #ffffff;
+}
+
+.admin-reporting-time-zone label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.admin-reporting-time-zone .setup-label {
+  color: var(--text-subtle);
+}
+
+.admin-date-range-custom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.admin-provider-filter {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.admin-provider-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-provider-filter label span {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.admin-provider-filter input,
+.admin-date-range input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+@media (max-width: 1100px) {
+  .admin-overview-meta {
+    justify-items: start;
+    max-width: none;
+  }
+
+  .admin-overview-filter-row {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+  .admin-overview-filter-row,
+  .admin-date-range,
+  .admin-date-range-custom,
+  .admin-reporting-time-zone,
+  .admin-provider-filter {
+    width: 100%;
+  }
+
+  .admin-date-range select,
+  .admin-date-range input,
+  .admin-date-range button,
+  .admin-reporting-time-zone input,
+  .admin-reporting-time-zone button {
+    flex: 1 1 9rem;
+  }
+}

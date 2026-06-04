@@ -5,6 +5,7 @@ export default defineSchema({
   teams: defineTable({
     name: v.string(),
     slug: v.string(),
+    reportingTimeZone: v.optional(v.string()),
     setupCompletedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),

@@ -7,6 +7,7 @@ import {
 } from "./date-ranges"
 import type {
   MetricDateRangeInput,
+  MetricDateRangeOptions,
   MetricRangeWindow,
   ResolvedMetricDateRange,
   UsageMetricSampleSourceRow,
@@ -58,11 +59,12 @@ export function calculateDashboardUsage(args: {
   snapshots: UsageSnapshotSourceRow[]
   range: MetricDateRangeInput
   now: number
+  options?: MetricDateRangeOptions
 }): {
   range: ResolvedMetricDateRange
   comparison: UsageComparison
 } {
-  const range = resolveMetricDateRange(args.range, args.now)
+  const range = resolveMetricDateRange(args.range, args.now, args.options)
   const current = calculateUsageTotals(args.snapshots, range.current)
   const previous = range.comparison
     ? calculateUsageTotals(args.snapshots, range.comparison)

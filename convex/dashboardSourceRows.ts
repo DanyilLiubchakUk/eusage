@@ -7,6 +7,7 @@ import {
   publicTvSettings,
 } from "./dashboardSettings"
 import { displayDeviceName } from "./deviceNames"
+import { reportingTimeZoneOrDefault } from "./reportingTimeZone"
 
 type DashboardSourceOptions = {
   includeDeveloperTokens: boolean
@@ -15,7 +16,7 @@ type DashboardSourceOptions = {
 
 export async function dashboardSourceRowsForTeam(
   ctx: QueryCtx,
-  team: Pick<Doc<"teams">, "_id" | "name" | "slug">,
+  team: Pick<Doc<"teams">, "_id" | "name" | "slug" | "reportingTimeZone">,
   options: DashboardSourceOptions
 ) {
   const developers = await ctx.db
@@ -137,6 +138,7 @@ export async function dashboardSourceRowsForTeam(
     team: {
       name: team.name,
       slug: team.slug,
+      reportingTimeZone: reportingTimeZoneOrDefault(team.reportingTimeZone),
     },
     developers: filteredDevelopers.map((developer) => ({
       id: developer._id,
@@ -205,11 +207,17 @@ export async function dashboardSourceRowsForTeam(
 
 export function unavailableDashboardSource<const TStatus extends string>(
   status: TStatus,
-  team?: { name: string; slug: string }
+  team?: { name: string; slug: string; reportingTimeZone?: string }
 ) {
   return {
     status,
-    team: team ?? null,
+    team: team
+      ? {
+          name: team.name,
+          slug: team.slug,
+          reportingTimeZone: reportingTimeZoneOrDefault(team.reportingTimeZone),
+        }
+      : null,
     developers: [],
     providers: [],
     dashboardSettings: defaultDashboardSettings(),

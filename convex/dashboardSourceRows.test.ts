@@ -11,6 +11,7 @@ const team = {
   _id: teamId,
   name: "eUsage Team",
   slug: "eusage-team",
+  reportingTimeZone: "America/New_York",
 }
 const developer = {
   _id: developerId,
@@ -79,6 +80,7 @@ describe("dashboard source rows", () => {
     expect(result.snapshots).toHaveLength(1)
     expect(result.metricSamples).toHaveLength(1)
     expect(result.providers).toEqual([])
+    expect(result.team.reportingTimeZone).toBe("America/New_York")
   })
 
   it("hides disabled providers from public TV usage", async () => {

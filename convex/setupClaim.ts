@@ -1,6 +1,13 @@
+import {
+  DEFAULT_REPORTING_TIME_ZONE,
+  normalizeReportingTimeZone,
+  reportingTimeZoneOrDefault,
+} from "./reportingTimeZone"
+
 export type SetupTeam = {
   name: string
   slug: string
+  reportingTimeZone: string
   setupCompletedAt: number | null
 }
 
@@ -38,6 +45,7 @@ export type SetupClaimErrorCode =
   | "team-name-required"
   | "setup-token-required"
   | "invalid-setup-token"
+  | "invalid-reporting-time-zone"
   | "setup-state-invalid"
 
 export type SetupClaimResult =
@@ -62,6 +70,7 @@ export type SetupTeamRecord = {
   _id: string
   name: string
   slug: string
+  reportingTimeZone?: string
   setupCompletedAt?: number
   createdAt: number
   updatedAt: number
@@ -90,6 +99,7 @@ export type SetupClaimStore = {
 export type SetupClaimInput = {
   teamName: string
   setupToken: string
+  reportingTimeZone?: string
 }
 
 export function getSetupState(
@@ -176,9 +186,15 @@ export async function claimFirstOwner(args: {
     return setupError("invalid-setup-token", "Setup token is invalid.")
   }
 
+  const reportingTimeZone = setupReportingTimeZone(args.input.reportingTimeZone)
+  if (!reportingTimeZone) {
+    return setupError("invalid-reporting-time-zone", "Reporting time zone is invalid.")
+  }
+
   const team = await args.store.createTeam({
     name: teamName,
     slug: slugFromTeamName(teamName),
+    reportingTimeZone,
     setupCompletedAt: args.now,
     createdAt: args.now,
     updatedAt: args.now,
@@ -220,6 +236,7 @@ function publicTeam(team: SetupTeamRecord): SetupTeam {
   return {
     name: team.name,
     slug: team.slug,
+    reportingTimeZone: reportingTimeZoneOrDefault(team.reportingTimeZone),
     setupCompletedAt: team.setupCompletedAt ?? null,
   }
 }
@@ -241,4 +258,9 @@ function setupError(code: SetupClaimErrorCode, message: string): SetupClaimResul
     code,
     message,
   }
+}
+
+function setupReportingTimeZone(value: string | undefined) {
+  if (value === undefined || value.trim() === "") return DEFAULT_REPORTING_TIME_ZONE
+  return normalizeReportingTimeZone(value)
 }

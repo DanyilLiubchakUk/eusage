@@ -64,7 +64,11 @@ describe("claimFirstOwner", () => {
     const fake = createStore()
 
     const result = await claimFirstOwner({
-      input: { teamName: "Acme Team", setupToken: "correct" },
+      input: {
+        teamName: "Acme Team",
+        setupToken: "correct",
+        reportingTimeZone: "America/New_York",
+      },
       identity,
       expectedSetupToken: "correct",
       now: 1780320000000,
@@ -75,9 +79,52 @@ describe("claimFirstOwner", () => {
     if (!result.ok) throw new Error("Expected setup claim to succeed.")
     expect(result.status).toBe("setup-complete")
     expect(result.team.name).toBe("Acme Team")
+    expect(result.team.reportingTimeZone).toBe("America/New_York")
     expect(result.owner.clerkUserId).toBe("user_123")
     expect(fake.team?.slug).toBe("acme-team")
+    expect(fake.team?.reportingTimeZone).toBe("America/New_York")
     expect(fake.createdOwners).toHaveLength(1)
+  })
+
+  it("defaults the reporting timezone to UTC for old setup callers", async () => {
+    const fake = createStore()
+
+    const result = await claimFirstOwner({
+      input: { teamName: "Acme Team", setupToken: "correct" },
+      identity,
+      expectedSetupToken: "correct",
+      now: 1780320000000,
+      store: fake.store,
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("Expected setup claim to succeed.")
+    expect(result.team.reportingTimeZone).toBe("UTC")
+    expect(fake.team?.reportingTimeZone).toBe("UTC")
+  })
+
+  it("rejects an invalid reporting timezone without creating rows", async () => {
+    const fake = createStore()
+
+    const result = await claimFirstOwner({
+      input: {
+        teamName: "Acme Team",
+        setupToken: "correct",
+        reportingTimeZone: "Mars/Base",
+      },
+      identity,
+      expectedSetupToken: "correct",
+      now: 1780320000000,
+      store: fake.store,
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: "error",
+      code: "invalid-reporting-time-zone",
+    })
+    expect(fake.team).toBeNull()
+    expect(fake.owner).toBeNull()
   })
 
   it("rejects a wrong setup token without creating rows", async () => {
@@ -148,6 +195,7 @@ describe("claimFirstOwner", () => {
         _id: "team-1",
         name: "Existing Team",
         slug: "existing-team",
+        reportingTimeZone: "America/Los_Angeles",
         setupCompletedAt: 1780310000000,
         createdAt: 1780310000000,
         updatedAt: 1780310000000,
@@ -175,7 +223,7 @@ describe("claimFirstOwner", () => {
       ok: true,
       status: "setup-complete",
       message: "Setup is already complete.",
-      team: { name: "Existing Team" },
+      team: { name: "Existing Team", reportingTimeZone: "America/Los_Angeles" },
       owner: { clerkUserId: "user_existing" },
     })
     expect(fake.createdOwners).toHaveLength(0)
@@ -187,6 +235,7 @@ describe("claimFirstOwner", () => {
         _id: "team-1",
         name: "Existing Team",
         slug: "existing-team",
+        reportingTimeZone: "America/Los_Angeles",
         setupCompletedAt: 1780310000000,
         createdAt: 1780310000000,
         updatedAt: 1780310000000,

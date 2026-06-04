@@ -24,6 +24,7 @@ export const claimOwner = mutation({
   args: {
     teamName: v.string(),
     setupToken: v.string(),
+    reportingTimeZone: v.optional(v.string()),
   },
   handler: async (ctx, input) => {
     const identity = await ctx.auth.getUserIdentity()

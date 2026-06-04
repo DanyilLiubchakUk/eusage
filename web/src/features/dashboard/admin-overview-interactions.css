@@ -57,7 +57,9 @@
 .admin-overview-filter-row > span,
 .admin-date-range select,
 .admin-date-range input,
-.admin-date-range button {
+.admin-date-range button,
+.admin-reporting-time-zone input,
+.admin-reporting-time-zone button {
   min-height: 1.85rem;
   border-color: var(--border);
   background: color-mix(in srgb, var(--surface) 88%, transparent);
@@ -71,11 +73,14 @@
 
 .admin-date-range select,
 .admin-date-range input,
-.admin-date-range button {
+.admin-date-range button,
+.admin-reporting-time-zone input,
+.admin-reporting-time-zone button {
   height: 1.85rem;
 }
 
-.admin-date-range .admin-date-range-apply {
+.admin-date-range .admin-date-range-apply,
+.admin-reporting-time-zone .admin-date-range-apply {
   width: 1.85rem;
   min-width: 1.85rem;
 }
@@ -95,7 +100,8 @@
   margin: 0;
 }
 
-.admin-date-range span {
+.admin-date-range span,
+.admin-reporting-time-zone span {
   color: var(--accent-strong);
 }
 
@@ -105,6 +111,14 @@
 }
 
 .admin-metric-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--accent-strong);
   cursor: help;
 }
 

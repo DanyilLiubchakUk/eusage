@@ -9,6 +9,7 @@ import {
   normalizeTvSlides,
 } from "./dashboardSettings"
 import { dashboardSourceRowsForTeam, unavailableDashboardSource } from "./dashboardSourceRows"
+import { normalizeReportingTimeZone } from "./reportingTimeZone"
 
 export const sourceRows = query({
   args: {},
@@ -29,6 +30,7 @@ export const sourceRows = query({
     const publicTeam = {
       name: team.name,
       slug: team.slug,
+      reportingTimeZone: team.reportingTimeZone,
     }
 
     if (owner.clerkUserId !== identity.subject) {
@@ -55,6 +57,7 @@ export const updateDashboardSettings = mutation({
       )
     ),
     visibleProviderIds: v.optional(v.union(v.array(v.string()), v.null())),
+    reportingTimeZone: v.optional(v.string()),
   },
   handler: async (ctx, input) => {
     const ownerState = await getOwnerTeamState(ctx)
@@ -65,12 +68,32 @@ export const updateDashboardSettings = mutation({
         message: "Date range is invalid.",
       }
     }
+    const reportingTimeZone =
+      input.reportingTimeZone === undefined
+        ? undefined
+        : normalizeReportingTimeZone(input.reportingTimeZone)
+    if (input.reportingTimeZone !== undefined && !reportingTimeZone) {
+      return {
+        status: "invalid-reporting-time-zone" as const,
+        message: "Reporting time zone is invalid.",
+      }
+    }
 
     const existing = await ctx.db
       .query("dashboardSettings")
       .withIndex("by_teamId", (q) => q.eq("teamId", ownerState.team._id))
       .first()
     const now = Date.now()
+    if (reportingTimeZone !== undefined) {
+      await ctx.db.patch(ownerState.team._id, {
+        reportingTimeZone,
+        updatedAt: now,
+      })
+    }
+    const hasDashboardSettingsPatch =
+      input.defaultDateRange !== undefined || input.visibleProviderIds !== undefined
+    if (!hasDashboardSettingsPatch) return { status: "ok" as const }
+
     const patch = {
       ...(input.defaultDateRange === undefined ? {} : { defaultDateRange: input.defaultDateRange }),
       ...(input.visibleProviderIds === undefined
