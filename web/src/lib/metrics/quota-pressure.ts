@@ -1,4 +1,4 @@
-import { isSampleDayInWindow, isTimestampInWindow } from "./date-ranges"
+import { isMetricSampleInWindow, isTimestampInWindow } from "./date-ranges"
 import { dedupeLatestDeviceSnapshots, snapshotRangeTimestamp } from "./usage-metrics"
 import type { MetricRangeWindow, UsageMetricSampleSourceRow, UsageSnapshotSourceRow } from "./types"
 
@@ -292,7 +292,7 @@ function sampleQuotaDetails(
 
   return samples
     .filter((sample) => sample.unit === "percent")
-    .filter((sample) => isSampleDayInWindow(sample.sampleDay, window))
+    .filter((sample) => isMetricSampleInWindow(sample, window))
     .filter((sample) => {
       if (!sample.developerId) return false
       return developerIds.has(sample.developerId) && providerIds.has(sample.providerId)

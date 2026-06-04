@@ -6,7 +6,7 @@ import {
   calculateQuotaPressure,
   calculateSampledUsage,
   formatUpdateFreshnessLabel,
-  isSampleDayInWindow,
+  isMetricSampleInWindow,
   percentChange,
   resolveMetricDateRange,
   type MetricRangeWindow,
@@ -258,7 +258,7 @@ function visibleUpdateTimestamps(
     (timestamp): timestamp is number => timestamp !== null
   )
   const sampleTimestamps = source.metricSamples
-    .filter((sample) => isSampleDayInWindow(sample.sampleDay, window))
+    .filter((sample) => isMetricSampleInWindow(sample, window))
     .map((sample) => sample.updatedAt)
 
   return [...snapshotTimestamps, ...sampleTimestamps]

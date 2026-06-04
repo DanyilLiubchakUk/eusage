@@ -3,6 +3,7 @@ import type {
   MetricDateRangeOptions,
   MetricRangeWindow,
   ResolvedMetricDateRange,
+  UsageMetricSampleSourceRow,
 } from "./types"
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -80,6 +81,23 @@ export function isSampleDayInWindow(sampleDay: string, window: MetricRangeWindow
   parseReportingDay(sampleDay)
   if (window.startDay !== null && sampleDay < window.startDay) return false
   if (window.endDay !== null && sampleDay > window.endDay) return false
+  return true
+}
+
+export function isMetricSampleInWindow(
+  sample: Pick<UsageMetricSampleSourceRow, "sampleDay" | "bucket">,
+  window: MetricRangeWindow
+) {
+  if (!sample.bucket) return isSampleDayInWindow(sample.sampleDay, window)
+
+  if (sample.bucket.day !== sample.sampleDay) {
+    throw new Error(`Metric sample bucket day must match sampleDay: ${sample.sampleDay}`)
+  }
+  if (sample.bucket.endMs <= sample.bucket.startMs) {
+    throw new Error(`Invalid metric sample reporting bucket: ${sample.sampleDay}`)
+  }
+  if (window.startMs !== null && sample.bucket.startMs < window.startMs) return false
+  if (window.endMs !== null && sample.bucket.endMs > window.endMs) return false
   return true
 }
 

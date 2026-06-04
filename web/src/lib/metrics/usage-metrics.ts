@@ -1,7 +1,7 @@
 import {
   daysBetween,
   daysInWindow,
-  isSampleDayInWindow,
+  isMetricSampleInWindow,
   isTimestampInWindow,
   resolveMetricDateRange,
 } from "./date-ranges"
@@ -159,7 +159,7 @@ export function buildMetricSeries(args: {
 
   for (const sample of args.samples) {
     if (sample.metricKey !== args.metricKey) continue
-    if (!isSampleDayInWindow(sample.sampleDay, args.window)) continue
+    if (!isMetricSampleInWindow(sample, args.window)) continue
 
     unit ??= sample.unit
     valuesByDay.set(sample.sampleDay, (valuesByDay.get(sample.sampleDay) ?? 0) + sample.value)
@@ -183,7 +183,7 @@ export function buildMetricUnitSeries(args: {
 
   for (const sample of args.samples) {
     if (sample.unit !== args.unit) continue
-    if (!isSampleDayInWindow(sample.sampleDay, args.window)) continue
+    if (!isMetricSampleInWindow(sample, args.window)) continue
 
     valuesByDay.set(sample.sampleDay, (valuesByDay.get(sample.sampleDay) ?? 0) + sample.value)
   }
@@ -332,7 +332,7 @@ export function canonicalConsumedSamples(
   const groups = new Map<string, UsageMetricSampleSourceRow[]>()
 
   for (const sample of samples) {
-    if (!isSampleDayInWindow(sample.sampleDay, window)) continue
+    if (!isMetricSampleInWindow(sample, window)) continue
     if (!isTotalTokenSample(sample) && !isEstimatedCostSample(sample)) continue
 
     const key = [

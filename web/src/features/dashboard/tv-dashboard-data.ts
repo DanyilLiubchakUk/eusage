@@ -5,7 +5,7 @@ import {
   calculateSampledUsage,
   dedupeLatestDeviceSnapshots,
   formatUpdateFreshnessLabel,
-  isSampleDayInWindow,
+  isMetricSampleInWindow,
   isTimestampInWindow,
   percentChange,
   resolveMetricDateRange,
@@ -326,7 +326,7 @@ function currentSnapshots(snapshots: UsageSnapshotSourceRow[], window: MetricRan
 }
 
 function currentSamples(samples: UsageMetricSampleSourceRow[], window: MetricRangeWindow) {
-  return samples.filter((sample) => isSampleDayInWindow(sample.sampleDay, window))
+  return samples.filter((sample) => isMetricSampleInWindow(sample, window))
 }
 
 function cursorDeveloperRows(rows: UsageSnapshotSourceRow[]) {
