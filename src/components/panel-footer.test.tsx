@@ -183,10 +183,10 @@ describe("PanelFooter", () => {
 
     render(<Harness />)
     await userEvent.click(screen.getByRole("button", { name: /eUsage/ }))
-    expect(screen.getByText("Open source on")).toBeInTheDocument()
+    expect(screen.getByText("Source of eUsage on")).toBeInTheDocument()
 
     // Close via Escape to exercise AboutDialog onClose path.
     await userEvent.keyboard("{Escape}")
-    expect(screen.queryByText("Open source on")).not.toBeInTheDocument()
+    expect(screen.queryByText("Source of eUsage on")).not.toBeInTheDocument()
   })
 })

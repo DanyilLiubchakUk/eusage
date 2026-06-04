@@ -28,6 +28,9 @@ describe("AboutDialog", () => {
     expect(screen.getByText("eUsage")).toBeInTheDocument()
     expect(screen.getByText("v1.2.3")).toBeInTheDocument()
     expect(screen.getByText("GitHub")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "DanyilLiubchakUk" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Robin Ebers" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "robinebers" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "validatedev" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "davidarny" })).toBeInTheDocument()
   })
@@ -35,6 +38,14 @@ describe("AboutDialog", () => {
   it("opens maintainer GitHub profiles on click", async () => {
     render(<AboutDialog version="1.2.3" onClose={() => {}} />)
 
+    await userEvent.click(screen.getByRole("button", { name: "DanyilLiubchakUk" }))
+    expect(openerState.openUrlMock).toHaveBeenCalledWith("https://github.com/DanyilLiubchakUk")
+
+    openerState.openUrlMock.mockClear()
+    await userEvent.click(screen.getByRole("button", { name: "robinebers" }))
+    expect(openerState.openUrlMock).toHaveBeenCalledWith("https://github.com/robinebers")
+
+    openerState.openUrlMock.mockClear()
     await userEvent.click(screen.getByRole("button", { name: "validatedev" }))
     expect(openerState.openUrlMock).toHaveBeenCalledWith("https://github.com/validatedev")
 
@@ -127,4 +138,3 @@ describe("AboutDialog", () => {
     }
   })
 })
-
