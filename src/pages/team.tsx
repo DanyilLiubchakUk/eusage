@@ -76,6 +76,10 @@ export function TeamPage({ plugins, onConnected }: TeamPageProps) {
           onDisconnect={handleDisconnect}
           onCancelDisconnect={() => setConfirmDisconnect(false)}
         />
+      ) : state.status === "loading" ? (
+        <section className="rounded-md border bg-input/30 p-3 text-sm text-muted-foreground">
+          Loading team connection...
+        </section>
       ) : (
         <form onSubmit={handleConnect} className="space-y-3">
           <label className="space-y-1.5 block">

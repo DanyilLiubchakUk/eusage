@@ -43,6 +43,19 @@ describe("TeamPage", () => {
     teamHook.updateDeviceName.mockResolvedValue({ ok: true })
   })
 
+  it("does not flash the connection form while loading", () => {
+    teamHook.state = {
+      status: "loading",
+      connection: null,
+      message: null,
+    }
+
+    render(<TeamPage plugins={[]} />)
+
+    expect(screen.getByText("Loading team connection...")).toBeInTheDocument()
+    expect(screen.queryByLabelText("Connection string")).not.toBeInTheDocument()
+  })
+
   it("submits the pasted connection string", async () => {
     render(<TeamPage plugins={[]} />)
 

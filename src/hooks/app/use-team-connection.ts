@@ -30,8 +30,15 @@ const initialState: TeamConnectionViewState = {
   message: null,
 }
 
+let cachedState: TeamConnectionViewState | null = null
+
 export function useTeamConnection() {
-  const [state, setState] = useState<TeamConnectionViewState>(initialState)
+  const [state, setState] = useState<TeamConnectionViewState>(() => cachedState ?? initialState)
+
+  const setCachedState = useCallback((nextState: TeamConnectionViewState) => {
+    cachedState = nextState
+    setState(nextState)
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -39,7 +46,7 @@ export function useTeamConnection() {
     loadTeamConnection()
       .then((result) => {
         if (!isMounted) return
-        setState({
+        setCachedState({
           status: result.status,
           connection: result.connection,
           message: result.message,
@@ -48,10 +55,14 @@ export function useTeamConnection() {
       .catch((error) => {
         console.error("Failed to load team connection:", error)
         if (isMounted) {
-          setState({
-            status: "error",
-            connection: null,
-            message: "Failed to load team connection.",
+          setState((current) => {
+            const nextState: TeamConnectionViewState = {
+              status: "error",
+              connection: current.connection,
+              message: "Failed to load team connection.",
+            }
+            cachedState = nextState
+            return nextState
           })
         }
       })
@@ -59,7 +70,7 @@ export function useTeamConnection() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [setCachedState])
 
   const connect = useCallback(async (connectionString: string) => {
     setState((current) => ({
@@ -70,7 +81,7 @@ export function useTeamConnection() {
 
     try {
       const result = await connectTeam(connectionString)
-      setState({
+      setCachedState({
         status: result.ok ? "connected" : result.connection ? "error" : "disconnected",
         connection: result.connection,
         message: result.message,
@@ -86,7 +97,7 @@ export function useTeamConnection() {
       }))
       return { ok: false as const, code: "network-error" as const, message, connection: null }
     }
-  }, [])
+  }, [setCachedState])
 
   const checkIn = useCallback(async () => {
     setState((current) => ({
@@ -97,7 +108,7 @@ export function useTeamConnection() {
 
     try {
       const result = await refreshTeamCheckIn()
-      setState({
+      setCachedState({
         status: result.ok ? "connected" : result.connection ? "error" : "invalid",
         connection: result.connection,
         message: result.message,
@@ -113,7 +124,7 @@ export function useTeamConnection() {
       }))
       return { ok: false as const, code: "network-error" as const, message, connection: null }
     }
-  }, [])
+  }, [setCachedState])
 
   const disconnect = useCallback(async () => {
     setState((current) => ({
@@ -124,7 +135,7 @@ export function useTeamConnection() {
 
     try {
       const result = await disconnectTeam()
-      setState({
+      setCachedState({
         status: result.ok ? "disconnected" : "error",
         connection: result.connection,
         message: result.message,
@@ -140,7 +151,7 @@ export function useTeamConnection() {
       }))
       return { ok: false as const, code: "credential-error" as const, message, connection: null }
     }
-  }, [])
+  }, [setCachedState])
 
   const updateDeviceName = useCallback(async (deviceNameOverride: string | null) => {
     setState((current) => ({
@@ -151,7 +162,7 @@ export function useTeamConnection() {
 
     try {
       const result = await updateTeamDeviceNameOverride(deviceNameOverride)
-      setState({
+      setCachedState({
         status: result.ok ? "connected" : result.connection ? "error" : "invalid",
         connection: result.connection,
         message: result.message,
@@ -167,7 +178,7 @@ export function useTeamConnection() {
       }))
       return { ok: false as const, code: "settings-error" as const, message, connection: null }
     }
-  }, [])
+  }, [setCachedState])
 
   return {
     state,
