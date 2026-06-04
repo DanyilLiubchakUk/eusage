@@ -8,6 +8,25 @@ interface AboutDialogProps {
   onClose: () => void;
 }
 
+function AboutLogo() {
+  return (
+    <svg
+      role="img"
+      aria-label="eUsage"
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 64 64"
+      className="w-16 h-16 mx-auto mb-3 rounded-xl"
+    >
+      <rect width="64" height="64" rx="14" fill="#254434" />
+      <circle cx="32" cy="32" r="20" fill="#9ad0b0" />
+      <path
+        d="M18 35c0-8 6-14 14-14 7 0 13 5 14 12H26c1 4 4 7 9 7 3 0 6-1 8-3l4 5c-3 3-7 5-12 5-10 0-17-5-17-12zm9-6h11c-1-2-3-4-6-4s-5 1-5 4z"
+        fill="#254434"
+      />
+    </svg>
+  );
+}
+
 function ExternalLink({
   href,
   children,
@@ -85,11 +104,7 @@ export function AboutDialog({ version, onClose }: AboutDialogProps) {
       onClick={handleBackdropClick}
     >
       <div className="bg-card rounded-lg border shadow-xl p-6 max-w-xs w-full mx-4 text-center animate-in fade-in zoom-in-95 duration-200">
-        <img
-          src="/icon.png"
-          alt="eUsage"
-          className="w-16 h-16 mx-auto mb-3 rounded-xl"
-        />
+        <AboutLogo />
 
         <h2 className="text-xl font-semibold mb-1">eUsage</h2>
 

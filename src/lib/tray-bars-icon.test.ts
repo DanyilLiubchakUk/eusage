@@ -6,7 +6,13 @@ vi.mock("@tauri-apps/api/image", () => ({
   },
 }))
 
-import { getTrayIconSizePx, makeTrayBarsSvg, renderTrayBarsIcon } from "@/lib/tray-bars-icon"
+import {
+  getTrayIconSizePx,
+  makeTrayBarsSvg,
+  renderTrayBarsIcon,
+  TRAY_ICON_DARK_SYSTEM_COLOR,
+  TRAY_ICON_LIGHT_SYSTEM_COLOR,
+} from "@/lib/tray-bars-icon"
 
 describe("tray-bars-icon", () => {
   it("getTrayIconSizePx renders 18px at 1x and 36px at 2x", () => {
@@ -109,6 +115,19 @@ describe("tray-bars-icon", () => {
     }
   })
 
+  it("tints local provider SVG data URLs", () => {
+    const iconSvg = '<svg viewBox="0 0 10 10"><path fill="currentColor" d="M0 0h10v10H0z"/></svg>'
+    const svg = makeTrayBarsSvg({
+      bars: [],
+      sizePx: 36,
+      providerIconUrl: `data:image/svg+xml;base64,${btoa(iconSvg)}`,
+      foregroundColor: TRAY_ICON_LIGHT_SYSTEM_COLOR,
+    })
+
+    expect(svg).toContain(encodeURIComponent(TRAY_ICON_LIGHT_SYSTEM_COLOR))
+    expect(svg).not.toContain("currentColor")
+  })
+
   it("falls back to circle glyph when provider icon is missing", () => {
     const svg = makeTrayBarsSvg({
       bars: [],
@@ -133,6 +152,18 @@ describe("tray-bars-icon", () => {
       percentText: "70%",
     })
     expect(svg).toContain(">70%</text>")
+  })
+
+  it("uses the requested tray foreground color", () => {
+    const svg = makeTrayBarsSvg({
+      bars: [{ id: "a", fraction: 0.5 }],
+      sizePx: 36,
+      style: "bars",
+      percentText: "50%",
+      foregroundColor: TRAY_ICON_DARK_SYSTEM_COLOR,
+    })
+    expect(svg).toContain(`fill="${TRAY_ICON_DARK_SYSTEM_COLOR}"`)
+    expect(svg).not.toContain('fill="black"')
   })
 
   it("renderTrayBarsIcon rasterizes SVG to an Image using canvas", async () => {
