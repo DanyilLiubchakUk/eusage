@@ -50,37 +50,37 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.13 0.028 261.692);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.13 0.028 261.692);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.13 0.028 261.692);
-  --primary: oklch(0.21 0.034 264.665);
-  --primary-foreground: oklch(0.985 0.002 247.839);
-  --secondary: oklch(0.967 0.003 264.542);
-  --secondary-foreground: oklch(0.21 0.034 264.665);
-  --muted: oklch(0.967 0.003 264.542);
-  --muted-foreground: oklch(0.551 0.027 264.364);
-  --accent: oklch(0.967 0.003 264.542);
-  --accent-foreground: oklch(0.21 0.034 264.665);
+  --background: #edf5f0;
+  --foreground: #102119;
+  --card: #f7fbf8;
+  --card-foreground: #102119;
+  --popover: #f7fbf8;
+  --popover-foreground: #102119;
+  --primary: #254434;
+  --primary-foreground: #ffffff;
+  --secondary: #dcebe3;
+  --secondary-foreground: #254434;
+  --muted: #dcebe3;
+  --muted-foreground: #53665c;
+  --accent: #cfe4d8;
+  --accent-foreground: #254434;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.928 0.006 264.531);
-  --input: oklch(0.928 0.006 264.531);
-  --ring: oklch(0.707 0.022 261.325);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
+  --border: #c4d8cc;
+  --input: #c4d8cc;
+  --ring: #3d6a52;
+  --chart-1: #254434;
+  --chart-2: #3d6a52;
+  --chart-3: #87b59a;
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0.002 247.839);
-  --sidebar-foreground: oklch(0.13 0.028 261.692);
-  --sidebar-primary: oklch(0.21 0.034 264.665);
-  --sidebar-primary-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-accent: oklch(0.967 0.003 264.542);
-  --sidebar-accent-foreground: oklch(0.21 0.034 264.665);
-  --sidebar-border: oklch(0.928 0.006 264.531);
-  --sidebar-ring: oklch(0.707 0.022 261.325);
+  --sidebar: #dcebe3;
+  --sidebar-foreground: #102119;
+  --sidebar-primary: #254434;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #cfe4d8;
+  --sidebar-accent-foreground: #254434;
+  --sidebar-border: #c4d8cc;
+  --sidebar-ring: #3d6a52;
 
   /* Tailwind green/yellow/red-500 (light: stock defaults) */
   --green-500: oklch(0.723 0.219 142.37);
@@ -89,44 +89,43 @@
 }
 
 :root.dark {
-  --background: #1c1c1e;
+  --background: #0f1714;
   --foreground: #ededed;
-  --card: #1c1c1e;
+  --card: #14211c;
   --card-foreground: #ededed;
-  --popover: #2c2c2e;
+  --popover: #1b2d25;
   --popover-foreground: #ededed;
-  --primary: #ededed;
-  --primary-foreground: #0a0a0a;
-  --secondary: #252527;
+  --primary: #9ad0b0;
+  --primary-foreground: #0f1714;
+  --secondary: #1b2d25;
   --secondary-foreground: #ededed;
-  --muted: #2a2a2c;
-  --muted-foreground: #888888;
-  --accent: #252527;
+  --muted: #1b2d25;
+  --muted-foreground: #9ca9a2;
+  --accent: #254434;
   --accent-foreground: #ededed;
   --destructive: #ef4444;
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.08);
-  --ring: #555555;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
+  --border: rgba(154, 208, 176, 0.14);
+  --input: rgba(154, 208, 176, 0.14);
+  --ring: #5f9275;
+  --chart-1: #9ad0b0;
+  --chart-2: #5f9275;
+  --chart-3: #254434;
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #2a2a2c;
+  --sidebar: #17251f;
   --sidebar-foreground: #ededed;
-  --sidebar-primary: #ededed;
-  --sidebar-primary-foreground: #0a0a0a;
-  --sidebar-accent: #2a2a2c;
+  --sidebar-primary: #9ad0b0;
+  --sidebar-primary-foreground: #0f1714;
+  --sidebar-accent: #254434;
   --sidebar-accent-foreground: #ededed;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #555555;
+  --sidebar-border: rgba(154, 208, 176, 0.14);
+  --sidebar-ring: #5f9275;
 
-  /* Accent highlight (lime) */
-  --page-accent: #BFFF00;
+  /* Brand highlight */
+  --page-accent: #9ad0b0;
 
-  /* Tailwind green/yellow/red-500 derived from page-accent lime
-     #BFFF00 ≈ oklch(0.93 0.27 128) — hue-rotate, keep chroma family */
-  --green-500: oklch(0.93 0.27 128);
+  /* Status dots stay readable against the green desktop surface. */
+  --green-500: #9ad0b0;
   --yellow-500: oklch(0.90 0.21 85);
   --red-500: oklch(0.70 0.24 29);
 }

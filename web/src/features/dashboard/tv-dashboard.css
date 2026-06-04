@@ -1,15 +1,15 @@
 .tv-page {
-  --tv-accent: #34d27f;
-  --tv-accent-bright: #5fe79c;
-  --tv-surface: rgba(20, 27, 23, 0.82);
-  --tv-border: rgba(52, 210, 127, 0.18);
+  --tv-accent: #254434;
+  --tv-accent-bright: #9ad0b0;
+  --tv-surface: rgba(20, 33, 28, 0.86);
+  --tv-border: rgba(154, 208, 176, 0.18);
   position: relative;
   min-height: 100vh;
   overflow: hidden;
   padding: 0 2rem;
   background:
-    radial-gradient(1200px 700px at 80% -10%, rgba(52, 210, 127, 0.12), transparent 60%),
-    #0a0f0c;
+    radial-gradient(1200px 700px at 80% -10%, rgba(154, 208, 176, 0.12), transparent 60%),
+    #0f1714;
   color: #f1f7f3;
 }
 
@@ -37,8 +37,8 @@
 }
 
 .tv-slide .setup-eyebrow {
-  border-color: rgba(52, 210, 127, 0.4);
-  background: rgba(52, 210, 127, 0.14);
+  border-color: rgba(154, 208, 176, 0.4);
+  background: rgba(154, 208, 176, 0.14);
   color: var(--tv-accent-bright);
 }
 
@@ -90,7 +90,7 @@
 .tv-metric-table th,
 .tv-metric-table td {
   padding: 0.7rem 0.85rem;
-  border-top: 1px solid rgba(52, 210, 127, 0.14);
+  border-top: 1px solid rgba(154, 208, 176, 0.14);
   text-align: left;
   vertical-align: top;
 }
@@ -145,7 +145,7 @@
   width: 2.4rem;
   height: 2.4rem;
   border-radius: var(--radius-pill);
-  background: rgba(52, 210, 127, 0.16);
+  background: rgba(154, 208, 176, 0.16);
   color: var(--tv-accent-bright);
   font-size: 1.2rem;
   font-weight: 900;
@@ -171,7 +171,7 @@
   width: min(100%, 28rem);
   height: 15rem;
   overflow: hidden;
-  border: 2px solid rgba(52, 210, 127, 0.45);
+  border: 2px solid rgba(154, 208, 176, 0.45);
   border-radius: 12px;
   background: var(--tv-surface);
 }
@@ -255,16 +255,16 @@
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  border: 1px solid rgba(52, 210, 127, 0.28);
+  border: 1px solid rgba(154, 208, 176, 0.28);
   border-radius: 8px;
-  background: rgba(52, 210, 127, 0.08);
+  background: rgba(154, 208, 176, 0.08);
   color: #f1f7f3;
   cursor: pointer;
 }
 
 .tv-control-bar button:hover,
 .tv-slide-settings-row button:hover {
-  background: rgba(52, 210, 127, 0.18);
+  background: rgba(154, 208, 176, 0.18);
 }
 
 .tv-control-bar button:disabled,
@@ -306,7 +306,7 @@
   padding: 0.45rem;
   border: 1px solid var(--tv-border);
   border-radius: 8px;
-  background: rgba(52, 210, 127, 0.05);
+  background: rgba(154, 208, 176, 0.05);
 }
 
 .tv-slide-settings-row label {
@@ -331,7 +331,7 @@
   width: 100%;
   min-height: 2rem;
   padding: 0 0.5rem;
-  border: 1px solid rgba(52, 210, 127, 0.4);
+  border: 1px solid rgba(154, 208, 176, 0.4);
   border-radius: 6px;
   background: #0a0f0c;
   color: #f1f7f3;
@@ -350,7 +350,7 @@
   padding: 0.75rem;
   border: 1px solid var(--tv-border);
   border-radius: 8px;
-  background: rgba(52, 210, 127, 0.05);
+  background: rgba(154, 208, 176, 0.05);
 }
 
 .tv-display-link-panel p {
@@ -372,7 +372,7 @@
   min-width: 0;
   min-height: 2rem;
   padding: 0 0.5rem;
-  border: 1px solid rgba(52, 210, 127, 0.4);
+  border: 1px solid rgba(154, 208, 176, 0.4);
   border-radius: 6px;
   background: #0a0f0c;
   color: #f1f7f3;
@@ -393,9 +393,9 @@
   justify-content: center;
   min-height: 2rem;
   padding: 0 0.75rem;
-  border: 1px solid rgba(52, 210, 127, 0.28);
+  border: 1px solid rgba(154, 208, 176, 0.28);
   border-radius: 6px;
-  background: rgba(52, 210, 127, 0.08);
+  background: rgba(154, 208, 176, 0.08);
   color: #f1f7f3;
   font-size: 0.86rem;
   font-weight: 800;
@@ -404,7 +404,7 @@
 
 .tv-display-link-actions button:hover,
 .tv-display-link-actions a:hover {
-  background: rgba(52, 210, 127, 0.18);
+  background: rgba(154, 208, 176, 0.18);
 }
 
 .tv-display-link-actions button:disabled {
