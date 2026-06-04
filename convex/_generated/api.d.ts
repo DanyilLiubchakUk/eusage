@@ -23,6 +23,7 @@ import type * as setupClaim from "../setupClaim.js";
 import type * as tokenSecrets from "../tokenSecrets.js";
 import type * as tvDisplayLinks from "../tvDisplayLinks.js";
 import type * as usageIngest from "../usageIngest.js";
+import type * as usageIngestBuckets from "../usageIngestBuckets.js";
 import type * as usageIngestCore from "../usageIngestCore.js";
 import type * as usageIngestRedaction from "../usageIngestRedaction.js";
 import type * as usageIngestTypes from "../usageIngestTypes.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   tokenSecrets: typeof tokenSecrets;
   tvDisplayLinks: typeof tvDisplayLinks;
   usageIngest: typeof usageIngest;
+  usageIngestBuckets: typeof usageIngestBuckets;
   usageIngestCore: typeof usageIngestCore;
   usageIngestRedaction: typeof usageIngestRedaction;
   usageIngestTypes: typeof usageIngestTypes;

@@ -20,6 +20,14 @@ export type UsageSummary = {
   provider?: JsonObject
 }
 
+export type MetricReportingBucket = {
+  kind: "reportingDay"
+  day: string
+  reportingTimeZone: string
+  startMs: number
+  endMs: number
+}
+
 export type UsageMetricSampleInput = {
   metricKey: string
   value: number
@@ -27,6 +35,7 @@ export type UsageMetricSampleInput = {
   sampleDay: string
   periodStart?: number
   periodEnd?: number
+  bucket?: MetricReportingBucket
   source: MetricSource
   coverage?: unknown
 }
@@ -102,6 +111,7 @@ export type MetricSampleRecord = {
   sampleDay: string
   periodStart?: number
   periodEnd?: number
+  bucket?: MetricReportingBucket
   source: MetricSource
   coverage?: unknown
   summaryVersion: string

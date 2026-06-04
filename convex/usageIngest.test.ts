@@ -6,6 +6,7 @@ import {
 } from "./usageIngest"
 import {
   createUsageIngestTestStore,
+  mockReportingBucket,
   mockUsageProvider,
   usageBatch,
   usageIngestTestNow as now,
@@ -50,6 +51,16 @@ describe("usage ingest", () => {
       rawPayloadId: "raw-1",
     })
     expect(fake.metricSamples).toHaveLength(2)
+    expect(fake.metricSamples[0]).toMatchObject({
+      sampleDay: "2026-06-01",
+      periodStart: Date.parse("2026-06-01T00:00:00.000Z"),
+      periodEnd: Date.parse("2026-06-02T00:00:00.000Z"),
+      bucket: {
+        kind: "reportingDay",
+        day: "2026-06-01",
+        reportingTimeZone: "UTC",
+      },
+    })
     expect(fake.devices[0].lastSyncAt).toBe(now)
   })
 
@@ -99,6 +110,7 @@ describe("usage ingest", () => {
 
   it("upserts snapshots and metric samples by provider, device, period, and data identity", async () => {
     const fake = await createUsageIngestTestStore()
+    const bucket = mockReportingBucket()
     const second = mockUsageProvider({
       summary: {
         tokensTotal: 250,
@@ -110,6 +122,9 @@ describe("usage ingest", () => {
           value: 250,
           unit: "tokens",
           sampleDay: "2026-06-01",
+          periodStart: bucket.startMs,
+          periodEnd: bucket.endMs,
+          bucket,
           source: "providerReported",
         },
         {
@@ -117,6 +132,9 @@ describe("usage ingest", () => {
           value: 2.5,
           unit: "usd",
           sampleDay: "2026-06-01",
+          periodStart: bucket.startMs,
+          periodEnd: bucket.endMs,
+          bucket,
           source: "estimated",
         },
       ],
@@ -153,6 +171,7 @@ describe("usage ingest", () => {
 
   it("keeps local consumed metric samples separate by device", async () => {
     const fake = await createUsageIngestTestStore()
+    const bucket = mockReportingBucket()
     fake.devices.push({
       _id: "device-row-2",
       teamId: "team-1",
@@ -180,6 +199,9 @@ describe("usage ingest", () => {
                 value: 19_000_000,
                 unit: "tokens",
                 sampleDay: "2026-06-01",
+                periodStart: bucket.startMs,
+                periodEnd: bucket.endMs,
+                bucket,
                 source: "providerReported",
               },
               {
@@ -187,6 +209,9 @@ describe("usage ingest", () => {
                 value: 23.2,
                 unit: "usd",
                 sampleDay: "2026-06-01",
+                periodStart: bucket.startMs,
+                periodEnd: bucket.endMs,
+                bucket,
                 source: "estimated",
               },
             ],
@@ -210,6 +235,9 @@ describe("usage ingest", () => {
                   value: 4_000_000,
                   unit: "tokens",
                   sampleDay: "2026-06-01",
+                  periodStart: bucket.startMs,
+                  periodEnd: bucket.endMs,
+                  bucket,
                   source: "providerReported",
                 },
                 {
@@ -217,6 +245,9 @@ describe("usage ingest", () => {
                   value: 5,
                   unit: "usd",
                   sampleDay: "2026-06-01",
+                  periodStart: bucket.startMs,
+                  periodEnd: bucket.endMs,
+                  bucket,
                   source: "estimated",
                 },
                 {

@@ -198,6 +198,7 @@ export async function dashboardSourceRowsForTeam(
       sampleDay: sample.sampleDay,
       periodStart: sample.periodStart,
       periodEnd: sample.periodEnd,
+      bucket: sample.bucket,
       source: sample.source,
       capturedAt: sample.capturedAt,
       updatedAt: sample.updatedAt,

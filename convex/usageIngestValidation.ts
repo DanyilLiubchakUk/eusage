@@ -1,4 +1,5 @@
 import type { DesktopApiError } from "./desktopApiCore"
+import { normalizeMetricSampleBucket } from "./usageIngestBuckets"
 import { findUnredactedSecretPath } from "./usageIngestRedaction"
 import {
   SUPPORTED_UPLOAD_SCHEMA_VERSION,
@@ -265,6 +266,21 @@ function normalizeMetricSample(providerId: string, sample: unknown, index: numbe
     )
   }
 
+  const periodStart = finiteNumber(sample.periodStart) ?? undefined
+  const periodEnd = finiteNumber(sample.periodEnd) ?? undefined
+  const bucket = normalizeMetricSampleBucket({
+    sample,
+    metricKey,
+    unit,
+    sampleDay,
+    periodStart,
+    periodEnd,
+    field: `metricSamples.${index}`,
+  })
+  if (!bucket.ok) {
+    return rejectProvider(providerId, bucket.code, bucket.message, bucket.field)
+  }
+
   return {
     ok: true as const,
     sample: {
@@ -272,8 +288,9 @@ function normalizeMetricSample(providerId: string, sample: unknown, index: numbe
       value,
       unit,
       sampleDay,
-      periodStart: finiteNumber(sample.periodStart) ?? undefined,
-      periodEnd: finiteNumber(sample.periodEnd) ?? undefined,
+      periodStart: bucket.periodStart ?? periodStart,
+      periodEnd: bucket.periodEnd ?? periodEnd,
+      bucket: bucket.bucket,
       source,
       coverage: sample.coverage,
     },

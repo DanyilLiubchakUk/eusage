@@ -147,6 +147,15 @@ export default defineSchema({
     sampleDay: v.string(),
     periodStart: v.optional(v.number()),
     periodEnd: v.optional(v.number()),
+    bucket: v.optional(
+      v.object({
+        kind: v.literal("reportingDay"),
+        day: v.string(),
+        reportingTimeZone: v.string(),
+        startMs: v.number(),
+        endMs: v.number(),
+      })
+    ),
     source: v.union(
       v.literal("providerReported"),
       v.literal("normalized"),

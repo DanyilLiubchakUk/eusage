@@ -176,6 +176,7 @@ async function upsertMetricSamples(args: {
       sampleDay: sampleInput.sampleDay,
       periodStart: sampleInput.periodStart,
       periodEnd: sampleInput.periodEnd,
+      bucket: sampleInput.bucket,
       source: sampleInput.source,
       coverage: sampleInput.coverage,
       summaryVersion: args.provider.summaryVersion,

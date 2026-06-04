@@ -136,6 +136,13 @@ export type UsageMetricSampleSourceRow = {
   sampleDay: string
   periodStart?: number
   periodEnd?: number
+  bucket?: {
+    kind: "reportingDay"
+    day: string
+    reportingTimeZone: string
+    startMs: number
+    endMs: number
+  }
   source: MetricSource
   capturedAt: number
   updatedAt: number

@@ -173,7 +173,19 @@ export function usageBatch(providers: unknown[]) {
   }
 }
 
+export function mockReportingBucket(day = "2026-06-01", reportingTimeZone = "UTC") {
+  const startMs = Date.parse(`${day}T00:00:00.000Z`)
+  return {
+    kind: "reportingDay",
+    day,
+    reportingTimeZone,
+    startMs,
+    endMs: startMs + 24 * 60 * 60 * 1000,
+  }
+}
+
 export function mockUsageProvider(overrides: Record<string, unknown> = {}) {
+  const bucket = mockReportingBucket()
   return {
     providerId: "mock",
     payload: {
@@ -203,6 +215,9 @@ export function mockUsageProvider(overrides: Record<string, unknown> = {}) {
         value: 100,
         unit: "tokens",
         sampleDay: "2026-06-01",
+        periodStart: bucket.startMs,
+        periodEnd: bucket.endMs,
+        bucket,
         source: "providerReported",
       },
       {
@@ -210,6 +225,9 @@ export function mockUsageProvider(overrides: Record<string, unknown> = {}) {
         value: 1.25,
         unit: "usd",
         sampleDay: "2026-06-01",
+        periodStart: bucket.startMs,
+        periodEnd: bucket.endMs,
+        bucket,
         source: "estimated",
       },
     ],
