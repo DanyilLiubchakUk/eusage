@@ -58,13 +58,16 @@ export function TeamPage({ plugins, onConnected }: TeamPageProps) {
             {state.connection ? state.connection.teamName : "No team connected"}
           </p>
         </div>
-        <TeamStatusBadge connection={state.connection} status={state.status} />
+        <TeamStatusIndicators
+          connection={state.connection}
+          status={state.status}
+          message={state.message}
+        />
       </header>
 
       {state.connection ? (
         <ConnectedTeamPanel
           connection={state.connection}
-          message={state.message}
           busy={busy}
           confirmDisconnect={confirmDisconnect}
           providerSummary={providerSummary}
@@ -103,7 +106,6 @@ export function TeamPage({ plugins, onConnected }: TeamPageProps) {
 
 function ConnectedTeamPanel({
   connection,
-  message,
   busy,
   confirmDisconnect,
   providerSummary,
@@ -113,7 +115,6 @@ function ConnectedTeamPanel({
   onCancelDisconnect,
 }: {
   connection: TeamConnectionSettings
-  message: string | null
   busy: boolean
   confirmDisconnect: boolean
   providerSummary: ProviderSummary
@@ -133,15 +134,7 @@ function ConnectedTeamPanel({
             label="Last contact"
             value={formatLastContact(connection.lastContactAt)}
           />
-          <InfoRow
-            label="Device status"
-            value={connection.deviceStatus ?? "No check-in yet"}
-          />
         </div>
-        <StatusMessage
-          status={connection.syncStatus === "connected" ? "connected" : "error"}
-          message={message ?? connection.lastError}
-        />
       </section>
 
       <DeviceNameEditor
@@ -208,16 +201,27 @@ function DeviceNameEditor({
   const trimmed = deviceName.trim()
   const isSavedOverride = trimmed === (connection.deviceNameOverride ?? "")
   const canSave = Boolean(trimmed) && trimmed !== connection.deviceName && !isSavedOverride
-  const canRevertEdit = deviceName !== connection.deviceName
 
   return (
-    <section>
-      <h3 className="text-lg font-semibold mb-2">Device Name</h3>
+    <section className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Device name</h3>
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="outline"
+          aria-label="Reset"
+          disabled={busy || !connection.deviceNameOverride}
+          onClick={() => onUpdateDeviceName(null)}
+        >
+          <RotateCcw className="size-3" />
+        </Button>
+      </div>
 
       <div
         className={cn(
           "flex h-8 items-center rounded-md border bg-muted/50 px-2 transition-colors",
-          "focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]"
+          "focus-within:border-primary/60 focus-within:bg-background"
         )}
       >
         <input
@@ -237,29 +241,35 @@ function DeviceNameEditor({
           <Save className="size-3.5" />
         </Button>
       </div>
-
-      <div className="mt-2 flex items-center gap-2">
-        <Button
-          type="button"
-          size="xs"
-          variant="outline"
-          disabled={busy || !canRevertEdit}
-          onClick={() => setDeviceName(connection.deviceName)}
-        >
-          Revert
-        </Button>
-        <Button
-          type="button"
-          size="xs"
-          variant="outline"
-          disabled={busy || !connection.deviceNameOverride}
-          onClick={() => onUpdateDeviceName(null)}
-        >
-          <RotateCcw className="size-3" />
-          Reset
-        </Button>
-      </div>
     </section>
+  )
+}
+
+function TeamStatusIndicators({
+  connection,
+  status,
+  message,
+}: {
+  connection: TeamConnectionSettings | null
+  status: string
+  message: string | null
+}) {
+  if (!connection) {
+    return <TeamStatusBadge connection={connection} status={status} />
+  }
+
+  const statusMessage = message ?? connection.lastError
+  const messageStatus = connection.syncStatus === "connected" ? "connected" : "error"
+
+  return (
+    <div className="flex flex-col items-end gap-1.5">
+      <TeamStatusBadge connection={connection} status={status} />
+      <StatusMessage
+        status={messageStatus}
+        message={statusMessage}
+        className="min-h-0 max-w-44 flex-none justify-end text-right"
+      />
+    </div>
   )
 }
 
@@ -277,14 +287,23 @@ function TeamStatusBadge({
   return <Badge variant="outline">Needs check-in</Badge>
 }
 
-function StatusMessage({ status, message }: { status: string; message: string | null }) {
-  if (!message) return <span className="min-h-5 flex-1" />
+function StatusMessage({
+  status,
+  message,
+  className,
+}: {
+  status: string
+  message: string | null
+  className?: string
+}) {
+  if (!message) return <span className={cn("min-h-5 flex-1", className)} />
   const isGood = status === "connected"
   const Icon = isGood ? CheckCircle2 : AlertTriangle
   return (
     <p
       className={cn(
         "flex min-h-5 flex-1 items-center gap-1.5 text-xs",
+        className,
         isGood ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
       )}
     >
