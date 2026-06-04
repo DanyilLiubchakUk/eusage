@@ -76,7 +76,11 @@ describe("tv dashboard", () => {
       "sync-health",
     ])
 
-    fireEvent.change(screen.getByLabelText("Cursor Budget duration seconds"), {
+    const cursorDuration = screen.getByLabelText("Cursor Budget duration seconds")
+    fireEvent.change(cursorDuration, {
+      target: { value: "2" },
+    })
+    fireEvent.change(cursorDuration, {
       target: { value: "25" },
     })
     await waitFor(() => expect(changes).toHaveLength(2))
@@ -100,6 +104,7 @@ describe("tv dashboard", () => {
   })
 
   it("validates slide duration before saving", () => {
+    vi.useFakeTimers()
     const changes: unknown[] = []
     render(
       <TvDashboard
@@ -112,11 +117,17 @@ describe("tv dashboard", () => {
     )
 
     fireEvent.click(screen.getByText("TV settings"))
-    fireEvent.change(screen.getByLabelText("Team Overview duration seconds"), {
+    const durationInput = screen.getByLabelText("Team Overview duration seconds")
+    fireEvent.change(durationInput, {
       target: { value: "4" },
     })
 
-    expect(screen.getByText("Duration must be 5-300 seconds")).toBeInTheDocument()
+    act(() => {
+      vi.advanceTimersByTime(450)
+    })
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Allow 5-300 seconds")
+    expect(durationInput).toHaveAttribute("aria-invalid", "true")
     expect(changes).toEqual([])
   })
 

@@ -3,6 +3,7 @@ import { SignInButton, useAuth } from "@clerk/tanstack-react-start"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import { api } from "../../../convex/_generated/api"
 import {
   DashboardLoading,
@@ -110,9 +111,9 @@ function useDashboardAuth() {
 function DashboardSignInButton() {
   return (
     <SignInButton mode="modal">
-      <button className="setup-button" type="button">
+      <Button type="button">
         Sign in
-      </button>
+      </Button>
     </SignInButton>
   )
 }

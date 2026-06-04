@@ -57,8 +57,8 @@ export type TvSettingsPatch = {
 export type TvDashboardModel = ReturnType<typeof buildTvDashboardModel>
 
 const DEFAULT_DURATION_SECONDS = 10
-const MIN_DURATION_SECONDS = 5
-const MAX_DURATION_SECONDS = 300
+export const TV_SLIDE_DURATION_MIN_SECONDS = 5
+export const TV_SLIDE_DURATION_MAX_SECONDS = 300
 
 export function buildTvDashboardModel(state: ReadyDashboardState, now: number) {
   const source = dashboardSource(state, "tv")
@@ -355,8 +355,8 @@ function validDurationSeconds(value: unknown): number | null {
   if (
     typeof value !== "number" ||
     !Number.isInteger(value) ||
-    value < MIN_DURATION_SECONDS ||
-    value > MAX_DURATION_SECONDS
+    value < TV_SLIDE_DURATION_MIN_SECONDS ||
+    value > TV_SLIDE_DURATION_MAX_SECONDS
   ) {
     return null
   }
