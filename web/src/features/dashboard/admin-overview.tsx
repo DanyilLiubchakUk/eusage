@@ -1,8 +1,10 @@
+import { Card, CardContent } from "@/components/ui/card"
 import { DashboardChart } from "./dashboard-chart"
 import { AdminDateRangeControls } from "./admin-date-range-controls"
 import { AdminProviderVisibilityControls } from "./admin-provider-visibility-controls"
 import { AdminReportingTimeZoneControl } from "./admin-reporting-time-zone-control"
 import { buildAdminOverviewModel } from "./admin-overview-data"
+import { SeedMockDataPanel } from "./admin-overview-seed-panel"
 import type { ReadyDashboardState } from "./dashboard-source"
 import type { MetricDateRangeInput } from "../../lib/metrics"
 import { QuotaPressureTable } from "./admin-overview-quota-table"
@@ -17,9 +19,6 @@ import {
   RecentSyncsTable,
   SyncHealthPanel,
 } from "./admin-overview-panels"
-import "./admin-overview.css"
-import "./admin-overview-controls.css"
-import "./admin-overview-interactions.css"
 
 type AdminOverviewProps = {
   state: ReadyDashboardState
@@ -28,6 +27,7 @@ type AdminOverviewProps = {
   onReportingTimeZoneChange?: (value: string) => Promise<void> | void
   onProviderVisibilityChange?: (visibleProviderIds: string[] | null) => Promise<void> | void
   onClearTeamData?: () => Promise<{ deleted: Record<string, number> }> | void
+  onSeedMockData?: () => Promise<{ seeded: Record<string, number> }> | void
 }
 
 export function AdminOverview({
@@ -37,6 +37,7 @@ export function AdminOverview({
   onReportingTimeZoneChange,
   onProviderVisibilityChange,
   onClearTeamData,
+  onSeedMockData,
 }: AdminOverviewProps) {
   const model = buildAdminOverviewModel(state, now)
   const tokenPoints = model.tokenSeries.points
@@ -45,46 +46,64 @@ export function AdminOverview({
   const providerRows = model.providerBreakdownRows
 
   return (
-    <main className="admin-page admin-overview">
-      <header className="admin-overview-header">
-        <div>
-          <p className="setup-eyebrow">Admin Overview</p>
-          <h1>{model.teamName}</h1>
-          <p className="admin-overview-subtitle">
+    <main className="mx-auto grid w-full max-w-6xl gap-5 px-6 py-8 pb-12 max-md:px-4">
+      <header className="grid gap-5">
+        <div className="max-w-3xl">
+          <p className="mb-3 inline-flex items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-primary">
+            Admin Overview
+          </p>
+          <h1 className="m-0 text-5xl font-extrabold leading-none text-foreground max-md:text-4xl">
+            {model.teamName}
+          </h1>
+          <p className="mt-4 text-lg leading-7 text-muted-foreground">
             Fixed all-up dashboard for visible team usage, provider health, and sync status.
           </p>
-          <p className="admin-overview-freshness">{model.freshnessLabel}</p>
-        </div>
-        <div className="admin-overview-meta" aria-label="Dashboard filters">
-          <div className="admin-overview-filter-row">
-            <AdminDateRangeControls
-              value={model.dateRange}
-              bounds={model.dateBounds}
-              onChange={onDateRangeChange}
-            />
-            <span>{model.rangeLabel}</span>
-          </div>
-          <div className="admin-overview-filter-row">
-            <AdminProviderVisibilityControls
-              providers={model.providerFilters}
-              onChange={onProviderVisibilityChange}
-            />
-            <span>{model.filterSummary}</span>
-          </div>
+          <p className="mt-2 text-sm font-semibold text-primary">{model.teamMetaLabel}</p>
         </div>
       </header>
 
-      <section className="admin-kpi-strip" aria-label="KPI strip">
+      <section
+        className="grid grid-cols-[minmax(16rem,max-content)_minmax(0,1fr)] items-start justify-between gap-x-16 gap-y-4 rounded-lg border border-border bg-card/70 p-4 shadow-xs max-lg:grid-cols-1"
+        role="region"
+        aria-label="Dashboard filters"
+      >
+        <div className="grid min-w-0 gap-2">
+          <AdminDateRangeControls
+            value={model.dateRange}
+            bounds={model.dateBounds}
+            onChange={onDateRangeChange}
+          />
+        </div>
+        <div className="grid min-w-0 max-w-full justify-self-end gap-2 overflow-hidden max-lg:justify-self-auto">
+          <AdminProviderVisibilityControls
+            providers={model.providerFilters}
+            onChange={onProviderVisibilityChange}
+          />
+        </div>
+      </section>
+
+      <section
+        className="grid auto-rows-fr grid-cols-4 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1"
+        aria-label="KPI strip"
+      >
         {model.kpis.map((item) => (
-          <div key={item.label} className="admin-kpi">
-            <span className="setup-label">{item.label}</span>
-            <strong>{item.value}</strong>
-            <span>{item.meta}</span>
-          </div>
+          <Card key={item.label} className="h-full" size="sm">
+            <CardContent className="grid h-full min-h-28 content-start gap-3">
+              <span className="text-xs font-extrabold uppercase tracking-wide text-primary">{item.label}</span>
+              <div className="grid gap-1">
+                <strong className="break-words text-2xl font-extrabold leading-tight text-foreground max-xl:text-xl">
+                  {item.value}
+                </strong>
+                <span className="break-words text-sm font-semibold leading-5 text-foreground/80">
+                  {item.secondary}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </section>
 
-      <section className="admin-overview-grid admin-overview-grid-main">
+      <section className="grid gap-5">
         <DashboardPanel title="Team usage over time" meta="Tokens left · API equivalent right" height="chart">
           <DashboardChart
             type="line"
@@ -109,8 +128,15 @@ export function AdminOverview({
             emptyLabel="No token or cost samples yet"
           />
         </DashboardPanel>
+      </section>
 
-        <DashboardPanel title="Provider breakdown" meta="Visible provider totals" height="chart">
+      <section className="grid grid-cols-1 gap-5 xl:auto-rows-[16rem] xl:grid-cols-12" aria-label="Overview cards">
+        <DashboardPanel
+          className="xl:col-span-6 xl:row-span-2 xl:min-h-0 xl:max-h-none"
+          title="Provider breakdown"
+          meta="Visible provider totals"
+          height="tall"
+        >
           <DashboardChart
             type="bar"
             ariaLabel="Provider breakdown chart"
@@ -126,51 +152,70 @@ export function AdminOverview({
           />
           <ProviderBreakdownList rows={providerRows} />
         </DashboardPanel>
-      </section>
 
-      <section className="admin-overview-grid admin-overview-grid-support">
-        <DashboardPanel title="Quota pressure" meta={model.quota.teamCoverage.label} height="tall">
+        <DashboardPanel
+          className="xl:col-span-3 xl:min-h-0 xl:max-h-none"
+          title="Cursor budget"
+          meta={model.cursorPool.coverage.label}
+          height="short"
+        >
+          <CursorPoolPanel pool={model.cursorPool} />
+        </DashboardPanel>
+
+        <DashboardPanel
+          className="xl:col-span-3 xl:min-h-0 xl:max-h-none"
+          title="Sync health"
+          meta={model.syncHealth.status}
+          height="short"
+        >
+          <SyncHealthPanel rows={model.recentSyncRows} />
+        </DashboardPanel>
+
+        <DashboardPanel
+          className="xl:col-span-6 xl:min-h-0 xl:max-h-none"
+          title="Recent Syncs"
+          meta="Latest visible devices"
+          height="medium"
+        >
+          <RecentSyncsTable rows={model.recentSyncRows} />
+        </DashboardPanel>
+
+        <DashboardPanel
+          className="xl:col-span-6 xl:row-span-2 xl:min-h-0 xl:max-h-none"
+          title="Quota pressure"
+          meta={model.quota.teamCoverage.label}
+          height="tall"
+        >
           <QuotaPressureTable rows={model.quotaPressureRows} />
         </DashboardPanel>
 
-        <div className="admin-overview-stack">
-          <DashboardPanel title="Cursor budget" meta={model.cursorPool.coverage.label} height="short">
-            <CursorPoolPanel pool={model.cursorPool} />
-          </DashboardPanel>
-
-          <DashboardPanel title="Sync health" meta={model.syncHealth.status} height="short">
-            <SyncHealthPanel rows={model.recentSyncRows} />
-          </DashboardPanel>
-
-          <DashboardPanel title="Recent Syncs" meta="Latest visible devices" height="medium">
-            <RecentSyncsTable rows={model.recentSyncRows} />
-          </DashboardPanel>
-        </div>
-      </section>
-
-      <section className="admin-overview-grid admin-overview-grid-tables">
-        <DashboardPanel title="Developer leaderboard" meta="Default metric: total visible usage" height="medium">
+        <DashboardPanel
+          className="xl:col-span-6 xl:row-span-2 xl:min-h-0 xl:max-h-none"
+          title="Developer leaderboard"
+          meta="Default metric: total visible usage"
+          height="tall"
+        >
           <DeveloperLeaderboardTable rows={model.developerLeaderboardRows} />
         </DashboardPanel>
+      </section>
 
+      <section className="grid grid-cols-2 gap-5 max-lg:grid-cols-1">
         <DashboardPanel title="Top Developers" meta="Visible current range" height="medium">
           <DeveloperLeaderboardTable rows={model.developerLeaderboardRows} compact />
         </DashboardPanel>
-      </section>
 
-      <section className="admin-overview-grid">
         <DashboardPanel title="Provider Status" meta="Visible current range" height="medium">
           <ProviderStatusTable rows={model.providerStatusRows} />
         </DashboardPanel>
       </section>
 
-      <section className="admin-overview-grid">
+      <section className="grid gap-5">
         <DashboardPanel title="Available Metrics" meta="Definitions and coverage" height="tall">
           <AvailableMetricsTable rows={model.availableMetricRows} />
         </DashboardPanel>
       </section>
 
-      <section className="admin-overview-grid">
+      <section className="grid grid-cols-2 gap-5 max-lg:grid-cols-1">
         <DashboardPanel title="Reporting timezone" meta="Team day boundary" height="short">
           <AdminReportingTimeZoneControl
             value={model.reportingTimeZone}
@@ -178,9 +223,17 @@ export function AdminOverview({
           />
         </DashboardPanel>
 
-        <DashboardPanel title="Delete data" meta="Clear synced team records" height="short">
-          <ClearTeamDataPanel onClearTeamData={onClearTeamData} />
-        </DashboardPanel>
+        <div className="grid gap-5">
+          {onSeedMockData ? (
+            <DashboardPanel title="Seed mock data" meta="Local dev only" height="short">
+              <SeedMockDataPanel onSeedMockData={onSeedMockData} />
+            </DashboardPanel>
+          ) : null}
+
+          <DashboardPanel title="Delete data" meta="Clear synced team records" height="short">
+            <ClearTeamDataPanel onClearTeamData={onClearTeamData} />
+          </DashboardPanel>
+        </div>
       </section>
     </main>
   )

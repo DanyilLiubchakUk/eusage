@@ -2,6 +2,8 @@ import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
 import { SignInButton, useAuth } from "@clerk/tanstack-react-start"
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
 import { api } from "../../../convex/_generated/api"
 import {
   AdminDashboardPlaceholder,
@@ -50,6 +52,8 @@ function HomeDashboard() {
   const queryClient = useQueryClient()
   const updateDashboardSettings = useConvexMutation(api.dashboard.updateDashboardSettings)
   const clearTeamData = useConvexMutation(api.dashboard.clearTeamData)
+  const seedLocalMockData = useConvexMutation(api.dashboard.seedLocalMockData)
+  const localSeedOrigin = useLocalSeedOrigin()
 
   if (!auth.isLoaded) return <DashboardLoading />
   if (!auth.isSignedIn) return <DashboardSignInRequired signInSlot={<DashboardSignInButton />} />
@@ -90,8 +94,48 @@ function HomeDashboard() {
         await queryClient.invalidateQueries({ queryKey: dashboardSourceQuery.queryKey })
         return { deleted: result.deleted }
       }}
+      onSeedMockData={
+        localSeedOrigin
+          ? async () => {
+              const result = await seedLocalMockData({
+                confirm: "SEED LOCAL MOCK DATA",
+                clientOrigin: localSeedOrigin,
+              })
+              if (result.status !== "ok") {
+                throw new Error(`Mock data seed failed: ${result.status}`)
+              }
+              await queryClient.invalidateQueries({ queryKey: dashboardSourceQuery.queryKey })
+              return { seeded: result.seeded }
+            }
+          : undefined
+      }
     />
   )
+}
+
+function useLocalSeedOrigin() {
+  const [origin, setOrigin] = useState<string | null>(null)
+
+  useEffect(() => {
+    setOrigin(resolveLocalSeedOrigin())
+  }, [])
+
+  return origin
+}
+
+function resolveLocalSeedOrigin() {
+  if (!import.meta.env.DEV || typeof window === "undefined") return null
+  const { protocol, hostname, port, origin } = window.location
+  if (protocol !== "http:" || port !== "3000") return null
+  if (
+    hostname !== "localhost" &&
+    hostname !== "127.0.0.1" &&
+    hostname !== "::1" &&
+    hostname !== "[::1]"
+  ) {
+    return null
+  }
+  return origin
 }
 
 function useDashboardAuth() {
@@ -105,9 +149,9 @@ function useDashboardAuth() {
 function DashboardSignInButton() {
   return (
     <SignInButton mode="modal">
-      <button className="setup-button" type="button">
+      <Button type="button">
         Sign in
-      </button>
+      </Button>
     </SignInButton>
   )
 }

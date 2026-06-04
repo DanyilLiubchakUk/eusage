@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { PageState } from "../shell/page-state"
 import type { MetricDateRangeInput } from "../../lib/metrics"
 import { AdminOverview } from "./admin-overview"
 import type { DashboardSourceState } from "./dashboard"
@@ -21,6 +22,7 @@ type AdminDashboardPlaceholderProps = DashboardPlaceholderProps & {
   onReportingTimeZoneChange?: (value: string) => Promise<void> | void
   onProviderVisibilityChange?: (visibleProviderIds: string[] | null) => Promise<void> | void
   onClearTeamData?: () => Promise<{ deleted: Record<string, number> }> | void
+  onSeedMockData?: () => Promise<{ seeded: Record<string, number> }> | void
 }
 
 export function AdminDashboardPlaceholder({
@@ -32,6 +34,7 @@ export function AdminDashboardPlaceholder({
   onReportingTimeZoneChange,
   onProviderVisibilityChange,
   onClearTeamData,
+  onSeedMockData,
 }: AdminDashboardPlaceholderProps) {
   if (state.status !== "ready") {
     return <DashboardUnavailable state={state} auth={auth} signInSlot={signInSlot} />
@@ -44,6 +47,7 @@ export function AdminDashboardPlaceholder({
       onReportingTimeZoneChange={onReportingTimeZoneChange}
       onProviderVisibilityChange={onProviderVisibilityChange}
       onClearTeamData={onClearTeamData}
+      onSeedMockData={onSeedMockData}
     />
   )
 }
@@ -62,24 +66,17 @@ export function TvDashboardPlaceholder({
 
 export function DashboardLoading() {
   return (
-    <main className="setup-page">
-      <section className="setup-card" aria-label="Dashboard loading">
-        <strong>Loading dashboard...</strong>
-        <p>Checking sign-in.</p>
-      </section>
-    </main>
+    <PageState label="Dashboard loading" title="Loading dashboard...">
+      <p className="m-0">Checking sign-in.</p>
+    </PageState>
   )
 }
 
 export function DashboardSignInRequired({ signInSlot }: { signInSlot?: ReactNode }) {
   return (
-    <main className="setup-page">
-      <section className="setup-card" aria-label="Sign in">
-        <strong>Sign in required</strong>
-        <p>Sign in with Clerk to open the dashboard.</p>
-        {signInSlot}
-      </section>
-    </main>
+    <PageState action={signInSlot} label="Sign in" title="Sign in required">
+      <p className="m-0">Sign in with Clerk to open the dashboard.</p>
+    </PageState>
   )
 }
 
@@ -98,11 +95,8 @@ export function DashboardUnavailable({
   }
 
   return (
-    <main className="setup-page">
-      <section className="setup-card" aria-label="Dashboard unavailable">
-        <strong>Dashboard unavailable</strong>
-        <p>{state.status}</p>
-      </section>
-    </main>
+    <PageState label="Dashboard unavailable" title="Dashboard unavailable">
+      <p className="m-0">{state.status}</p>
+    </PageState>
   )
 }

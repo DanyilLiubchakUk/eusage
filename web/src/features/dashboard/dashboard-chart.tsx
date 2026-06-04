@@ -57,14 +57,14 @@ export function DashboardChart({
 
   if (!hasData) {
     return (
-      <div className="admin-chart-frame admin-chart-frame-empty">
-        <p className="admin-chart-empty">{emptyLabel}</p>
+      <div className="admin-chart-frame-empty grid h-full min-h-72 place-items-center rounded-lg border border-dashed bg-muted/40 p-6">
+        <p className="m-0 text-center text-sm text-muted-foreground">{emptyLabel}</p>
       </div>
     )
   }
 
   return (
-    <div className="admin-chart-frame">
+    <div className="h-full min-h-72 rounded-lg bg-background/60 p-3">
       <canvas ref={canvasRef} aria-label={ariaLabel} role="img" />
     </div>
   )

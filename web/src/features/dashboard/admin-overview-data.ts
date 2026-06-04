@@ -7,14 +7,12 @@ import {
   calculateSampledUsage,
   formatUpdateFreshnessLabel,
   isMetricSampleInWindow,
-  percentChange,
   resolveMetricDateRange,
   type MetricRangeWindow,
   type ProviderTotal,
 } from "../../lib/metrics"
 import {
   formatCount,
-  formatPercentDelta,
   formatProviderName,
   formatUsd,
 } from "./dashboard-formatting"
@@ -51,12 +49,6 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
     samples: source.metricSamples,
     window: range.current,
   })
-  const previousSampledUsage = range.comparison
-    ? calculateSampledUsage({
-        samples: source.metricSamples,
-        window: range.comparison,
-      })
-    : null
   const cursorPool = calculateCursorPool({
     snapshots: source.snapshots,
     window: range.current,
@@ -82,26 +74,23 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
     visibleUpdateTimestamps(source, range.current, usage.comparison.current),
     now
   )
+  const developerSummary = buildDeveloperSummary(source.developers)
 
   return {
     teamName: state.team.name,
+    teamMetaLabel: `${freshnessLabel} · ${formatCount(
+      developerSummary.totalDevelopers
+    )} visible ${pluralize(developerSummary.totalDevelopers, "developer")}`,
     reportingTimeZone: source.reportingTimeZone,
     dateRange: source.dateRange,
     dateBounds: buildDashboardDateRangeBounds(source.metricSamples, now, source.reportingTimeZone),
     providerFilters: buildProviderFilters(state, source.visibleProviderIds),
     rangeLabel: usage.range.label,
     freshnessLabel,
-    filterSummary: buildFilterSummary(source.visibleDeveloperIds, source.visibleProviderIds),
     kpis: buildKpis({
-      activeDeveloperCount: source.developers.filter((developer) => developer.status === "active")
-        .length,
-      visibleDeveloperCount: source.visibleDeveloperIds.length,
-      tokensPercentChange: previousSampledUsage
-        ? percentChange(sampledUsage.tokensTotal, previousSampledUsage.tokensTotal)
-        : null,
+      developerSummary,
       sampledUsage,
       cursorPool,
-      syncHealth,
     }),
     tokenSeries,
     providerBreakdownRows: buildProviderBreakdownRows(sampledUsage.providerTotals),
@@ -147,12 +136,24 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
 
 type DashboardSource = ReturnType<typeof dashboardSource>
 
-function buildFilterSummary(visibleDeveloperIds: string[], visibleProviderIds: string[]) {
-  const providerText =
-    visibleProviderIds.length > 0
-      ? visibleProviderIds.map(formatProviderName).join(", ")
-      : "No providers visible"
-  return `${visibleDeveloperIds.length} developers · ${providerText}`
+function buildDeveloperSummary(developers: DashboardSource["developers"]) {
+  let connectedDevelopers = 0
+  let connectedDevices = 0
+
+  for (const developer of developers) {
+    const developerConnectedDevices = developer.devices.filter(
+      (device) => device.status === "connected"
+    ).length
+
+    if (developerConnectedDevices > 0) connectedDevelopers += 1
+    connectedDevices += developerConnectedDevices
+  }
+
+  return {
+    totalDevelopers: developers.length,
+    connectedDevelopers,
+    connectedDevices,
+  }
 }
 
 function buildProviderFilters(
@@ -189,42 +190,69 @@ function uniqueStable(values: string[]) {
 }
 
 function buildKpis(args: {
-  activeDeveloperCount: number
-  visibleDeveloperCount: number
-  tokensPercentChange: number | null
+  developerSummary: ReturnType<typeof buildDeveloperSummary>
   sampledUsage: ReturnType<typeof calculateSampledUsage>
   cursorPool: ReturnType<typeof calculateCursorPool>
-  syncHealth: SyncHealth
 }) {
-  const topProvider = args.sampledUsage.topProvider
+  const topProvider = args.sampledUsage.providerTotals[0] ?? null
+  const nextProvider = args.sampledUsage.providerTotals[1] ?? null
 
   return [
     {
       label: "Team usage",
       value: `${formatCount(args.sampledUsage.tokensTotal)} tokens`,
-      meta: `${formatUsd(args.sampledUsage.estimatedCostUsd)} · ${formatPercentDelta(args.tokensPercentChange)}`,
+      secondary: formatUsd(args.sampledUsage.estimatedCostUsd),
     },
     {
-      label: "Active developers",
-      value: String(args.activeDeveloperCount),
-      meta: `${args.visibleDeveloperCount} visible`,
+      label: "Developers",
+      value: `${args.developerSummary.connectedDevelopers}/${args.developerSummary.totalDevelopers} connected`,
+      secondary: formatConnectedDevices(args.developerSummary.connectedDevices),
     },
     {
-      label: "Top provider",
-      value: topProvider ? formatProviderName(topProvider.providerId) : "No data yet",
-      meta: topProvider ? formatProviderTotal(topProvider) : "Waiting for usage rows",
+      label: "Top providers",
+      value: topProvider
+        ? `${formatProviderName(topProvider.providerId)} - ${formatProviderWinReason(topProvider)}`
+        : "No data yet",
+      secondary: nextProvider
+        ? `Next: ${formatProviderName(nextProvider.providerId)} - ${formatProviderTotal(nextProvider)}`
+        : topProvider
+          ? "Only provider with usage"
+          : "No second provider",
     },
     {
-      label: "Sync health",
-      value: args.syncHealth.label,
-      meta: args.syncHealth.status,
-    },
-    {
-      label: "Cursor budget remaining",
-      value: args.cursorPool.available ? formatUsd(args.cursorPool.remainingUsd) : "No data yet",
-      meta: args.cursorPool.available ? args.cursorPool.coverage.label : "No Cursor budget data",
+      label: "Cursor budget",
+      value: args.cursorPool.available
+        ? `${formatCursorBudgetUsd(args.cursorPool.usedUsd)} / ${formatCursorBudgetUsd(
+            args.cursorPool.limitUsd
+          )}`
+        : "No data yet",
+      secondary: formatCursorBudgetPercent(args.cursorPool),
     },
   ]
+}
+
+function formatConnectedDevices(value: number) {
+  return `${formatCount(value)} connected ${pluralize(value, "device")}`
+}
+
+function formatCursorBudgetPercent(pool: ReturnType<typeof calculateCursorPool>) {
+  if (!pool.available) return "No Cursor budget data"
+  if (pool.limitUsd <= 0) return "No budget limit"
+  return `${Math.round((pool.usedUsd / pool.limitUsd) * 100)}% used`
+}
+
+function formatCursorBudgetUsd(value: number) {
+  const wholeDollar = Math.abs(value - Math.round(value)) < 0.005
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: wholeDollar ? 0 : 2,
+    maximumFractionDigits: wholeDollar ? 0 : 2,
+  }).format(value)
+}
+
+function pluralize(value: number, singular: string) {
+  return value === 1 ? singular : `${singular}s`
 }
 
 export type ProviderBreakdownRow = {
@@ -314,4 +342,10 @@ function formatProviderTotal(provider: Pick<ProviderTotal, "tokensTotal" | "cred
   if (provider.tokensTotal > 0) return `${formatCount(provider.tokensTotal)} tokens`
   if (provider.creditsUsed > 0) return `${formatCount(provider.creditsUsed)} credits`
   return "Synced"
+}
+
+function formatProviderWinReason(provider: ProviderTotal) {
+  if (provider.tokensTotal > 0) return `${formatCount(provider.tokensTotal)} tokens`
+  if (provider.creditsUsed > 0) return `${formatCount(provider.creditsUsed)} credits`
+  return "latest synced"
 }

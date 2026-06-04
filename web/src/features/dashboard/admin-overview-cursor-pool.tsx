@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react"
 import type { buildAdminOverviewModel } from "./admin-overview-data"
 import { formatUsd } from "./dashboard-formatting"
 
@@ -12,9 +11,9 @@ export function CursorPoolPanel({ pool }: CursorPoolPanelProps) {
 
   if (!pool.available) {
     return (
-      <div className="admin-cursor-pool">
-        <p className="admin-empty-row">No Cursor budget data yet</p>
-        <span className="admin-helper-text">
+      <div className="grid gap-3">
+        <p className="admin-empty-row m-0 text-muted-foreground">No Cursor budget data yet</p>
+        <span className="text-sm text-muted-foreground">
           {pool.coverage.label}. eUsage uses Cursor pooled fields first, then Team
           On-Demand budget from synced Cursor rows.
         </span>
@@ -23,17 +22,16 @@ export function CursorPoolPanel({ pool }: CursorPoolPanelProps) {
   }
 
   return (
-    <div className="admin-cursor-pool">
+    <div className="grid gap-3">
       <div
-        className="admin-cursor-pool-bar"
-        style={{ "--cursor-pool-used": width } as CSSProperties}
+        className="h-4 overflow-hidden rounded-full bg-muted"
         aria-label={`${Math.round(usedPercent)} percent used`}
       >
-        <span />
+        <span className="block h-full rounded-full bg-primary" style={{ width }} />
       </div>
-      <div className="admin-cursor-pool-values">
-        <strong>{formatUsd(pool.remainingUsd)} remaining</strong>
-        <span>
+      <div className="grid gap-1">
+        <strong className="text-foreground">{formatUsd(pool.remainingUsd)} remaining</strong>
+        <span className="text-sm text-muted-foreground">
           {formatUsd(pool.usedUsd)} used of {formatUsd(pool.limitUsd)} · {pool.label}
         </span>
       </div>

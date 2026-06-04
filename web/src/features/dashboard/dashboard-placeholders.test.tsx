@@ -6,7 +6,9 @@ import {
   DashboardUnavailable,
   TvDashboardPlaceholder,
 } from "./dashboard-placeholders"
+import { AdminDateRangeControls } from "./admin-date-range-controls"
 import { buildAdminOverviewModel } from "./admin-overview-data"
+import { AdminReportingTimeZoneControl } from "./admin-reporting-time-zone-control"
 import { buildTvDashboardModel } from "./tv-dashboard-data"
 import type { DashboardSourceState } from "./dashboard"
 import {
@@ -57,7 +59,13 @@ describe("dashboard placeholders", () => {
       screen.getByText("Fixed all-up dashboard for visible team usage, provider health, and sync status.")
     ).toBeInTheDocument()
     expect(screen.getAllByText("225 tokens").length).toBeGreaterThan(0)
-    expect(screen.getByText("$5.50 · No comparison")).toBeInTheDocument()
+    expect(screen.getAllByText("$5.50").length).toBeGreaterThan(0)
+    expect(screen.getByText("1/2 connected")).toBeInTheDocument()
+    expect(screen.getByText("1 connected device")).toBeInTheDocument()
+    expect(screen.getByText("Cursor - 100 tokens")).toBeInTheDocument()
+    expect(screen.getByText("Next: Codex - 75 tokens")).toBeInTheDocument()
+    expect(screen.getByText("$40 / $100")).toBeInTheDocument()
+    expect(screen.getByText("40% used")).toBeInTheDocument()
     expect(screen.getByText("Tokens left · API equivalent right")).toBeInTheDocument()
     expect(screen.getByText("Default metric: total visible usage")).toBeInTheDocument()
     expect(screen.getAllByText("$60.00 remaining").length).toBeGreaterThan(0)
@@ -82,10 +90,29 @@ describe("dashboard placeholders", () => {
     expect(screen.getAllByText("JetBrains AI Assistant").length).toBeGreaterThan(0)
     expect(screen.getByText("Credits")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Total visible token usage/ })).not.toHaveAttribute("title")
-    expect(screen.getByText(/Source: Canonical provider token samples/)).toBeInTheDocument()
-    expect(screen.getByText("Updates: oldest 12s ago · newest 0s ago")).toBeInTheDocument()
+    const metricTooltip = screen.getByText(/Source: Canonical provider token samples/)
+    expect(metricTooltip).toBeInTheDocument()
+    expect(metricTooltip).toHaveClass("whitespace-normal")
+    expect(metricTooltip).toHaveClass("overflow-y-auto")
+    expect(screen.getByText("Updates: oldest 12s ago · newest 0s ago · 2 visible developers")).toBeInTheDocument()
     expect(screen.getAllByText("Alex").length).toBeGreaterThan(0)
     expect(screen.getByText("Alex Mac")).toBeInTheDocument()
+  })
+
+  it("keeps Admin overview cards in one aligned grid", () => {
+    render(<AdminDashboardPlaceholder state={readyState} now={now} />)
+
+    expect(screen.getByRole("region", { name: "Overview cards" })).toHaveClass("xl:grid-cols-12")
+    expect(screen.getByRole("region", { name: "Overview cards" })).toHaveClass("xl:auto-rows-[16rem]")
+    expect(screen.getByRole("region", { name: "Provider breakdown" })).toHaveClass("xl:col-span-6")
+    expect(screen.getByRole("region", { name: "Provider breakdown" })).toHaveClass("xl:row-span-2")
+    expect(screen.getByRole("region", { name: "Cursor budget" })).toHaveClass("xl:col-span-3")
+    expect(screen.getByRole("region", { name: "Sync health" })).toHaveClass("xl:col-span-3")
+    expect(screen.getByRole("region", { name: "Recent Syncs" })).toHaveClass("xl:col-span-6")
+    expect(screen.getByRole("region", { name: "Quota pressure" })).toHaveClass("xl:col-span-6")
+    expect(screen.getByRole("region", { name: "Quota pressure" })).toHaveClass("xl:row-span-2")
+    expect(screen.getByRole("region", { name: "Developer leaderboard" })).toHaveClass("xl:col-span-6")
+    expect(screen.getByRole("region", { name: "Developer leaderboard" })).toHaveClass("xl:row-span-2")
   })
 
   it("lets Admin persist a different date range", async () => {
@@ -130,6 +157,44 @@ describe("dashboard placeholders", () => {
       screen.getByText("Use IANA names. Examples: America/New_York, America/Los_Angeles.")
     ).toBeInTheDocument()
     expect(screen.queryByText("Saved")).not.toBeInTheDocument()
+  })
+
+  it("validates Admin reporting timezone before save", async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+
+    render(<AdminReportingTimeZoneControl value="UTC" onChange={onChange} />)
+
+    const timezoneInput = screen.getByRole("textbox", { name: "Reporting timezone" })
+    expect(screen.getByPlaceholderText("America/New_York")).toBeInTheDocument()
+
+    await user.clear(timezoneInput)
+    await user.click(screen.getByRole("button", { name: "Apply pending reporting timezone" }))
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getByText("Reporting timezone is required.")).toBeInTheDocument()
+  })
+
+  it("validates custom Admin date range before save", async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+
+    render(
+      <AdminDateRangeControls
+        value={{ preset: "custom", startDay: "2026-06-01", endDay: "2026-06-04" }}
+        bounds={{ minDay: "2026-06-01", maxDay: "2026-06-30" }}
+        onChange={onChange}
+      />
+    )
+
+    expect(screen.getByPlaceholderText("Start date")).toBeInTheDocument()
+    expect(screen.getByPlaceholderText("End date")).toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText("Custom start date"))
+    await user.click(screen.getByRole("button", { name: "Apply custom date range" }))
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getByText("Enter a valid start date.")).toBeInTheDocument()
   })
 
   it("uses the team reporting timezone for Admin and TV ranges", () => {
@@ -278,6 +343,40 @@ describe("dashboard placeholders", () => {
     confirm.mockRestore()
   })
 
+  it("hides local mock seeding unless the route enables it", () => {
+    render(<AdminDashboardPlaceholder state={readyState} now={now} />)
+
+    expect(screen.queryByRole("button", { name: "Seed mock data" })).not.toBeInTheDocument()
+  })
+
+  it("lets local Admin seed mock dashboard data", async () => {
+    const user = userEvent.setup()
+    const seedMockData = vi.fn(async () => ({
+      seeded: {
+        developers: 7,
+        developerTokens: 5,
+        devices: 19,
+        metricSamples: 264,
+        providers: 4,
+        usageSnapshots: 16,
+      },
+    }))
+
+    render(
+      <AdminDashboardPlaceholder
+        state={readyState}
+        now={now}
+        onSeedMockData={seedMockData}
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: "Seed mock data" }))
+
+    expect(seedMockData).toHaveBeenCalledOnce()
+    expect(await screen.findByText("Seeded 315 rows.")).toBeInTheDocument()
+    expect(screen.getByText(/Cursor, Codex, Claude, and JetBrains/)).toBeInTheDocument()
+  })
+
   it("renders Admin no-data states", () => {
     render(<AdminDashboardPlaceholder state={quietState()} now={now} />)
 
@@ -287,7 +386,7 @@ describe("dashboard placeholders", () => {
     expect(screen.getByText("No provider usage yet").closest(".admin-chart-frame-empty")).not.toBeNull()
     expect(screen.getAllByText("No developer usage yet").length).toBeGreaterThan(0)
     expect(screen.getAllByText("No device sync rows yet").length).toBeGreaterThan(0)
-    expect(screen.getByText("No providers visible")).toBeInTheDocument()
+    expect(screen.getAllByText("No providers visible").length).toBeGreaterThan(0)
     expect(screen.getAllByLabelText(/No sample data yet/).length).toBeGreaterThan(0)
   })
 
@@ -313,7 +412,7 @@ describe("dashboard placeholders", () => {
     render(<AdminDashboardPlaceholder state={state} now={now} />)
 
     expect(screen.getAllByText("175 tokens").length).toBeGreaterThan(0)
-    expect(screen.getByText("$4.75 · No comparison")).toBeInTheDocument()
+    expect(screen.getAllByText("$4.75").length).toBeGreaterThan(0)
     expect(screen.getAllByText("JetBrains AI Assistant").length).toBeGreaterThan(0)
     expect(screen.queryByText("Claude")).not.toBeInTheDocument()
   })

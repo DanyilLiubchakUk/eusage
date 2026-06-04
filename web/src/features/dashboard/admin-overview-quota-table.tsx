@@ -1,40 +1,48 @@
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { formatTimestamp, type QuotaPressureRow } from "./admin-overview-data"
 
 export function QuotaPressureTable({ rows }: { rows: QuotaPressureRow[] }) {
   return (
-    <table className="admin-compact-table">
-      <thead>
-        <tr>
-          <th>Provider</th>
-          <th>Metric</th>
-          <th>Usage</th>
-          <th>Developer</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Provider</TableHead>
+          <TableHead>Metric</TableHead>
+          <TableHead>Usage</TableHead>
+          <TableHead>Developer</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.length === 0 ? (
-          <tr>
-            <td colSpan={4} className="admin-empty-row">
+          <TableRow>
+            <TableCell colSpan={4} className="admin-empty-row py-8 text-center text-muted-foreground">
               No quota data yet
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         ) : (
           rows.map((row) => (
-            <tr key={`${row.providerId}:${row.developerName}:${row.label}`}>
-              <td>
-                <strong>{row.providerName}</strong>
-                <span>{row.status}</span>
-              </td>
-              <td>{row.label}</td>
-              <td>
-                <strong>{Math.round(row.percent)}%</strong>
-                <span>{formatTimestamp(row.updatedAt)}</span>
-              </td>
-              <td>{row.developerName}</td>
-            </tr>
+            <TableRow key={`${row.providerId}:${row.developerName}:${row.label}`}>
+              <TableCell className="align-top">
+                <strong className="block">{row.providerName}</strong>
+                <span className="mt-1 block text-muted-foreground">{row.status}</span>
+              </TableCell>
+              <TableCell className="align-top">{row.label}</TableCell>
+              <TableCell className="align-top">
+                <strong className="block">{Math.round(row.percent)}%</strong>
+                <span className="mt-1 block text-muted-foreground">{formatTimestamp(row.updatedAt)}</span>
+              </TableCell>
+              <TableCell className="align-top">{row.developerName}</TableCell>
+            </TableRow>
           ))
         )}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   )
 }

@@ -1,5 +1,16 @@
 import { useId, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { Info } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { cn } from "@/lib/utils"
 import {
   formatTimestamp,
   type AvailableMetricRow,
@@ -15,31 +26,49 @@ export function DashboardPanel({
   meta,
   children,
   height = "medium",
+  className,
 }: {
   title: string
   meta: string
   children: ReactNode
   height?: "short" | "medium" | "tall" | "chart"
+  className?: string
 }) {
   return (
-    <section className={`admin-panel admin-panel-${height}`} aria-label={title}>
-      <div className="admin-panel-header">
-        <strong>{title}</strong>
-        <span>{meta}</span>
-      </div>
-      <div className="admin-panel-body">{children}</div>
-    </section>
+    <Card
+      className={cn("h-full min-w-0 overflow-hidden", panelHeightClass[height], className)}
+      role="region"
+      aria-label={title}
+    >
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="flex shrink-0 items-start justify-between gap-4">
+          <strong className="min-w-0 text-base text-foreground">{title}</strong>
+          <span className="max-w-[55%] break-words text-right text-sm text-muted-foreground">{meta}</span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">{children}</div>
+      </CardContent>
+    </Card>
   )
+}
+
+const panelHeightClass = {
+  short: "min-h-40 max-h-64",
+  medium: "min-h-72 max-h-[26rem]",
+  tall: "min-h-[22rem] max-h-[34rem]",
+  chart: "min-h-[30rem] max-h-[42rem]",
 }
 
 export function ProviderBreakdownList({ rows }: { rows: ProviderBreakdownRow[] }) {
   if (rows.length === 0) return null
 
   return (
-    <ul className="admin-provider-list">
+    <ul className="m-0 mt-3 grid list-none gap-2 p-0">
       {rows.map((row) => (
-        <li key={row.providerId}>
-          <span>{row.providerName}</span>
+        <li
+          key={row.providerId}
+          className="flex items-center justify-between gap-3 rounded-md bg-muted/60 px-3 py-2"
+        >
+          <span className="text-muted-foreground">{row.providerName}</span>
           <strong>{row.label}</strong>
         </li>
       ))}
@@ -55,48 +84,50 @@ export function DeveloperLeaderboardTable({
   compact?: boolean
 }) {
   return (
-    <table className="admin-compact-table">
-      <thead>
-        <tr>
-          <th>Developer</th>
-          <th>Usage</th>
-          {!compact && <th>Providers</th>}
-          <th>Last update</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Developer</TableHead>
+          <TableHead>Usage</TableHead>
+          {!compact && <TableHead>Providers</TableHead>}
+          <TableHead>Last update</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.length === 0 ? (
           <NoDataRow colSpan={compact ? 3 : 4} label="No developer usage yet" />
         ) : (
           rows.map((row) => (
-            <tr key={row.developerId}>
-              <td>
-                <strong>{row.developerName}</strong>
-                <span>{row.developerStatus}</span>
-              </td>
-              <td>
-                <strong>{formatCount(row.tokensTotal)} tokens</strong>
-                <span>{formatUsd(row.estimatedCostUsd)} · {formatCount(row.creditsUsed)} credits</span>
-              </td>
-              {!compact && <td>{row.providerCount}</td>}
-              <td>{formatTimestamp(row.latestUpdatedAt)}</td>
-            </tr>
+            <TableRow key={row.developerId}>
+              <TableCell className="align-top">
+                <strong className="block">{row.developerName}</strong>
+                <span className="mt-1 block text-muted-foreground">{row.developerStatus}</span>
+              </TableCell>
+              <TableCell className="align-top">
+                <strong className="block">{formatCount(row.tokensTotal)} tokens</strong>
+                <span className="mt-1 block text-muted-foreground">
+                  {formatUsd(row.estimatedCostUsd)} · {formatCount(row.creditsUsed)} credits
+                </span>
+              </TableCell>
+              {!compact && <TableCell className="align-top">{row.providerCount}</TableCell>}
+              <TableCell className="align-top">{formatTimestamp(row.latestUpdatedAt)}</TableCell>
+            </TableRow>
           ))
         )}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   )
 }
 
 export function SyncHealthPanel({ rows }: { rows: RecentSyncRow[] }) {
-  if (rows.length === 0) return <p className="admin-empty-row">No device sync rows yet</p>
+  if (rows.length === 0) return <p className="admin-empty-row m-0 text-muted-foreground">No device sync rows yet</p>
 
   return (
-    <ul className="admin-sync-list">
-      {rows.slice(0, 4).map((row) => (
-        <li key={`${row.developerName}:${row.deviceName}`}>
+    <ul className="m-0 grid list-none gap-2 p-0">
+      {rows.map((row) => (
+        <li key={`${row.developerName}:${row.deviceName}`} className="grid gap-1 rounded-md bg-muted/60 p-3">
           <strong>{row.developerName}</strong>
-          <span>
+          <span className="text-muted-foreground">
             {row.deviceName} · {row.status} · {formatTimestamp(row.lastContactAt)}
           </span>
         </li>
@@ -107,95 +138,95 @@ export function SyncHealthPanel({ rows }: { rows: RecentSyncRow[] }) {
 
 export function ProviderStatusTable({ rows }: { rows: ProviderStatusRow[] }) {
   return (
-    <table className="admin-compact-table">
-      <thead>
-        <tr>
-          <th>Provider</th>
-          <th>Usage</th>
-          <th>Quota</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Provider</TableHead>
+          <TableHead>Usage</TableHead>
+          <TableHead>Quota</TableHead>
+          <TableHead>Status</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.length === 0 ? (
           <NoDataRow colSpan={4} label="No providers visible" />
         ) : (
           rows.map((row) => (
-            <tr key={row.providerId}>
-              <td>
+            <TableRow key={row.providerId}>
+              <TableCell className="align-top">
                 <strong>{formatProviderName(row.providerId)}</strong>
-              </td>
-              <td>{row.value}</td>
-              <td>{row.quota}</td>
-              <td>
-                <strong>{row.status}</strong>
-                <span>{formatTimestamp(row.lastUpdatedAt)}</span>
-              </td>
-            </tr>
+              </TableCell>
+              <TableCell className="align-top">{row.value}</TableCell>
+              <TableCell className="align-top">{row.quota}</TableCell>
+              <TableCell className="align-top">
+                <strong className="block">{row.status}</strong>
+                <span className="mt-1 block text-muted-foreground">{formatTimestamp(row.lastUpdatedAt)}</span>
+              </TableCell>
+            </TableRow>
           ))
         )}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   )
 }
 
 export function RecentSyncsTable({ rows }: { rows: RecentSyncRow[] }) {
   return (
-    <table className="admin-compact-table">
-      <thead>
-        <tr>
-          <th>Developer</th>
-          <th>Device</th>
-          <th>Status</th>
-          <th>Last contact</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Developer</TableHead>
+          <TableHead>Device</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Last contact</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.length === 0 ? (
           <NoDataRow colSpan={4} label="No device sync rows yet" />
         ) : (
           rows.map((row) => (
-            <tr key={`${row.developerName}:${row.deviceName}`}>
-              <td>{row.developerName}</td>
-              <td>{row.deviceName}</td>
-              <td>{row.status}</td>
-              <td>{formatTimestamp(row.lastContactAt)}</td>
-            </tr>
+            <TableRow key={`${row.developerName}:${row.deviceName}`}>
+              <TableCell>{row.developerName}</TableCell>
+              <TableCell>{row.deviceName}</TableCell>
+              <TableCell>{row.status}</TableCell>
+              <TableCell>{formatTimestamp(row.lastContactAt)}</TableCell>
+            </TableRow>
           ))
         )}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   )
 }
 
 export function AvailableMetricsTable({ rows }: { rows: AvailableMetricRow[] }) {
   return (
-    <table className="admin-compact-table">
-      <thead>
-        <tr>
-          <th>Metric</th>
-          <th>Value</th>
-          <th>Source</th>
-          <th>Status</th>
-          <th>Info</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Metric</TableHead>
+          <TableHead>Value</TableHead>
+          <TableHead>Source</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Info</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.map((row) => (
-          <tr key={row.metric}>
-            <td>{row.metric}</td>
-            <td>
+          <TableRow key={row.metric}>
+            <TableCell>{row.metric}</TableCell>
+            <TableCell>
               <strong>{row.value}</strong>
-            </td>
-            <td>{row.source}</td>
-            <td>{row.status}</td>
-            <td>
+            </TableCell>
+            <TableCell>{row.source}</TableCell>
+            <TableCell>{row.status}</TableCell>
+            <TableCell>
               <MetricInfo row={row} />
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   )
 }
 
@@ -230,14 +261,20 @@ export function ClearTeamDataPanel({
   }
 
   return (
-    <div className="admin-data-reset">
-      <p className="admin-helper-text">
+    <div className="grid gap-3">
+      <p className="m-0 text-sm text-muted-foreground">
         Deletes: Developers, Tokens, Devices, Usage, Providers, Raw payloads, Sync errors.
       </p>
-      <button type="button" disabled={!onClearTeamData || isDeleting} onClick={() => void handleClick()}>
+      <Button
+        className="w-fit"
+        variant="destructive"
+        type="button"
+        disabled={!onClearTeamData || isDeleting}
+        onClick={() => void handleClick()}
+      >
         {isDeleting ? "Deleting..." : "Delete data"}
-      </button>
-      {status ? <span>{status}</span> : null}
+      </Button>
+      {status ? <span className="text-sm text-muted-foreground">{status}</span> : null}
     </div>
   )
 }
@@ -269,9 +306,11 @@ function MetricInfo({ row }: { row: AvailableMetricRow }) {
   }
 
   return (
-    <span className="admin-metric-tooltip-wrap">
-      <button
-        className="admin-metric-info"
+    <span>
+      <Button
+        className="rounded-full"
+        size="icon-xs"
+        variant="outline"
         type="button"
         aria-label={row.tooltip}
         aria-describedby={tooltipId}
@@ -281,9 +320,9 @@ function MetricInfo({ row }: { row: AvailableMetricRow }) {
         onMouseLeave={hideTooltip}
       >
         <Info size={14} aria-hidden="true" />
-      </button>
+      </Button>
       <span
-        className="admin-metric-tooltip"
+        className="fixed z-50 max-h-48 w-[min(352px,calc(100vw-2rem))] overflow-y-auto whitespace-normal break-words rounded-md border bg-popover p-3 text-sm leading-5 text-popover-foreground shadow-lg"
         id={tooltipId}
         ref={tooltipRef}
         role="tooltip"
@@ -298,10 +337,10 @@ function MetricInfo({ row }: { row: AvailableMetricRow }) {
 
 function NoDataRow({ colSpan, label }: { colSpan: number; label: string }) {
   return (
-    <tr>
-      <td colSpan={colSpan} className="admin-empty-row">
+    <TableRow>
+      <TableCell colSpan={colSpan} className="admin-empty-row py-8 text-center text-muted-foreground">
         {label}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   )
 }
