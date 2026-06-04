@@ -10,7 +10,6 @@ import {
 import type { QueryClient } from "@tanstack/react-query"
 import { themeBootstrapScript } from "../lib/theme"
 import "../theme.css"
-import "../styles.css"
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
