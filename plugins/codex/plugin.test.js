@@ -382,6 +382,13 @@ describe("codex plugin", () => {
         tokensTotal: 1234,
         estimatedCostUsd: 0.42,
       })
+      const expectedBucket = {
+        kind: "reportingDay",
+        day: "2026-06-01",
+        reportingTimeZone: "UTC",
+        startMs: Date.parse("2026-06-01T00:00:00.000Z"),
+        endMs: Date.parse("2026-06-02T00:00:00.000Z"),
+      }
       expect(codex).toMatchObject({
         planType: "plus",
         planName: "Plus",
@@ -417,12 +424,16 @@ describe("codex plugin", () => {
             metricKey: "codex.tokens.total",
             value: 1234,
             unit: "tokens",
+            periodStart: expectedBucket.startMs,
+            periodEnd: expectedBucket.endMs,
+            bucket: expectedBucket,
           }),
           expect.objectContaining({
             metricKey: "codex.cost.estimated",
             value: 0.42,
             unit: "usd",
             source: "estimated",
+            bucket: expectedBucket,
           }),
         ])
       )

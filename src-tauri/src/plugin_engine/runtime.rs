@@ -81,7 +81,18 @@ pub struct ProviderMetricSample {
     pub source: String,
     pub period_start: Option<i64>,
     pub period_end: Option<i64>,
+    pub bucket: Option<ProviderMetricBucket>,
     pub coverage: Option<JsonValue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderMetricBucket {
+    pub kind: String,
+    pub day: String,
+    pub reporting_time_zone: String,
+    pub start_ms: i64,
+    pub end_ms: i64,
 }
 
 pub fn run_probe(plugin: &LoadedPlugin, app_data_dir: &PathBuf, app_version: &str) -> PluginOutput {
@@ -771,7 +782,14 @@ mod tests {
                                 sampleDay: "2026-06-01",
                                 source: "providerReported",
                                 periodStart: 1770000000000,
-                                periodEnd: 1772592000000
+                                periodEnd: 1772592000000,
+                                bucket: {
+                                    kind: "reportingDay",
+                                    day: "2026-06-01",
+                                    reportingTimeZone: "UTC",
+                                    startMs: 1770000000000,
+                                    endMs: 1770086400000
+                                }
                             }]
                         },
                         rawPayload: {
@@ -794,6 +812,10 @@ mod tests {
         assert_eq!(facts.extractor_version["test"], "1.0.0");
         assert_eq!(facts.metric_families, vec!["cursorPool"]);
         assert_eq!(facts.metric_samples[0].metric_key, "cursor.api.percentUsed");
+        assert_eq!(
+            facts.metric_samples[0].bucket.as_ref().unwrap().reporting_time_zone,
+            "UTC"
+        );
         assert_eq!(facts.summary["provider"]["cursor"]["pooledLimitUsd"], 500.0);
         assert_eq!(
             output.raw_payload.unwrap()["usage"]["planUsage"]["apiPercentUsed"],

@@ -466,6 +466,19 @@
     return start === null ? null : start + 24 * 60 * 60 * 1000
   }
 
+  function reportingDayBucket(day) {
+    const startMs = dayStartMs(day)
+    const endMs = dayEndMs(day)
+    if (startMs === null || endMs === null) return null
+    return {
+      kind: "reportingDay",
+      day,
+      reportingTimeZone: "UTC",
+      startMs,
+      endMs,
+    }
+  }
+
   function windowDurationMs(window, fallbackMs) {
     if (window && typeof window.limit_window_seconds === "number" && Number.isFinite(window.limit_window_seconds)) {
       return window.limit_window_seconds * 1000
@@ -500,7 +513,7 @@
     return segment || "model"
   }
 
-  function addMetricSample(samples, metricKey, value, unit, day, source, period) {
+  function addMetricSample(samples, metricKey, value, unit, day, source, period, bucket) {
     const n = readNumber(value)
     if (n === null) return
     const sample = {
@@ -510,8 +523,14 @@
       sampleDay: day,
       source: source || "providerReported",
     }
-    if (period && period.start !== null) sample.periodStart = period.start
-    if (period && period.end !== null) sample.periodEnd = period.end
+    if (bucket) {
+      sample.periodStart = bucket.startMs
+      sample.periodEnd = bucket.endMs
+      sample.bucket = bucket
+    } else {
+      if (period && period.start !== null) sample.periodStart = period.start
+      if (period && period.end !== null) sample.periodEnd = period.end
+    }
     samples.push(sample)
   }
 
@@ -529,11 +548,12 @@
 
   function addTokenUsageSamples(samples, usageDay, sampleSourceDay) {
     if (!usageDay || typeof usageDay !== "object") return
-    addMetricSample(samples, "codex.tokens.total", usageDay.totalTokens, "tokens", sampleSourceDay, "providerReported")
-    addMetricSample(samples, "codex.tokens.input", usageDay.inputTokens, "tokens", sampleSourceDay, "providerReported")
-    addMetricSample(samples, "codex.tokens.output", usageDay.outputTokens, "tokens", sampleSourceDay, "providerReported")
-    addMetricSample(samples, "codex.tokens.cachedInput", usageDay.cachedInputTokens, "tokens", sampleSourceDay, "providerReported")
-    addMetricSample(samples, "codex.cost.estimated", usageCostUsd(usageDay), "usd", sampleSourceDay, "estimated")
+    const bucket = reportingDayBucket(sampleSourceDay)
+    addMetricSample(samples, "codex.tokens.total", usageDay.totalTokens, "tokens", sampleSourceDay, "providerReported", null, bucket)
+    addMetricSample(samples, "codex.tokens.input", usageDay.inputTokens, "tokens", sampleSourceDay, "providerReported", null, bucket)
+    addMetricSample(samples, "codex.tokens.output", usageDay.outputTokens, "tokens", sampleSourceDay, "providerReported", null, bucket)
+    addMetricSample(samples, "codex.tokens.cachedInput", usageDay.cachedInputTokens, "tokens", sampleSourceDay, "providerReported", null, bucket)
+    addMetricSample(samples, "codex.cost.estimated", usageCostUsd(usageDay), "usd", sampleSourceDay, "estimated", null, bucket)
   }
 
   function extractorVersion() {

@@ -41,7 +41,19 @@ struct TeamUsageMetricSample {
     #[serde(skip_serializing_if = "Option::is_none")]
     period_end: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    bucket: Option<TeamUsageMetricBucket>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     coverage: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TeamUsageMetricBucket {
+    kind: String,
+    day: String,
+    reporting_time_zone: String,
+    start_ms: i64,
+    end_ms: i64,
 }
 
 pub(super) fn build_provider_upload(snapshot: &CachedPluginSnapshot) -> TeamUsageProvider {
@@ -165,6 +177,7 @@ fn metric_samples_for_snapshot(
         source: "normalized".to_string(),
         period_start: None,
         period_end: None,
+        bucket: None,
         coverage: None,
     }];
 
@@ -187,6 +200,7 @@ fn metric_samples_for_snapshot(
                 source: "providerReported".to_string(),
                 period_start: None,
                 period_end: None,
+                bucket: None,
                 coverage: None,
             });
             samples.push(TeamUsageMetricSample {
@@ -197,6 +211,7 @@ fn metric_samples_for_snapshot(
                 source: "providerReported".to_string(),
                 period_start: None,
                 period_end: None,
+                bucket: None,
                 coverage: None,
             });
         }
@@ -215,6 +230,13 @@ impl From<ProviderMetricSample> for TeamUsageMetricSample {
             source: sample.source,
             period_start: sample.period_start,
             period_end: sample.period_end,
+            bucket: sample.bucket.map(|bucket| TeamUsageMetricBucket {
+                kind: bucket.kind,
+                day: bucket.day,
+                reporting_time_zone: bucket.reporting_time_zone,
+                start_ms: bucket.start_ms,
+                end_ms: bucket.end_ms,
+            }),
             coverage: sample.coverage,
         }
     }
@@ -321,7 +343,7 @@ fn is_sensitive_key(key: &str) -> bool {
 mod tests {
     use super::*;
     use crate::plugin_engine::runtime::{
-        ProgressFormat, ProviderMetricSample, ProviderSourceFacts,
+        ProgressFormat, ProviderMetricBucket, ProviderMetricSample, ProviderSourceFacts,
     };
 
     fn make_snapshot(provider_id: &str, used: f64) -> CachedPluginSnapshot {
@@ -400,6 +422,13 @@ mod tests {
                 source: "providerReported".to_string(),
                 period_start: Some(1_770_000_000_000),
                 period_end: Some(1_772_592_000_000),
+                bucket: Some(ProviderMetricBucket {
+                    kind: "reportingDay".to_string(),
+                    day: "2026-06-01".to_string(),
+                    reporting_time_zone: "UTC".to_string(),
+                    start_ms: 1_770_000_000_000,
+                    end_ms: 1_770_086_400_000,
+                }),
                 coverage: None,
             }],
         });
@@ -416,6 +445,10 @@ mod tests {
         assert_eq!(
             provider.metric_samples[0].metric_key,
             "cursor.api.percentUsed"
+        );
+        assert_eq!(
+            provider.metric_samples[0].bucket.as_ref().unwrap().day,
+            "2026-06-01"
         );
         assert_eq!(provider.payload["usage"]["accessToken"], REDACTED_VALUE);
         assert!(
