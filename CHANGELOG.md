@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.6.26
+
+### New Features
+- feat: group daily plugins by reporting timezone by @DanyilLiubchak
+- feat: expose team reporting timezone to desktop by @DanyilLiubchak
+- feat: validate reporting buckets on ingest by @DanyilLiubchak
+- feat: emit reporting buckets from daily plugins by @DanyilLiubchak
+- feat: add team reporting timezone settings by @DanyilLiubchak
+- feat: add reporting day timezone boundaries by @DanyilLiubchak
+
+### Bug Fixes
+- fix: filter metrics by reporting buckets by @DanyilLiubchak
+- fix: clarify reporting timezone control by @DanyilLiubchak
+- fix: narrow dashboard timezone patch by @DanyilLiubchak
+- fix: force refresh providers after team connect by @DanyilLiubchak
+
+### Chores
+- docs: describe reporting bucket metadata by @DanyilLiubchak
+- docs: document reporting day timezone model by @DanyilLiubchak
+- chore: remove dependabot configuration file by @DanyilLiubchak
+
+---
+
+### Changelog
+
+**Full Changelog**: [v0.6.25...v0.6.26](https://github.com/DanyilLiubchakUk/eusage/compare/v0.6.25...v0.6.26)
+
+- [a534560](https://github.com/DanyilLiubchakUk/eusage/commit/a534560778197d8ed8602c5d928a927afe6d4548) fix: filter metrics by reporting buckets by @DanyilLiubchak
+- [d43ae4d](https://github.com/DanyilLiubchakUk/eusage/commit/d43ae4dd14dc3a287f64351e18c4de591a9d9c15) fix: clarify reporting timezone control by @DanyilLiubchak
+- [a09c5e0](https://github.com/DanyilLiubchakUk/eusage/commit/a09c5e05d9e1209c5748d257ad12aa55d5d8201c) feat: group daily plugins by reporting timezone by @DanyilLiubchak
+- [ae5a499](https://github.com/DanyilLiubchakUk/eusage/commit/ae5a4996a3e072ad39bc35c65b2f7d9280c6e010) feat: expose team reporting timezone to desktop by @DanyilLiubchak
+- [d2c0b6e](https://github.com/DanyilLiubchakUk/eusage/commit/d2c0b6e96c6c5b14483dd2b3b6e91c71527aff26) docs: describe reporting bucket metadata by @DanyilLiubchak
+- [9442072](https://github.com/DanyilLiubchakUk/eusage/commit/944207234a0e9c5fab20b18d575d5ddefc228c1a) feat: validate reporting buckets on ingest by @DanyilLiubchak
+- [489d33e](https://github.com/DanyilLiubchakUk/eusage/commit/489d33e9a34f1f8f8aa28514013cb3cc2235aa48) feat: emit reporting buckets from daily plugins by @DanyilLiubchak
+- [d97f04d](https://github.com/DanyilLiubchakUk/eusage/commit/d97f04d1b89c17f779f111369147b34d73a0b704) fix: narrow dashboard timezone patch by @DanyilLiubchak
+- [b6dc471](https://github.com/DanyilLiubchakUk/eusage/commit/b6dc471cae70cd9f27fcfccf4035d76a6f6603e1) feat: add team reporting timezone settings by @DanyilLiubchak
+- [d7cd4af](https://github.com/DanyilLiubchakUk/eusage/commit/d7cd4aff41483b510ceca08f99f0ae365d94635e) feat: add reporting day timezone boundaries by @DanyilLiubchak
+- [dfa180d](https://github.com/DanyilLiubchakUk/eusage/commit/dfa180d4d5af8c3d9d5f9677c5dc5f38e45befa6) docs: document reporting day timezone model by @DanyilLiubchak
+- [0607c95](https://github.com/DanyilLiubchakUk/eusage/commit/0607c95d3c8c7bcb792d5d697f371cbb13d183a5) fix: force refresh providers after team connect by @DanyilLiubchak
+- [104e8ac](https://github.com/DanyilLiubchakUk/eusage/commit/104e8ac1c2716e393cc682ae8cea61febc5caa70) chore: remove dependabot configuration file by @DanyilLiubchak
+
 ## v0.6.25
 
 ### New Features
