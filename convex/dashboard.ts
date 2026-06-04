@@ -84,7 +84,7 @@ export const updateDashboardSettings = mutation({
       .withIndex("by_teamId", (q) => q.eq("teamId", ownerState.team._id))
       .first()
     const now = Date.now()
-    if (reportingTimeZone !== undefined) {
+    if (reportingTimeZone) {
       await ctx.db.patch(ownerState.team._id, {
         reportingTimeZone,
         updatedAt: now,
