@@ -249,6 +249,30 @@ describe("ChangelogDialog", () => {
     )
   })
 
+  it("shows the latest bundled release when app version is still loading", () => {
+    changelogState.releases = [
+      {
+        id: 1,
+        tag_name: "v1.0.0",
+        name: "v1.0.0",
+        body: "latest notes",
+        published_at: "2024-01-02T00:00:00Z",
+        html_url: "https://github.com/DanyilLiubchakUk/eusage/releases/tag/v1.0.0",
+      },
+    ]
+
+    render(
+      <ChangelogDialog
+        currentVersion="..."
+        onBack={() => {}}
+        onClose={() => {}}
+      />,
+    )
+
+    expect(screen.getByText("v1.0.0")).toBeInTheDocument()
+    expect(screen.getByText("latest notes")).toBeInTheDocument()
+  })
+
   it("invokes navigation callbacks and closes on Escape", async () => {
     const onBack = vi.fn()
     const onClose = vi.fn()
@@ -281,4 +305,3 @@ describe("ChangelogDialog", () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
-

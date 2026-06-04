@@ -37,7 +37,7 @@ describe("useChangelog", () => {
     await waitFor(() => {
       expect(result.current.loading).toBe(false)
       expect(result.current.error).toBeNull()
-      expect(result.current.releases).toHaveLength(1)
+      expect(result.current.releases.length).toBeGreaterThan(1)
       expect(result.current.releases[0]).toEqual(release)
     })
 
@@ -83,7 +83,7 @@ describe("useChangelog", () => {
     await waitFor(() => {
       expect(result.current.loading).toBe(false)
       expect(result.current.error).toBeNull()
-      expect(result.current.releases).toHaveLength(1)
+      expect(result.current.releases.length).toBeGreaterThan(1)
       expect(result.current.releases[0]).toEqual(release)
     })
 
@@ -98,7 +98,7 @@ describe("useChangelog", () => {
     )
   })
 
-  it("returns empty releases when tag does not exist for any variant", async () => {
+  it("returns bundled releases when tag does not exist for any variant", async () => {
     const notFoundResponse = {
       ok: false,
       status: 404,
@@ -113,13 +113,30 @@ describe("useChangelog", () => {
     await waitFor(() => {
       expect(result.current.loading).toBe(false)
       expect(result.current.error).toBeNull()
-      expect(result.current.releases).toHaveLength(0)
+      expect(result.current.releases.length).toBeGreaterThan(0)
+      expect(result.current.releases[0].tag_name).toMatch(/^v\d+\.\d+\.\d+$/)
     })
 
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it("sets error when fetch fails with non-404", async () => {
+  it("uses bundled releases without fetching when current version is not loaded yet", async () => {
+    const fetchMock = vi.fn()
+    globalThis.fetch = fetchMock as any
+
+    const { result } = renderHook(() => useChangelog("..."))
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+      expect(result.current.error).toBeNull()
+      expect(result.current.releases.length).toBeGreaterThan(0)
+      expect(result.current.releases[0].tag_name).toMatch(/^v\d+\.\d+\.\d+$/)
+    })
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("falls back to bundled releases when fetch fails with non-404", async () => {
     const badResponse = {
       ok: false,
       status: 500,
@@ -133,9 +150,8 @@ describe("useChangelog", () => {
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false)
-      expect(result.current.releases).toHaveLength(0)
-      expect(result.current.error).toBe("Failed to fetch releases")
+      expect(result.current.releases.length).toBeGreaterThan(0)
+      expect(result.current.error).toBeNull()
     })
   })
 })
-

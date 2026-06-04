@@ -184,12 +184,17 @@ export function ChangelogDialog({ currentVersion, onBack, onClose }: ChangelogDi
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [onClose])
 
-  const currentRelease = releases.find(r => 
+  const isKnownVersion = /^v?\d+\.\d+\.\d+$/.test(currentVersion)
+  const matchedRelease = releases.find(r =>
     r.tag_name === currentVersion || 
     r.tag_name === `v${currentVersion}` ||
     r.name === currentVersion ||
     r.name === `v${currentVersion}`
   )
+  const currentRelease = matchedRelease ?? (!isKnownVersion ? releases[0] : undefined)
+  const olderReleases = currentRelease
+    ? releases.filter((release) => release.tag_name !== currentRelease.tag_name)
+    : []
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px] rounded-xl">
@@ -250,10 +255,29 @@ export function ChangelogDialog({ currentVersion, onBack, onClose }: ChangelogDi
                 <SimpleMarkdown content={currentRelease.body ?? ""} />
               </div>
 
-              {releases.length >= 1 && (
+              {olderReleases.length > 0 && (
                 <div className="mt-8 pt-6 border-t border-dashed">
-                  <p className="text-[10px] text-muted-foreground text-center">
-                    Looking for older versions? Check the{" "}
+                  <h4 className="text-xs font-semibold text-muted-foreground mb-3">
+                    Older versions
+                  </h4>
+                  <div className="space-y-5">
+                    {olderReleases.map((release) => (
+                      <section key={release.tag_name} className="border-b border-border/50 pb-4 last:border-0 last:pb-0">
+                        <div className="flex items-baseline justify-between mb-2">
+                          <h5 className="font-bold text-sm">{release.name || release.tag_name}</h5>
+                          <button
+                            onClick={() => openUrl(release.html_url).catch(console.error)}
+                            className="text-[10px] text-[#58a6ff] hover:underline flex items-center gap-1"
+                          >
+                            GitHub <ExternalLinkIcon className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <SimpleMarkdown content={release.body ?? ""} />
+                      </section>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground text-center mt-6">
+                    Need the raw release page? Check the{" "}
                     <button 
                       onClick={() => openUrl("https://github.com/DanyilLiubchakUk/eusage/releases").catch(console.error)}
                       className="text-[#58a6ff] hover:underline"
