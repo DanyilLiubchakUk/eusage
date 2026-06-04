@@ -10,6 +10,7 @@ export function AdminReportingTimeZoneControl({
   value,
   onChange,
 }: AdminReportingTimeZoneControlProps) {
+  const helperId = "admin-reporting-time-zone-help"
   const [draft, setDraft] = useState(value)
   const [status, setStatus] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -25,7 +26,6 @@ export function AdminReportingTimeZoneControl({
     setStatus(null)
     try {
       await onChange(draft.trim())
-      setStatus("Saved")
     } catch (error) {
       console.error(error)
       setStatus("Save failed")
@@ -48,6 +48,7 @@ export function AdminReportingTimeZoneControl({
           value={draft}
           disabled={!onChange || isSaving}
           autoComplete="off"
+          aria-describedby={helperId}
           spellCheck={false}
           onChange={(event) => setDraft(event.target.value)}
         />
@@ -63,6 +64,9 @@ export function AdminReportingTimeZoneControl({
       >
         <Check size={15} aria-hidden="true" />
       </button>
+      <p id={helperId} className="admin-helper-text">
+        Use IANA names. Examples: America/New_York, America/Los_Angeles.
+      </p>
       {status ? <span>{status}</span> : null}
     </form>
   )

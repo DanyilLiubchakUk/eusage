@@ -120,11 +120,16 @@ describe("dashboard placeholders", () => {
       />
     )
 
-    await user.clear(screen.getByLabelText("Reporting timezone"))
-    await user.type(screen.getByLabelText("Reporting timezone"), "America/New_York")
+    const timezoneInput = screen.getByRole("textbox", { name: "Reporting timezone" })
+    await user.clear(timezoneInput)
+    await user.type(timezoneInput, "America/New_York")
     await user.click(screen.getByRole("button", { name: "Apply pending reporting timezone" }))
 
     expect(changes).toEqual(["America/New_York"])
+    expect(
+      screen.getByText("Use IANA names. Examples: America/New_York, America/Los_Angeles.")
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument()
   })
 
   it("uses the team reporting timezone for Admin and TV ranges", () => {

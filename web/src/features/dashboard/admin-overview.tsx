@@ -71,13 +71,6 @@ export function AdminOverview({
             />
             <span>{model.filterSummary}</span>
           </div>
-          <div className="admin-overview-filter-row">
-            <AdminReportingTimeZoneControl
-              value={model.reportingTimeZone}
-              onChange={onReportingTimeZoneChange}
-            />
-            <span>Reporting days</span>
-          </div>
         </div>
       </header>
 
@@ -178,6 +171,13 @@ export function AdminOverview({
       </section>
 
       <section className="admin-overview-grid">
+        <DashboardPanel title="Reporting timezone" meta="Team day boundary" height="short">
+          <AdminReportingTimeZoneControl
+            value={model.reportingTimeZone}
+            onChange={onReportingTimeZoneChange}
+          />
+        </DashboardPanel>
+
         <DashboardPanel title="Delete data" meta="Clear synced team records" height="short">
           <ClearTeamDataPanel onClearTeamData={onClearTeamData} />
         </DashboardPanel>

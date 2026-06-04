@@ -104,8 +104,17 @@
   gap: 0.4rem;
 }
 
+.admin-panel .admin-reporting-time-zone {
+  justify-content: flex-start;
+}
+
 .admin-reporting-time-zone .setup-label {
   color: var(--text-subtle);
+}
+
+.admin-reporting-time-zone .admin-helper-text {
+  flex: 1 0 100%;
+  margin: 0.1rem 0 0;
 }
 
 .admin-date-range-custom {
