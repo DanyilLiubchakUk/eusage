@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { SkeletonLines } from "@/components/skeleton-lines"
+import { UsageSparkline } from "@/components/usage-sparkline"
 import { PluginError } from "@/components/plugin-error"
 import { useNowTicker } from "@/hooks/use-now-ticker"
 import { REFRESH_COOLDOWN_MS, type DisplayMode, type ResetTimerDisplayMode, type TimeFormatMode } from "@/lib/settings"
@@ -405,6 +406,12 @@ function MetricLineRenderer({
           <div className="text-xs text-muted-foreground text-right -mt-0.5">{line.subtitle}</div>
         )}
       </div>
+    )
+  }
+
+  if (line.type === "barChart") {
+    return (
+      <UsageSparkline label={line.label} points={line.points} note={line.note} color={line.color} />
     )
   }
 

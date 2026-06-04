@@ -647,6 +647,17 @@ describe("codex plugin", () => {
       expect(last30.value).toContain("450 tokens")
       expect(last30.value).toContain("$1.75")
 
+      const chart = result.lines.find((l) => l.label === "Usage Trend")
+      expect(chart).toMatchObject({
+        type: "barChart",
+        note: "Estimated from local Codex logs for the selected account.",
+        color: "#74AA9C",
+      })
+      expect(chart.points).toEqual([
+        { label: "2/1", value: 300, valueLabel: "300 tokens" },
+        { label: "2/20", value: 150, valueLabel: "150 tokens" },
+      ])
+
       expect(ctx.host.ccusage.query).toHaveBeenCalled()
       const firstCall = ctx.host.ccusage.query.mock.calls[0][0]
       expect(firstCall.provider).toBe("codex")
@@ -660,6 +671,40 @@ describe("codex plugin", () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it("adds Codex model percentage lines from ccusage daily model totals", async () => {
+    const ctx = makeCtx()
+    ctx.host.fs.writeText("~/.codex/auth.json", JSON.stringify({
+      tokens: { access_token: "token" },
+      last_refresh: new Date().toISOString(),
+    }))
+    ctx.host.http.request.mockReturnValue({
+      status: 200,
+      headers: { "x-codex-primary-used-percent": "10" },
+      bodyText: JSON.stringify({}),
+    })
+    ctx.host.ccusage.query.mockReturnValue({
+      status: "ok",
+      data: {
+        daily: [
+          {
+            date: "2026-02-01",
+            totalTokens: 400,
+            models: {
+              "gpt-5.1-codex": { totalTokens: 300 },
+              "gpt-5.1-codex-mini": { inputTokens: 50, outputTokens: 50 },
+            },
+          },
+        ],
+      },
+    })
+
+    const plugin = await loadPlugin()
+    const result = plugin.probe(ctx)
+
+    expect(result.lines.find((l) => l.label === "gpt-5.1-codex")).toMatchObject({ value: "75%" })
+    expect(result.lines.find((l) => l.label === "gpt-5.1-codex-mini")).toMatchObject({ value: "25%" })
   })
 
   it("groups Codex token usage by the team reporting timezone at day boundary", async () => {

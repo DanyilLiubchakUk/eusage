@@ -1902,6 +1902,34 @@ describe("claude plugin", () => {
       expect(last30).toBeTruthy()
       expect(last30.value).toContain("450 tokens")
       expect(last30.value).toContain("$1.50")
+
+      const chart = result.lines.find((l) => l.label === "Usage Trend")
+      expect(chart).toMatchObject({
+        type: "barChart",
+        note: "Estimated from local Claude logs at API rates.",
+        color: "#DE7356",
+      })
+      expect(chart.points[0]).toEqual({ label: "2/1", value: 300, valueLabel: "300 tokens" })
+    })
+
+    it("adds Claude model percentage lines from ccusage daily model totals", async () => {
+      const ctx = makeProbeCtx({
+        ccusageResult: okUsage([
+          {
+            date: "2026-02-01",
+            totalTokens: 400,
+            models: {
+              "claude-sonnet-4": { totalTokens: 300 },
+              "claude-opus-4": { inputTokens: 50, outputTokens: 50 },
+            },
+          },
+        ]),
+      })
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+
+      expect(result.lines.find((l) => l.label === "claude-sonnet-4")).toMatchObject({ value: "75%" })
+      expect(result.lines.find((l) => l.label === "claude-opus-4")).toMatchObject({ value: "25%" })
     })
 
     it("shows empty Today/Yesterday and Last 30 Days when today has no entry", async () => {

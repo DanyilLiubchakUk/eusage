@@ -1,9 +1,9 @@
 use aes_gcm::{
-    aead::{generic_array::typenum::U16, rand_core::RngCore, Aead, KeyInit, OsRng},
-    aes::Aes256,
     AesGcm, Nonce,
+    aead::{Aead, KeyInit, OsRng, generic_array::typenum::U16, rand_core::RngCore},
+    aes::Aes256,
 };
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use chrono_tz::Tz;
 use rquickjs::{Ctx, Exception, Function, Object};
@@ -1090,6 +1090,12 @@ pub fn inject_utils(ctx: &rquickjs::Ctx<'_>) -> rquickjs::Result<()> {
                     var line = { type: "badge", label: opts.label, text: opts.text };
                     if (opts.color) line.color = opts.color;
                     if (opts.subtitle) line.subtitle = opts.subtitle;
+                    return line;
+                },
+                barChart: function(opts) {
+                    var line = { type: "barChart", label: opts.label, points: opts.points || [] };
+                    if (opts.note) line.note = opts.note;
+                    if (opts.color) line.color = opts.color;
                     return line;
                 }
             };
