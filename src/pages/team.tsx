@@ -50,7 +50,7 @@ export function TeamPage({ plugins, onConnected }: TeamPageProps) {
   }
 
   return (
-    <div className="py-3 pb-5 space-y-4">
+    <div className="py-3 space-y-4">
       <header className="flex items-start justify-between gap-3 mb-2">
         <div>
           <h1 className="text-lg font-semibold">Team</h1>
@@ -130,10 +130,6 @@ function ConnectedTeamPanel({
           <InfoRow label="Team URL" value={connection.teamUrl} wide />
           <InfoRow label="Token" value={connection.tokenFingerprint} />
           <InfoRow label="Device ID" value={shortId(connection.deviceId)} />
-          <InfoRow
-            label="Last contact"
-            value={formatLastContact(connection.lastContactAt)}
-          />
         </div>
       </section>
 
@@ -156,7 +152,7 @@ function ConnectedTeamPanel({
         </div>
       </section>
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 mb-2">
         <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onCheckIn}>
           <RefreshCw className="size-4" />
           Check in
@@ -178,6 +174,13 @@ function ConnectedTeamPanel({
             {confirmDisconnect ? "Confirm" : "Disconnect"}
           </Button>
         </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground tabular-nums">
+        <span className="font-semibold">Last contact: </span>
+        <span className="truncate text-right">
+          {formatLastContact(connection.lastContactAt)}
+        </span>
       </div>
     </div>
   )
