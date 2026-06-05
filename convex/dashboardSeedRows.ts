@@ -6,6 +6,8 @@ type SeedSample = {
   dayOffset: number
 }
 
+const HISTORY_MULTIPLIERS = [0.78, 1.15, 0.86, 1.24, 0.72, 1.33, 0.97]
+
 type SeedProvider = {
   providerId: string
   summary: Record<string, unknown>
@@ -335,9 +337,14 @@ function historySamples(
 ) {
   return Array.from({ length: 7 }, (_, index) => {
     const dayOffset = index - 6
-    const scale = 0.55 + index * 0.08
+    const scale = HISTORY_MULTIPLIERS[index] * metricOffset(metricKey)
     return sample(metricKey, Math.round(latestValue * scale * 100) / 100, unit, source, dayOffset)
   })
+}
+
+function metricOffset(metricKey: string) {
+  const hash = [...metricKey].reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  return 1 + (hash % 9 - 4) / 100
 }
 
 function sample(
