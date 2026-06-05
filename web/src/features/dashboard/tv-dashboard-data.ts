@@ -1,4 +1,6 @@
 import {
+  buildTotalEstimatedCostSeries,
+  buildTotalTokenSeries,
   calculateCursorPool,
   calculateDashboardUsage,
   calculateQuotaPressure,
@@ -12,6 +14,7 @@ import {
   snapshotRangeTimestamp,
   type MetricDateRangeInput,
   type MetricRangeWindow,
+  type ProviderTotal,
   type UsageMetricSampleSourceRow,
   type UsageSnapshotSourceRow,
 } from "../../lib/metrics"
@@ -25,8 +28,8 @@ import {
 } from "./admin-overview-tables"
 import { formatCount, formatPercentDelta, formatProviderName, formatUsd } from "./dashboard-formatting"
 import { buildDashboardDateRangeBounds } from "./dashboard-date-range-bounds"
-import { dashboardDeviceName } from "./dashboard-device-name"
 import { dashboardSource, type ReadyDashboardState } from "./dashboard-source"
+import { buildTvSyncHealth, type TvSyncHealth } from "./tv-dashboard-sync-health"
 
 export const TV_SLIDE_DEFINITIONS = [
   { id: "team-overview", title: "Team Overview" },
@@ -89,7 +92,15 @@ export function buildTvDashboardModel(state: ReadyDashboardState, now: number) {
     visibleDeveloperIds: source.visibleDeveloperIds,
     visibleProviderIds: source.visibleProviderIds,
   })
-  const syncHealth = buildSyncHealth(source.developers)
+  const tokenSeries = buildTotalTokenSeries({
+    samples: source.metricSamples,
+    window: range.current,
+  })
+  const estimatedCostSeries = buildTotalEstimatedCostSeries({
+    samples: source.metricSamples,
+    window: range.current,
+  })
+  const syncHealth = buildTvSyncHealth(source.developers)
   const slideSettings = resolveTvSlideSettings(state.tvSettings?.slides)
   const providerRows = buildProviderStatusRows({
     providerIds: source.visibleProviderIds,
@@ -131,6 +142,8 @@ export function buildTvDashboardModel(state: ReadyDashboardState, now: number) {
         previousSampledUsage,
         cursorPool,
         quota,
+        tokenSeries,
+        estimatedCostSeries,
         syncHealth,
         providerRows,
         leaderboardRows,
@@ -193,7 +206,9 @@ type SlideBuildArgs = {
   previousSampledUsage: ReturnType<typeof calculateSampledUsage> | null
   cursorPool: ReturnType<typeof calculateCursorPool>
   quota: ReturnType<typeof calculateQuotaPressure>
-  syncHealth: SyncHealth
+  tokenSeries: ReturnType<typeof buildTotalTokenSeries>
+  estimatedCostSeries: ReturnType<typeof buildTotalEstimatedCostSeries>
+  syncHealth: TvSyncHealth
   providerRows: ProviderStatusRow[]
   leaderboardRows: DeveloperLeaderboardRow[]
   availableMetricRows: AvailableMetricRow[]
@@ -209,6 +224,10 @@ function buildSlideContent(id: TvSlideId, args: SlideBuildArgs) {
       kind: id,
       headline: `${formatCount(args.sampledUsage.tokensTotal)} tokens`,
       subtitle: `${formatUsd(args.sampledUsage.estimatedCostUsd)} estimated cost · ${formatPercentDelta(tokensPercentChange)}`,
+      trend: {
+        tokenPoints: args.tokenSeries.points,
+        estimatedCostPoints: args.estimatedCostSeries.points,
+      },
       summary: [
         ["Cursor pool", formatCursorPool(args.cursorPool)],
         ["Top provider", args.sampledUsage.topProvider ? formatProviderName(args.sampledUsage.topProvider.providerId) : "No data yet"],
@@ -241,6 +260,7 @@ function buildSlideContent(id: TvSlideId, args: SlideBuildArgs) {
     return {
       kind: id,
       rows: args.providerRows,
+      chartRows: providerChartRows(args.sampledUsage.providerTotals),
       freshnessLabel: formatUpdateFreshnessLabel(
         currentSnapshots(args.source.snapshots, args.range).map((row) => row.updatedAt),
         args.now
@@ -265,57 +285,6 @@ function buildSlideContent(id: TvSlideId, args: SlideBuildArgs) {
     kind: id,
     health: args.syncHealth,
     freshnessLabel: formatUpdateFreshnessLabel(args.syncHealth.timestamps, args.now),
-  }
-}
-
-type SyncHealth = {
-  connectedDevices: number
-  totalDevices: number
-  label: string
-  status: string
-  timestamps: number[]
-  rows: Array<{
-    developerName: string
-    deviceName: string
-    status: string
-    lastContactAt: number | null
-  }>
-}
-
-function buildSyncHealth(developers: ReadyDashboardState["developers"]): SyncHealth {
-  const rows = developers.flatMap((developer) =>
-    developer.devices.map((device) => ({
-      developerName: developer.displayName,
-      deviceName: dashboardDeviceName(device),
-      status: device.status,
-      lastContactAt: device.lastSyncAt ?? device.lastSeenAt ?? null,
-    }))
-  )
-  const connectedDevices = rows.filter((row) => row.status === "connected").length
-  const timestamps = rows
-    .map((row) => row.lastContactAt)
-    .filter((timestamp): timestamp is number => typeof timestamp === "number")
-
-  if (rows.length === 0) {
-    return {
-      connectedDevices: 0,
-      totalDevices: 0,
-      label: "No devices",
-      status: "No sync data yet",
-      timestamps: [],
-      rows: [],
-    }
-  }
-
-  const latestContactAt = timestamps.length > 0 ? Math.max(...timestamps) : null
-
-  return {
-    connectedDevices,
-    totalDevices: rows.length,
-    label: `${connectedDevices}/${rows.length} connected`,
-    status: `Latest ${formatTimestamp(latestContactAt)}`,
-    timestamps,
-    rows: rows.sort((left, right) => (right.lastContactAt ?? 0) - (left.lastContactAt ?? 0)),
   }
 }
 
@@ -351,6 +320,33 @@ function formatCursorPool(pool: ReturnType<typeof calculateCursorPool>) {
   return `${formatUsd(pool.remainingUsd)} remaining`
 }
 
+function providerChartRows(providers: ProviderTotal[]) {
+  return providers.map((provider) => ({
+    providerId: provider.providerId,
+    providerName: formatProviderName(provider.providerId),
+    value: provider.tokensTotal > 0 ? provider.tokensTotal : provider.creditsUsed,
+    label: provider.tokensTotal > 0
+      ? `${formatCount(provider.tokensTotal)} tokens`
+      : provider.creditsUsed > 0
+        ? `${formatCount(provider.creditsUsed)} credits`
+        : "Synced",
+    details: providerDetailLines(provider),
+  }))
+}
+
+function providerDetailLines(provider: ProviderTotal) {
+  const usageDetails = [
+    provider.tokensTotal > 0 ? `${formatCount(provider.tokensTotal)} tokens` : null,
+    provider.creditsUsed > 0 ? `${formatCount(provider.creditsUsed)} credits` : null,
+    provider.estimatedCostUsd > 0 ? `${formatUsd(provider.estimatedCostUsd)} API equivalent` : null,
+  ].filter((detail): detail is string => detail !== null)
+  const sampleDetails = provider.snapshotCount > 0
+    ? `${provider.snapshotCount} synced ${provider.snapshotCount === 1 ? "row" : "rows"}`
+    : "No synced rows"
+
+  return [usageDetails.length > 0 ? usageDetails.join(" / ") : "Synced with no usage total", sampleDetails]
+}
+
 function validDurationSeconds(value: unknown): number | null {
   if (
     typeof value !== "number" ||
@@ -381,14 +377,4 @@ function isRawSlide(value: unknown): value is {
 
 function isTvSlideId(id: string): id is TvSlideId {
   return TV_SLIDE_DEFINITIONS.some((slide) => slide.id === id)
-}
-
-function formatTimestamp(value: number | null | undefined) {
-  if (!value) return "Never"
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(value)
 }
