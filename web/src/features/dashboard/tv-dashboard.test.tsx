@@ -14,10 +14,11 @@ describe("tv dashboard", () => {
     render(<TvDashboardPlaceholder state={readyState} now={now} />)
 
     expect(screen.getByRole("heading", { name: "225 tokens" })).toBeInTheDocument()
-    expect(screen.getByText("Acme Team · $5.50 estimated cost · No comparison")).toBeInTheDocument()
+    expect(screen.getByText("Acme Team / $5.50 estimated cost · No comparison")).toBeInTheDocument()
     expect(screen.getByText("$60.00 remaining")).toBeInTheDocument()
-    expect(screen.getByRole("table", { name: "Available metrics" })).toBeInTheDocument()
-    expect(screen.getByRole("row", { name: /Quota pressure/ })).toBeInTheDocument()
+    expect(screen.getByLabelText("Tokens movement")).toBeInTheDocument()
+    expect(screen.getByLabelText("Cost movement")).toBeInTheDocument()
+    expect(screen.getByLabelText("Available metrics")).toHaveTextContent("Quota pressure")
     expect(screen.getByText("Updates: oldest 12s ago · newest 0s ago")).toBeInTheDocument()
   })
 
@@ -27,12 +28,16 @@ describe("tv dashboard", () => {
     render(<TvDashboardPlaceholder state={readyState} now={now} />)
 
     expect(screen.getByRole("heading", { name: "225 tokens" })).toBeInTheDocument()
+    expect(screen.getByLabelText("TV slide metadata")).toHaveTextContent("Team Overview")
+    expect(screen.getByLabelText("Primary slide metric")).toHaveTextContent("225 tokens")
 
     act(() => {
       vi.advanceTimersByTime(10_000)
     })
 
-    expect(screen.getByRole("heading", { name: "Developer Leaderboard" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Alex" })).toBeInTheDocument()
+    expect(screen.getByLabelText("TV slide metadata")).toHaveTextContent("Developer Leaderboard")
+    expect(screen.getByLabelText("Primary slide metric")).toHaveTextContent("Alex")
 
     fireEvent.click(screen.getByRole("button", { name: "Pause auto-rotate" }))
     expect(screen.getByRole("button", { name: "Resume auto-rotate" })).toBeInTheDocument()
@@ -41,13 +46,13 @@ describe("tv dashboard", () => {
       vi.advanceTimersByTime(10_000)
     })
 
-    expect(screen.getByRole("heading", { name: "Developer Leaderboard" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Alex" })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: "Next slide" }))
-    expect(screen.getByRole("heading", { name: "Provider Breakdown" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Cursor" })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: "Previous slide" }))
-    expect(screen.getByRole("heading", { name: "Developer Leaderboard" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Alex" })).toBeInTheDocument()
   })
 
   it("persists slide settings, order, and date range changes", async () => {
@@ -183,13 +188,26 @@ describe("tv dashboard", () => {
 
     expect(screen.getByText("Updates: oldest 12s ago · newest 0s ago")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Next slide" }))
-    expect(screen.getByRole("heading", { name: "Developer Leaderboard" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Alex" })).toBeInTheDocument()
     expect(screen.getByText("Updates: oldest 12s ago · newest 2s ago")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Next slide" }))
     fireEvent.click(screen.getByRole("button", { name: "Next slide" }))
     fireEvent.click(screen.getByRole("button", { name: "Next slide" }))
     expect(screen.getByRole("heading", { name: "1/1 connected" })).toBeInTheDocument()
     expect(screen.getByText("Updates: 12s ago")).toBeInTheDocument()
+  })
+
+  it("keeps provider details inside the chart instead of a bottom status band", () => {
+    render(<TvDashboardPlaceholder state={readyState} now={now} />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Next slide" }))
+    fireEvent.click(screen.getByRole("button", { name: "Next slide" }))
+
+    expect(screen.getByLabelText("TV slide metadata")).toHaveTextContent("Provider Breakdown")
+    expect(screen.getByText(/Across visible providers/)).toBeInTheDocument()
+    expect(screen.getByText("100 tokens / $3.50 API equivalent")).toBeInTheDocument()
+    expect(screen.getByText(/synced rows .* 45% API/)).toBeInTheDocument()
+    expect(screen.queryByLabelText("Provider status rows")).not.toBeInTheDocument()
   })
 
   it("renders no-data states for empty slides", () => {

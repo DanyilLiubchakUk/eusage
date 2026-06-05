@@ -33,11 +33,11 @@ function displaySourceQuery(token: string) {
 
 function TvLinkUnavailable() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[linear-gradient(135deg,_#08120e,_#10251d_58%,_#07100d)] px-8 text-[#f1f7f3] max-md:px-4">
-      <section className="mx-auto grid min-h-screen w-full max-w-7xl content-center justify-items-center gap-5 py-16 text-center" aria-labelledby="tv-title">
-        <p className="m-0 inline-flex w-fit rounded-full border border-[#9ad0b0]/40 bg-[#9ad0b0]/15 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[#9ad0b0]">TV</p>
-        <h1 id="tv-title" className="m-0 max-w-[14ch] text-7xl font-black leading-[0.92] text-white max-lg:text-6xl max-md:text-5xl">TV link unavailable</h1>
-        <p className="m-0 text-2xl text-[#b8c8bf] max-md:text-xl">Ask an admin to rotate the display link.</p>
+    <main className={tvDisplayShellClass}>
+      <section className={tvDisplayStateClass} aria-labelledby="tv-title">
+        <p className={tvDisplayEyebrowClass}>TV</p>
+        <h1 id="tv-title" className={tvDisplayHeadingClass}>TV link unavailable</h1>
+        <p className={tvDisplaySubtitleClass}>Ask an admin to rotate the display link.</p>
       </section>
     </main>
   )
@@ -45,12 +45,27 @@ function TvLinkUnavailable() {
 
 function TvDisplayLoading() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[linear-gradient(135deg,_#08120e,_#10251d_58%,_#07100d)] px-8 text-[#f1f7f3] max-md:px-4">
-      <section className="mx-auto grid min-h-screen w-full max-w-7xl content-center justify-items-center gap-5 py-16 text-center" aria-labelledby="tv-loading-title">
-        <p className="m-0 inline-flex w-fit rounded-full border border-[#9ad0b0]/40 bg-[#9ad0b0]/15 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[#9ad0b0]">TV</p>
-        <h1 id="tv-loading-title" className="m-0 max-w-[14ch] text-7xl font-black leading-[0.92] text-white max-lg:text-6xl max-md:text-5xl">Loading TV...</h1>
-        <p className="m-0 text-2xl text-[#b8c8bf] max-md:text-xl">Checking display link.</p>
+    <main className={tvDisplayShellClass}>
+      <section className={tvDisplayStateClass} aria-labelledby="tv-loading-title">
+        <p className={tvDisplayEyebrowClass}>TV</p>
+        <h1 id="tv-loading-title" className={tvDisplayHeadingClass}>Loading TV...</h1>
+        <p className={tvDisplaySubtitleClass}>Checking display link.</p>
       </section>
     </main>
   )
 }
+
+const tvDisplayShellClass =
+  "relative isolate h-screen max-h-screen overflow-hidden bg-[linear-gradient(140deg,_#06100c_0%,_#10251d_54%,_#07100d_100%)] px-[clamp(1rem,3vw,4rem)] text-[#eef8f1] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-[repeating-linear-gradient(90deg,_rgba(154,208,176,0.075)_0_1px,_transparent_1px_8rem)] after:pointer-events-none after:absolute after:inset-0 after:-z-10 after:bg-[repeating-linear-gradient(0deg,_rgba(154,208,176,0.055)_0_1px,_transparent_1px_8rem)]"
+
+const tvDisplayStateClass =
+  "mx-auto grid min-h-screen w-full max-w-[90rem] content-center justify-items-center gap-[clamp(1rem,1.8vw,2rem)] py-[clamp(2rem,6vh,6rem)] text-center"
+
+const tvDisplayEyebrowClass =
+  "m-0 inline-flex w-fit rounded-full border border-[#9ad0b0]/45 bg-[#9ad0b0]/15 px-[clamp(0.75rem,1vw,1.2rem)] py-[clamp(0.35rem,0.5vw,0.55rem)] text-[clamp(0.72rem,0.8vw,1rem)] font-black uppercase tracking-wide text-[#9ad0b0]"
+
+const tvDisplayHeadingClass =
+  "m-0 max-w-[12ch] break-words text-[clamp(3.2rem,8.2vw,11rem)] font-black leading-[0.9] text-[#eef8f1]"
+
+const tvDisplaySubtitleClass =
+  "m-0 max-w-[42ch] text-[clamp(1.15rem,1.7vw,2.45rem)] font-bold leading-tight text-[#cdebd8]"
