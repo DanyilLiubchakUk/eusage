@@ -31,27 +31,43 @@ export function DashboardPanel({
   title: string
   meta: string
   children: ReactNode
-  height?: "short" | "medium" | "tall" | "chart"
+  height?: "compact" | "short" | "medium" | "tall" | "chart"
   className?: string
 }) {
+  const compact = height === "compact"
+
   return (
     <Card
-      className={cn("h-full min-w-0 overflow-hidden", panelHeightClass[height], className)}
+      className={cn(
+        compact ? "min-w-0" : "h-full min-w-0",
+        compact ? "overflow-visible" : "overflow-hidden",
+        panelHeightClass[height],
+        className
+      )}
+      size={compact ? "sm" : "default"}
       role="region"
       aria-label={title}
     >
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
+      <CardContent className={cn("flex min-h-0 flex-1 flex-col", compact ? "gap-3" : "gap-4")}>
         <div className="flex shrink-0 items-start justify-between gap-4">
           <strong className="min-w-0 text-base text-foreground">{title}</strong>
           <span className="max-w-[55%] break-words text-right text-sm text-muted-foreground">{meta}</span>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">{children}</div>
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            compact ? "overflow-visible" : "overflow-y-auto overscroll-contain pr-1"
+          )}
+        >
+          {children}
+        </div>
       </CardContent>
     </Card>
   )
 }
 
 const panelHeightClass = {
+  compact: "min-h-32 max-h-48",
   short: "min-h-40 max-h-64",
   medium: "min-h-72 max-h-[26rem]",
   tall: "min-h-[22rem] max-h-[34rem]",
@@ -261,7 +277,7 @@ export function ClearTeamDataPanel({
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-2">
       <p className="m-0 text-sm text-muted-foreground">
         Deletes: Developers, Tokens, Devices, Usage, Providers, Raw payloads, Sync errors.
       </p>

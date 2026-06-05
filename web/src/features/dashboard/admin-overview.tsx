@@ -217,8 +217,8 @@ export function AdminOverview({
         </DashboardPanel>
       </section>
 
-      <section className="grid grid-cols-2 gap-5 max-lg:grid-cols-1">
-        <DashboardPanel title="Reporting timezone" meta="Team day boundary" height="short">
+      <section className="grid grid-cols-2 items-start gap-5 max-lg:grid-cols-1">
+        <DashboardPanel title="Reporting timezone" meta="Team day boundary" height="compact">
           <AdminReportingTimeZoneControl
             value={model.reportingTimeZone}
             onChange={onReportingTimeZoneChange}
@@ -227,12 +227,12 @@ export function AdminOverview({
 
         <div className="grid gap-5">
           {onSeedMockData ? (
-            <DashboardPanel title="Seed mock data" meta="Local dev only" height="short">
+            <DashboardPanel title="Seed mock data" meta="Local dev only" height="compact">
               <SeedMockDataPanel onSeedMockData={onSeedMockData} />
             </DashboardPanel>
           ) : null}
 
-          <DashboardPanel title="Delete data" meta="Clear synced team records" height="short">
+          <DashboardPanel title="Delete data" meta="Clear synced team records" height="compact">
             <ClearTeamDataPanel onClearTeamData={onClearTeamData} />
           </DashboardPanel>
         </div>

@@ -29,7 +29,7 @@ export function SeedMockDataPanel({
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-2">
       <p className="m-0 text-sm text-muted-foreground">
         Replaces prior local seed rows for Cursor, Codex, Claude, and JetBrains.
       </p>
