@@ -1,4 +1,4 @@
-import { Check } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
 import { useEffect, useState } from "react"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
@@ -80,31 +80,40 @@ export function AdminDateRangeControls({
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2", isTv && "rounded-lg border border-white/10 bg-white/5 p-2")} aria-label="Date range controls">
-      <select
-        className={cn(
-          "h-9 rounded-md border border-input bg-background px-3 text-sm font-semibold text-foreground shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
-          isTv && "border-white/20 bg-black/30 text-white [color-scheme:dark] focus-visible:border-[#9ad0b0]/70 focus-visible:ring-[#9ad0b0]/25"
-        )}
-        value={value.preset}
-        aria-label="Date range"
-        disabled={!onChange || isSaving}
-        onChange={(event) => {
-          const preset = event.target.value
-          if (preset === "custom") {
-            const next = normalizeCustomDays(custom, dateBounds)
-            setCustom(next)
-            void save({ preset, ...next })
-            return
-          }
-          void save({ preset: preset as Exclude<MetricDateRangeInput["preset"], "custom"> })
-        }}
-      >
-        {presets.map(([preset, label]) => (
-          <option key={preset} value={preset}>
-            {label}
-          </option>
-        ))}
-      </select>
+      <div className="relative inline-flex">
+        <select
+          className={cn(
+            "h-9 appearance-none rounded-md border border-input bg-background py-0 pr-9 pl-3 text-sm font-semibold text-foreground shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
+            isTv && "border-white/20 bg-black/30 text-white [color-scheme:dark] focus-visible:border-[#9ad0b0]/70 focus-visible:ring-[#9ad0b0]/25"
+          )}
+          value={value.preset}
+          aria-label="Date range"
+          disabled={!onChange || isSaving}
+          onChange={(event) => {
+            const preset = event.target.value
+            if (preset === "custom") {
+              const next = normalizeCustomDays(custom, dateBounds)
+              setCustom(next)
+              void save({ preset, ...next })
+              return
+            }
+            void save({ preset: preset as Exclude<MetricDateRangeInput["preset"], "custom"> })
+          }}
+        >
+          {presets.map(([preset, label]) => (
+            <option key={preset} value={preset}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground",
+            isTv && "text-white/70"
+          )}
+        />
+      </div>
 
       {value.preset === "custom" ? (
         <form

@@ -63,44 +63,46 @@ export function AdminOverview({
       </header>
 
       <section
-        className="grid grid-cols-[minmax(16rem,max-content)_minmax(0,1fr)] items-start justify-between gap-x-16 gap-y-4 rounded-lg border border-border bg-card/70 p-4 shadow-xs max-lg:grid-cols-1"
-        role="region"
-        aria-label="Dashboard filters"
-      >
-        <div className="grid min-w-0 gap-2">
-          <AdminDateRangeControls
-            value={model.dateRange}
-            bounds={model.dateBounds}
-            onChange={onDateRangeChange}
-          />
-        </div>
-        <div className="grid min-w-0 max-w-full justify-self-end gap-2 overflow-hidden max-lg:justify-self-auto">
-          <AdminProviderVisibilityControls
-            providers={model.providerFilters}
-            onChange={onProviderVisibilityChange}
-          />
-        </div>
-      </section>
-
-      <section
-        className="grid auto-rows-fr grid-cols-4 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1"
+        className="grid grid-cols-4 items-start gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1"
         aria-label="KPI strip"
       >
         {model.kpis.map((item) => (
-          <Card key={item.label} className="h-full" size="sm">
-            <CardContent className="grid h-full min-h-28 content-start gap-3">
-              <span className="text-xs font-extrabold uppercase tracking-wide text-primary">{item.label}</span>
-              <div className="grid gap-1">
-                <strong className="break-words text-2xl font-extrabold leading-tight text-foreground max-xl:text-xl">
+          <Card key={item.label} className="min-w-0" size="sm">
+            <CardContent className="grid min-w-0 content-start gap-3">
+              <span className="truncate text-xs font-extrabold uppercase tracking-wide text-primary">
+                {item.label}
+              </span>
+              <div className="grid min-w-0 gap-1">
+                <strong className="truncate text-xl font-extrabold leading-6 text-foreground max-xl:text-lg">
                   {item.value}
                 </strong>
-                <span className="break-words text-sm font-semibold leading-5 text-foreground/80">
+                <span className="truncate text-sm font-semibold leading-5 text-foreground/80">
                   {item.secondary}
                 </span>
               </div>
             </CardContent>
           </Card>
         ))}
+      </section>
+
+      <section
+        className="grid grid-cols-[minmax(16rem,max-content)_minmax(0,1fr)] items-center justify-between gap-x-16 gap-y-3 max-lg:grid-cols-1 -mb-2.5"
+        role="region"
+        aria-label="Dashboard filters"
+      >
+        <div className="grid min-w-0">
+          <AdminDateRangeControls
+            value={model.dateRange}
+            bounds={model.dateBounds}
+            onChange={onDateRangeChange}
+          />
+        </div>
+        <div className="grid min-w-0 max-w-full justify-self-end overflow-hidden max-lg:justify-self-auto">
+          <AdminProviderVisibilityControls
+            providers={model.providerFilters}
+            onChange={onProviderVisibilityChange}
+          />
+        </div>
       </section>
 
       <section className="grid gap-5">
