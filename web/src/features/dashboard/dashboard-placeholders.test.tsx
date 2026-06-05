@@ -153,6 +153,7 @@ describe("dashboard placeholders", () => {
     await user.click(screen.getByRole("button", { name: "Apply pending reporting timezone" }))
 
     expect(changes).toEqual(["America/New_York"])
+    expect(screen.getAllByText("Reporting timezone")).toHaveLength(1)
     expect(
       screen.getByText("Use IANA names. Examples: America/New_York, America/Los_Angeles.")
     ).toBeInTheDocument()

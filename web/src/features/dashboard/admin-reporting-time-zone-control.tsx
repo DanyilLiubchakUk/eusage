@@ -2,7 +2,7 @@ import { Check } from "lucide-react"
 import { useEffect, useState } from "react"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { InputWithAction } from "@/components/ui/input-with-action"
 import { cn } from "@/lib/utils"
 
 type AdminReportingTimeZoneControlProps = {
@@ -54,20 +54,23 @@ export function AdminReportingTimeZoneControl({
 
   return (
     <form
-      className="grid gap-3"
+      className="grid gap-2"
       noValidate
       onSubmit={(event) => {
         event.preventDefault()
         void save()
       }}
     >
-      <label className="grid gap-2">
-        <span className="text-xs font-extrabold uppercase tracking-wide text-primary">Reporting timezone</span>
-        <Input
+      <div className="grid gap-2">
+        <p id={helperId} className="m-0 text-sm text-muted-foreground">
+          Use IANA names. Examples: America/New_York, America/Los_Angeles.
+        </p>
+        <InputWithAction
           value={draft}
           disabled={!onChange || isSaving}
           autoComplete="off"
           maxLength={REPORTING_TIME_ZONE_MAX_LENGTH}
+          aria-label="Reporting timezone"
           aria-describedby={error ? `${helperId} ${errorId}` : helperId}
           aria-invalid={Boolean(error)}
           placeholder="America/New_York"
@@ -76,26 +79,36 @@ export function AdminReportingTimeZoneControl({
             setDraft(event.target.value)
             setError(null)
           }}
+          action={
+            <Button
+              className={cn(
+                "h-full w-9 shrink-0 rounded-l-none rounded-r-md border-0 shadow-none",
+                hasPendingChange
+                  ? "admin-date-range-apply-pending bg-primary text-primary-foreground hover:bg-primary/80"
+                  : "bg-primary/10 text-primary hover:bg-primary/15"
+              )}
+              size="icon-sm"
+              variant="ghost"
+              type="submit"
+              aria-label={
+                hasPendingChange ? "Apply pending reporting timezone" : "Apply reporting timezone"
+              }
+              title={
+                hasPendingChange ? "Apply pending reporting timezone" : "Apply reporting timezone"
+              }
+              disabled={!onChange || isSaving || !hasPendingChange}
+            >
+              <Check size={15} aria-hidden="true" />
+            </Button>
+          }
         />
-      </label>
-      <Button
-        className={cn("w-fit", hasPendingChange && "admin-date-range-apply-pending ring-2 ring-primary/30")}
-        size="icon-sm"
-        variant={hasPendingChange ? "default" : "outline"}
-        type="submit"
-        aria-label={
-          hasPendingChange ? "Apply pending reporting timezone" : "Apply reporting timezone"
-        }
-        title={hasPendingChange ? "Apply pending reporting timezone" : "Apply reporting timezone"}
-        disabled={!onChange || isSaving || !hasPendingChange}
-      >
-        <Check size={15} aria-hidden="true" />
-      </Button>
-      <p id={helperId} className="m-0 text-sm text-muted-foreground">
-        Use IANA names. Examples: America/New_York, America/Los_Angeles.
-      </p>
+      </div>
       {error ? (
-        <span id={errorId} className="rounded-md bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive" role="alert">
+        <span
+          id={errorId}
+          className="rounded-md bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive"
+          role="alert"
+        >
           {error}
         </span>
       ) : null}
