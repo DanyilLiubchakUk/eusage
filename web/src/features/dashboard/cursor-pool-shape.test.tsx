@@ -26,7 +26,7 @@ describe("PoolShapeFigure", () => {
     expect(svg.querySelector('[stroke="#f4cf9f"]')).toBeNull()
     expect(svg.querySelector('[stroke="#b6c6ae"]')).toHaveAttribute("stroke-width", "3")
     expect(svg.querySelector('[stop-color="#caa174"]')).toBeNull()
-    expect(svg.querySelector('[stop-color="#3f5947"]')).toBeInTheDocument()
+    expect([...svg.querySelectorAll("stop")].some((stop) => stop.getAttribute("stop-color") === "#0c1c17")).toBe(true)
     expect(screen.getByTestId("cursor-pool-water-floaters")).toBeInTheDocument()
 
     rerender(

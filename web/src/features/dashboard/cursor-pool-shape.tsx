@@ -55,7 +55,7 @@ export function PoolShapeFigure({
           <linearGradient id={`${id}-floor`} x1="68" y1="36" x2="232" y2="194" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stopColor="#060f0c" />
             <stop offset="55%" stopColor="#06120e" />
-            <stop offset="100%" stopColor="#3f5947" />
+            <stop offset="100%" stopColor="#0c1c17" />
           </linearGradient>
           <clipPath id={`${id}-water-clip`}>
             <path d={waterPathA} transform={waterTransform}>
