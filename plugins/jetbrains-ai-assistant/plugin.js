@@ -383,6 +383,13 @@
 
     return {
       lines: lines,
+      providerAccountDetections: [{
+        providerId: PROVIDER_ID,
+        providerName: "JetBrains AI Assistant",
+        identityKind: "localProfilePath",
+        identityValue: chosen.path,
+        identityConfidence: "medium",
+      }],
       sourceFacts: buildSourceFacts(ctx, chosen, scale, usedPercent, resetsAt, duration),
       rawPayload: buildRawPayload(chosen),
     }

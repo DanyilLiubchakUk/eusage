@@ -402,6 +402,15 @@ describe("codex plugin", () => {
         todayTokens: 1234,
         todayEstimatedCostUsd: 0.42,
       })
+      expect(result.providerAccountDetections).toEqual([
+        {
+          providerId: "codex",
+          providerName: "Codex",
+          identityKind: "providerAccountId",
+          identityValue: "acct-1",
+          identityConfidence: "high",
+        },
+      ])
       expect(result.sourceFacts.metricSamples).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -439,6 +448,7 @@ describe("codex plugin", () => {
       )
       expect(result.rawPayload.usage.accessToken).toBe("[REDACTED]")
       expect(JSON.stringify(result.rawPayload)).not.toContain(accessToken)
+      expect(JSON.stringify(result.rawPayload)).not.toContain("acct-1")
     } finally {
       vi.useRealTimers()
     }

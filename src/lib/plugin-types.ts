@@ -1,3 +1,5 @@
+import type { ProviderAccountDetectionCandidate } from "@/lib/provider-account-registry"
+
 export type ProgressFormat =
   | { kind: "percent" }
   | { kind: "dollars" }
@@ -40,6 +42,7 @@ export type PluginOutput = {
   displayName: string
   plan?: string
   lines: MetricLine[]
+  providerAccountDetections?: ProviderAccountDetectionCandidate[]
   iconUrl: string
 }
 

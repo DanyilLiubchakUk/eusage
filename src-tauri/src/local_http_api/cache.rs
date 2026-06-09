@@ -364,6 +364,7 @@ mod tests {
                 color: None,
                 subtitle: None,
             }],
+            provider_account_detections: Vec::new(),
             source_facts: None,
             raw_payload: None,
             icon_url: String::new(),

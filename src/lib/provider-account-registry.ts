@@ -29,14 +29,17 @@ export type ProviderAccountRegistry = {
   accounts: LocalProviderAccount[]
 }
 
-export type ProviderAccountDetection = {
+export type ProviderAccountDetectionCandidate = {
   providerId: string
   providerName: string
   identityKind: ProviderAccountIdentityKind
   identityValue: string
   identityConfidence: ProviderAccountIdentityConfidence
-  localSalt: string
   label?: string
+}
+
+export type ProviderAccountDetection = ProviderAccountDetectionCandidate & {
+  localSalt: string
 }
 
 export type SyncProviderAccountRegistryInput = {

@@ -1,4 +1,6 @@
 (function () {
+  const PROVIDER_ID = "claude"
+  const PROVIDER_NAME = "Claude"
   const DEFAULT_CLAUDE_HOME = "~/.claude"
   const CRED_FILE_NAME = ".credentials.json"
   const KEYCHAIN_SERVICE_PREFIX = "Claude Code"
@@ -369,6 +371,42 @@
       return scopes.indexOf("user:profile") !== -1
     }
     return true
+  }
+
+  function providerAccountDetections(ctx, creds) {
+    if (!creds) return []
+
+    if (creds.source === "file") {
+      return [{
+        providerId: PROVIDER_ID,
+        providerName: PROVIDER_NAME,
+        identityKind: "localProfilePath",
+        identityValue: getClaudeHomePath(ctx),
+        identityConfidence: "medium",
+      }]
+    }
+
+    if (creds.serviceName) {
+      return [{
+        providerId: PROVIDER_ID,
+        providerName: PROVIDER_NAME,
+        identityKind: "credentialSource",
+        identityValue: creds.serviceName,
+        identityConfidence: "medium",
+      }]
+    }
+
+    if (creds.inferenceOnly) {
+      return [{
+        providerId: PROVIDER_ID,
+        providerName: PROVIDER_NAME,
+        identityKind: "credentialSource",
+        identityValue: "env:CLAUDE_CODE_OAUTH_TOKEN",
+        identityConfidence: "low",
+      }]
+    }
+
+    return []
   }
 
   function saveCredentials(ctx, source, serviceName, fullData) {
@@ -1378,6 +1416,7 @@
     return {
       plan: plan,
       lines: lines,
+      providerAccountDetections: providerAccountDetections(ctx, creds),
       sourceFacts: buildClaudeSourceFacts(ctx, data, usageResult, plan, creds),
       rawPayload: buildClaudeRawPayload(data, usageResult, creds),
     }

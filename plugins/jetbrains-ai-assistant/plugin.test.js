@@ -101,8 +101,18 @@ describe("jetbrains-ai-assistant plugin", () => {
       periodStart: Date.parse("2098-12-02T00:00:00.000Z"),
       periodEnd: Date.parse("2099-01-01T00:00:00.000Z"),
     })
+    expect(result.providerAccountDetections).toEqual([
+      {
+        providerId: "jetbrains-ai-assistant",
+        providerName: "JetBrains AI Assistant",
+        identityKind: "localProfilePath",
+        identityValue: DARWIN_PATH,
+        identityConfidence: "medium",
+      },
+    ])
     expect(result.rawPayload.quotaInfo.accessToken).toBe("[REDACTED]")
     expect(JSON.stringify(result.rawPayload)).not.toContain("secret-token")
+    expect(JSON.stringify(result.rawPayload)).not.toContain(DARWIN_PATH)
   })
 
   it("falls back to quota until when nextRefill is missing", async () => {

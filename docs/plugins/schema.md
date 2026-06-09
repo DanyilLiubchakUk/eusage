@@ -139,7 +139,7 @@ globalThis.__openusage_plugin = {
 `probe(ctx)` must return (or resolve to):
 
 ```javascript
-{ lines: MetricLine[] }
+{ lines: MetricLine[], providerAccountDetections?: ProviderAccountDetection[] }
 ```
 
 ### Line Types
@@ -174,6 +174,28 @@ type MetricLine =
 - `subtitle`: optional text displayed below the line in smaller muted text
 - `resetsAt`: optional ISO timestamp (UI shows "Resets in ..." automatically)
 - `periodDurationMs`: optional period length in milliseconds (enables pace indicator when combined with `resetsAt`)
+
+### Provider Account Detections
+
+Supported providers may return local-only Provider Account identity candidates:
+
+```typescript
+type ProviderAccountDetection = {
+  providerId: string
+  providerName: string
+  identityKind:
+    | "providerAccountId"
+    | "providerEmail"
+    | "providerUserId"
+    | "localProfilePath"
+    | "credentialSource"
+  identityValue: string
+  identityConfidence: "high" | "medium" | "low"
+  label?: string
+}
+```
+
+These records are used by desktop local registry code before upload sharing exists. Do not put them inside `sourceFacts`, `rawPayload`, or team upload payloads.
 
 ### Text Line
 

@@ -1,4 +1,6 @@
 (function () {
+  const PROVIDER_ID = "codex"
+  const PROVIDER_NAME = "Codex"
   const AUTH_FILE = "auth.json"
   const CONFIG_AUTH_PATHS = ["~/.config/codex", "~/.codex"]
   const KEYCHAIN_SERVICE = "Codex Auth"
@@ -293,6 +295,23 @@
       headers,
       timeoutMs: 10000,
     })
+  }
+
+  function providerAccountDetections(auth) {
+    const accountId =
+      auth &&
+      auth.tokens &&
+      typeof auth.tokens.account_id === "string"
+        ? auth.tokens.account_id.trim()
+        : ""
+    if (!accountId) return []
+    return [{
+      providerId: PROVIDER_ID,
+      providerName: PROVIDER_NAME,
+      identityKind: "providerAccountId",
+      identityValue: accountId,
+      identityConfidence: "high",
+    }]
   }
 
   function readPercent(value) {
@@ -1163,6 +1182,7 @@
       return {
         plan: plan,
         lines: lines,
+        providerAccountDetections: providerAccountDetections(auth),
         sourceFacts: buildCodexSourceFacts(ctx, resp, data, tokenUsageResult),
         rawPayload: buildCodexRawPayload(resp, data, tokenUsageResult),
       }

@@ -1,5 +1,7 @@
 use crate::plugin_engine::host_api;
 use crate::plugin_engine::manifest::LoadedPlugin;
+use crate::plugin_engine::provider_account;
+pub use crate::plugin_engine::provider_account::ProviderAccountDetection;
 use rquickjs::{Array, Context, Ctx, Error, Function, Object, Promise, Runtime, Value};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -68,6 +70,7 @@ pub struct PluginOutput {
     pub display_name: String,
     pub plan: Option<String>,
     pub lines: Vec<MetricLine>,
+    pub provider_account_detections: Vec<ProviderAccountDetection>,
     pub source_facts: Option<ProviderSourceFacts>,
     pub raw_payload: Option<JsonValue>,
     pub icon_url: String,
@@ -269,6 +272,9 @@ fn run_probe_with_timeout(
             display_name,
             plan,
             lines,
+            provider_account_detections: provider_account::parse_provider_account_detections(
+                parse_optional_json_property(&result, "providerAccountDetections"),
+            ),
             source_facts: parse_source_facts(&result),
             raw_payload: parse_optional_json_property(&result, "rawPayload"),
             icon_url,
@@ -757,6 +763,7 @@ fn error_output(plugin: &LoadedPlugin, message: String) -> PluginOutput {
         display_name: plugin.manifest.name.clone(),
         plan: None,
         lines: vec![error_line(message)],
+        provider_account_detections: Vec::new(),
         source_facts: None,
         raw_payload: None,
         icon_url: plugin.icon_data_url.clone(),
@@ -960,6 +967,14 @@ mod tests {
                                 }
                             }]
                         },
+                        providerAccountDetections: [{
+                            providerId: "cursor",
+                            providerName: "Cursor",
+                            identityKind: "providerEmail",
+                            identityValue: " cursor@example.com ",
+                            identityConfidence: "high",
+                            label: " Cursor Work "
+                        }],
                         rawPayload: {
                             usage: {
                                 planUsage: {
@@ -989,6 +1004,17 @@ mod tests {
             "UTC"
         );
         assert_eq!(facts.summary["provider"]["cursor"]["pooledLimitUsd"], 500.0);
+        assert_eq!(
+            output.provider_account_detections,
+            vec![ProviderAccountDetection {
+                provider_id: "cursor".to_string(),
+                provider_name: "Cursor".to_string(),
+                identity_kind: provider_account::ProviderAccountIdentityKind::ProviderEmail,
+                identity_value: "cursor@example.com".to_string(),
+                identity_confidence: provider_account::ProviderAccountIdentityConfidence::High,
+                label: Some("Cursor Work".to_string()),
+            }]
+        );
         assert_eq!(
             output.raw_payload.unwrap()["usage"]["planUsage"]["apiPercentUsed"],
             17.0
