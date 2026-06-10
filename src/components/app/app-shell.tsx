@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { AppContent, type AppContentActionProps } from "@/components/app/app-content"
 import { PanelFooter } from "@/components/panel-footer"
@@ -25,6 +26,7 @@ type AppShellProps = {
   isPluginRefreshAvailable: (pluginId: string) => boolean
   onNavReorder: (orderedIds: string[]) => void
   appContentProps: AppContentActionProps
+  shellOverlay?: ReactNode
 }
 
 export function AppShell({
@@ -38,6 +40,7 @@ export function AppShell({
   isPluginRefreshAvailable,
   onNavReorder,
   appContentProps,
+  shellOverlay,
 }: AppShellProps) {
   const {
     activeView,
@@ -134,6 +137,7 @@ export function AppShell({
             />
           </div>
         </div>
+        {shellOverlay}
       </div>
     </div>
   )

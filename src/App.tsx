@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { AppShell } from "@/components/app/app-shell"
+import { ProviderAccountSharingPrompt } from "@/components/team/provider-account-sharing-prompt"
 import { useAppPluginViews } from "@/hooks/app/use-app-plugin-views"
 import { useProbe } from "@/hooks/app/use-probe"
 import { useProviderAccountSharing } from "@/hooks/app/use-provider-account-sharing"
@@ -209,8 +210,11 @@ function App() {
     resetProviderAccountSharing,
     handleProviderAccountSharingChange,
   } = useProviderAccountSharing(providerAccountGroups)
+  const [showProviderAccountSharingPrompt, setShowProviderAccountSharingPrompt] =
+    useState(false)
 
   const handleTeamConnected = useCallback(() => {
+    setShowProviderAccountSharingPrompt(true)
     handleForceRefreshAll()
   }, [handleForceRefreshAll])
 
@@ -278,6 +282,17 @@ function App() {
       onPluginContextAction={handlePluginContextAction}
       isPluginRefreshAvailable={isPluginRefreshAvailable}
       onNavReorder={handleReorder}
+      shellOverlay={
+        showProviderAccountSharingPrompt ? (
+          <ProviderAccountSharingPrompt
+            groups={providerAccountGroups}
+            onClose={() => setShowProviderAccountSharingPrompt(false)}
+            onShareSelected={(localAccountFingerprint) =>
+              handleProviderAccountSharingChange(localAccountFingerprint, true)
+            }
+          />
+        ) : null
+      }
       appContentProps={{
         onRetryPlugin: handleRetryPlugin,
         onReorder: handleReorder,

@@ -320,6 +320,7 @@ describe("TeamPage", () => {
       />,
     );
   }
+
 });
 
 function connectedSettings() {

@@ -4,7 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ProviderAccountSharingSettings } from "@/lib/provider-account-sharing";
 import type { LocalProviderAccount } from "@/lib/provider-account-registry";
-import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings";
+import {
+  getShareableProviderAccountGroups,
+  type ProviderAccountSettingsGroup,
+} from "@/lib/provider-account-settings";
 
 type ProviderAccountSharingSectionProps = {
   groups: ProviderAccountSettingsGroup[];
@@ -19,12 +22,7 @@ export function ProviderAccountSharingSection({
   syncError,
   onSharingChange,
 }: ProviderAccountSharingSectionProps) {
-  const shareableGroups = groups
-    .map((group) => ({
-      ...group,
-      accounts: group.visibleAccounts,
-    }))
-    .filter((group) => group.accounts.length > 0);
+  const shareableGroups = getShareableProviderAccountGroups(groups);
   const sharedFingerprints = new Set(
     sharingSettings.sharedLocalAccountFingerprints,
   );

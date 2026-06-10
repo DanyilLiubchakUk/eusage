@@ -15,6 +15,13 @@ export type ProviderAccountSettingsGroup = {
   notDetectedAccounts: LocalProviderAccount[]
 }
 
+export type ShareableProviderAccountGroup = {
+  providerId: string
+  providerName: string
+  providerIconUrl?: string
+  accounts: LocalProviderAccount[]
+}
+
 export function buildProviderAccountSettingsGroups({
   accounts,
   providers,
@@ -48,6 +55,19 @@ export function buildProviderAccountSettingsGroups({
       }
     })
     .sort((a, b) => compareGroups(a, b, providerOrder))
+}
+
+export function getShareableProviderAccountGroups(
+  groups: ProviderAccountSettingsGroup[]
+): ShareableProviderAccountGroup[] {
+  return groups
+    .map((group) => ({
+      providerId: group.providerId,
+      providerName: group.providerName,
+      providerIconUrl: group.providerIconUrl,
+      accounts: group.visibleAccounts,
+    }))
+    .filter((group) => group.accounts.length > 0)
 }
 
 function sortAccounts(accounts: LocalProviderAccount[]): LocalProviderAccount[] {
