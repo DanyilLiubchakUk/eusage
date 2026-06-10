@@ -245,6 +245,11 @@ vi.mock("@/lib/settings", async () => {
   }
 })
 
+vi.mock("@/lib/provider-account-registry-store", () => ({
+  getOrCreateProviderAccountLocalSalt: vi.fn(async () => "test-provider-account-salt"),
+  syncSavedProviderAccountRegistry: vi.fn(async () => ({ ok: true, value: { accounts: [] } })),
+}))
+
 import { App } from "@/App"
 import { useAppPluginStore } from "@/stores/app-plugin-store"
 import { useAppPreferencesStore } from "@/stores/app-preferences-store"

@@ -14,6 +14,7 @@ import {
   type ProviderAccountRegistryResult,
 } from "@/lib/provider-account-registry"
 import {
+  getOrCreateProviderAccountLocalSalt,
   loadProviderAccountRegistry,
   saveProviderAccountRegistry,
   syncSavedProviderAccountRegistry,
@@ -247,6 +248,17 @@ describe("provider account registry", () => {
 
     expect(storeState.get("providerAccountRegistry")).toEqual(registry)
     await expect(loadProviderAccountRegistry()).resolves.toEqual(registry)
+    expect(storeSaveMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("creates and reuses the persistent local salt", async () => {
+    const first = await getOrCreateProviderAccountLocalSalt()
+    const second = await getOrCreateProviderAccountLocalSalt()
+
+    expect(first).toEqual(expect.any(String))
+    expect(first.length).toBeGreaterThan(0)
+    expect(second).toBe(first)
+    expect(storeState.get("providerAccountLocalSalt")).toBe(first)
     expect(storeSaveMock).toHaveBeenCalledTimes(1)
   })
 
