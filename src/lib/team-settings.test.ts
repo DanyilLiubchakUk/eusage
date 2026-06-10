@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   clearTeamConnectionSettings,
+  loadTeamDeviceId,
   loadTeamConnectionSettings,
   normalizeTeamConnectionSettings,
   saveTeamConnectionSettings,
@@ -65,8 +66,10 @@ describe("team settings", () => {
 
     const stored = storeState.get("teamConnection")
     expect(stored).toEqual(connection)
+    expect(storeState.get("teamDeviceId")).toBe("device-1")
     expect(JSON.stringify(stored)).not.toContain("eusage_dev_")
     await expect(loadTeamConnectionSettings()).resolves.toEqual(connection)
+    await expect(loadTeamDeviceId()).resolves.toBe("device-1")
   })
 
   it("rejects invalid stored metadata", () => {
@@ -107,7 +110,7 @@ describe("team settings", () => {
     })
   })
 
-  it("clears the team connection key", async () => {
+  it("clears the team connection key without resetting the device ID", async () => {
     storeState.set("teamConnection", connection)
 
     await clearTeamConnectionSettings()
@@ -115,5 +118,6 @@ describe("team settings", () => {
     expect(storeDeleteMock).toHaveBeenCalledWith("teamConnection")
     expect(storeSaveMock).toHaveBeenCalledTimes(1)
     await expect(loadTeamConnectionSettings()).resolves.toBeNull()
+    await expect(loadTeamDeviceId()).resolves.toBe("device-1")
   })
 })

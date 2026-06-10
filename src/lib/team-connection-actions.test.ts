@@ -19,9 +19,11 @@ const endpoints = {
 function createDeps(seed?: {
   connection?: TeamConnectionSettings | null
   token?: string | null
+  deviceId?: string | null
 }) {
   let connection = seed?.connection ?? null
   let token = seed?.token ?? null
+  let deviceId = seed?.deviceId ?? connection?.deviceId ?? null
 
   const deps = {
     fetchTeamConfig: vi.fn(async () => ({
@@ -74,10 +76,13 @@ function createDeps(seed?: {
       token = null
     }),
     loadTeamConnectionSettings: vi.fn(async () => connection),
+    loadTeamDeviceId: vi.fn(async () => deviceId),
     saveTeamConnectionSettings: vi.fn(async (value: TeamConnectionSettings) => {
       connection = value
+      deviceId = value.deviceId
     }),
     clearTeamConnectionSettings: vi.fn(async () => {
+      deviceId = connection?.deviceId ?? deviceId
       connection = null
     }),
     clearProviderAccountSharingSettings: vi.fn(async () => undefined),
@@ -227,6 +232,25 @@ describe("team connection actions", () => {
     expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
     expect(fake.token).toBeNull()
     expect(fake.connection).toBeNull()
+  })
+
+  it("reuses the saved device ID after local disconnect", async () => {
+    const fake = createDeps({
+      deviceId: "device-1",
+    })
+
+    const result = await connectTeam(
+      "eusage://connect?url=https://team.example.com&token=eusage_dev_secret",
+      fake.deps
+    )
+
+    expect(result.ok).toBe(true)
+    expect(fake.deps.createDeviceId).not.toHaveBeenCalled()
+    expect(fake.deps.checkInTeamDevice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceId: "device-1",
+      })
+    )
   })
 
   it("cleans up credentials and settings after invalid token check-in", async () => {

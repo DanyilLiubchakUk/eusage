@@ -3,6 +3,7 @@ import { normalizeDeviceName } from "@/lib/team-device-name"
 
 const SETTINGS_STORE_PATH = "settings.json"
 const TEAM_CONNECTION_KEY = "teamConnection"
+const TEAM_DEVICE_ID_KEY = "teamDeviceId"
 
 export type TeamDeviceStatus = "connected" | "stale" | "disconnected" | "archived"
 
@@ -54,14 +55,26 @@ export async function loadTeamConnectionSettings(): Promise<TeamConnectionSettin
   return normalizeTeamConnectionSettings(stored)
 }
 
+export async function loadTeamDeviceId(): Promise<string | null> {
+  const deviceId = stringField(await store.get<unknown>(TEAM_DEVICE_ID_KEY)).trim()
+  return deviceId || null
+}
+
 export async function saveTeamConnectionSettings(
   settings: TeamConnectionSettings
 ): Promise<void> {
   await store.set(TEAM_CONNECTION_KEY, settings)
+  await store.set(TEAM_DEVICE_ID_KEY, settings.deviceId)
   await store.save()
 }
 
 export async function clearTeamConnectionSettings(): Promise<void> {
+  const existing = normalizeTeamConnectionSettings(
+    await store.get<unknown>(TEAM_CONNECTION_KEY)
+  )
+  if (existing) {
+    await store.set(TEAM_DEVICE_ID_KEY, existing.deviceId)
+  }
   await deleteStoreKey(TEAM_CONNECTION_KEY)
   await store.save()
 }

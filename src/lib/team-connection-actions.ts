@@ -15,6 +15,7 @@ import {
 } from "@/lib/team-api"
 import {
   clearTeamConnectionSettings,
+  loadTeamDeviceId,
   loadTeamConnectionSettings,
   saveTeamConnectionSettings,
   type TeamConnectionSettings,
@@ -73,6 +74,7 @@ type ActionDeps = {
   readTeamToken: typeof readTeamToken
   deleteTeamToken: typeof deleteTeamToken
   loadTeamConnectionSettings: typeof loadTeamConnectionSettings
+  loadTeamDeviceId: typeof loadTeamDeviceId
   saveTeamConnectionSettings: typeof saveTeamConnectionSettings
   clearTeamConnectionSettings: typeof clearTeamConnectionSettings
   clearProviderAccountSharingSettings: typeof clearProviderAccountSharingSettings
@@ -92,6 +94,7 @@ const defaultDeps: ActionDeps = {
   readTeamToken,
   deleteTeamToken,
   loadTeamConnectionSettings,
+  loadTeamDeviceId,
   saveTeamConnectionSettings,
   clearTeamConnectionSettings,
   clearProviderAccountSharingSettings,
@@ -165,11 +168,12 @@ export async function connectTeam(
   if (!config.ok) return { ...config, connection: null }
 
   const existing = await resolved.loadTeamConnectionSettings()
+  const storedDeviceId = existing?.deviceId ?? (await resolved.loadTeamDeviceId())
   const connection = await buildConnectionSettings({
     config: config.value,
     teamUrl: parsed.value.teamUrl,
     token: parsed.value.token,
-    deviceId: existing?.deviceId ?? resolved.createDeviceId(),
+    deviceId: storedDeviceId ?? resolved.createDeviceId(),
     deps: resolved,
   })
 
