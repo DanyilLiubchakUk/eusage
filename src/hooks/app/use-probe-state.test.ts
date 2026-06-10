@@ -33,7 +33,10 @@ describe("useProbeState", () => {
   })
 
   it("syncs successful provider account detections into the saved registry", async () => {
-    const { result } = renderHook(() => useProbeState({}))
+    const onProviderAccountRegistryChange = vi.fn()
+    const { result } = renderHook(() =>
+      useProbeState({ onProviderAccountRegistryChange })
+    )
 
     act(() => {
       result.current.handleProbeResult({
@@ -73,6 +76,7 @@ describe("useProbeState", () => {
       scannedProviderIds: ["claude"],
       detectedAt: expect.any(String),
     })
+    expect(onProviderAccountRegistryChange).toHaveBeenCalledTimes(1)
   })
 
   it("marks a successful scanned provider even when no accounts are detected", async () => {

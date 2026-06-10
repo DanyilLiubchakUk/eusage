@@ -12,12 +12,14 @@ type UseProbeArgs = {
   pluginSettings: PluginSettings | null
   autoUpdateInterval: AutoUpdateIntervalMinutes
   onProbeResult?: () => void
+  onProviderAccountRegistryChange?: () => void
 }
 
 export function useProbe({
   pluginSettings,
   autoUpdateInterval,
   onProbeResult,
+  onProviderAccountRegistryChange,
 }: UseProbeArgs) {
   const {
     pluginStates,
@@ -26,7 +28,7 @@ export function useProbe({
     setLoadingForPlugins,
     setErrorForPlugins,
     handleProbeResult,
-  } = useProbeState({ onProbeResult })
+  } = useProbeState({ onProbeResult, onProviderAccountRegistryChange })
 
   const handleBatchComplete = useCallback(() => {}, [])
 
