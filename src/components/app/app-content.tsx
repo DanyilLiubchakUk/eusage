@@ -7,6 +7,7 @@ import type { DisplayPluginState } from "@/hooks/app/use-app-plugin-views"
 import type { SettingsPluginState } from "@/hooks/app/use-settings-plugin-list"
 import type { TraySettingsPreview } from "@/hooks/app/use-tray-icon"
 import type { LocalProviderAccount } from "@/lib/provider-account-registry"
+import type { ProviderAccountSharingSettings } from "@/lib/provider-account-sharing"
 import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings"
 import { useAppPreferencesStore } from "@/stores/app-preferences-store"
 import { useAppUiStore } from "@/stores/app-ui-store"
@@ -42,6 +43,9 @@ export type AppContentActionProps = {
   onStartOnLoginChange: (value: boolean) => void
   onTeamConnected: () => void
   providerAccountGroups: ProviderAccountSettingsGroup[]
+  providerAccountSharingSettings: ProviderAccountSharingSettings
+  onProviderAccountSharingChange: (localAccountFingerprint: string, shared: boolean) => void
+  onProviderAccountSharingReset: () => Promise<void> | void
   onProviderAccountRename: (localAccountFingerprint: string, label: string) => void
   onProviderAccountVisibilityChange: (localAccountFingerprint: string, visible: boolean) => void
   onProviderAccountForget: (localAccountFingerprint: string) => void
@@ -68,6 +72,9 @@ export function AppContent({
   onStartOnLoginChange,
   onTeamConnected,
   providerAccountGroups,
+  providerAccountSharingSettings,
+  onProviderAccountSharingChange,
+  onProviderAccountSharingReset,
   onProviderAccountRename,
   onProviderAccountVisibilityChange,
   onProviderAccountForget,
@@ -148,7 +155,16 @@ export function AppContent({
   }
 
   if (activeView === "team") {
-    return <TeamPage plugins={displayPlugins} onConnected={onTeamConnected} />
+    return (
+      <TeamPage
+        plugins={displayPlugins}
+        providerAccountGroups={providerAccountGroups}
+        providerAccountSharingSettings={providerAccountSharingSettings}
+        onProviderAccountSharingChange={onProviderAccountSharingChange}
+        onProviderAccountSharingReset={onProviderAccountSharingReset}
+        onConnected={onTeamConnected}
+      />
+    )
   }
 
   const handleRetry = selectedPlugin

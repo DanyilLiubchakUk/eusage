@@ -100,6 +100,9 @@ function createProps(): AppContentProps {
     onStartOnLoginChange: vi.fn(),
     onTeamConnected: vi.fn(),
     providerAccountGroups: [],
+    providerAccountSharingSettings: { sharedLocalAccountFingerprints: [] },
+    onProviderAccountSharingChange: vi.fn(),
+    onProviderAccountSharingReset: vi.fn(),
     onProviderAccountRename: vi.fn(),
     onProviderAccountVisibilityChange: vi.fn(),
     onProviderAccountForget: vi.fn(),
@@ -141,11 +144,33 @@ describe("AppContent", () => {
   })
 
   it("renders team page for team view", () => {
+    const props = createProps()
+    const visible = providerAccount()
+    props.providerAccountGroups = [
+      {
+        providerId: "codex",
+        providerName: "Codex",
+        visibleAccounts: [visible],
+        hiddenAccounts: [],
+        notDetectedAccounts: [],
+      },
+    ]
+    props.providerAccountSharingSettings = {
+      sharedLocalAccountFingerprints: ["fp-work"],
+    }
     useAppUiStore.getState().setActiveView("team")
-    render(<AppContent {...createProps()} />)
+    render(<AppContent {...props} />)
 
     expect(screen.getByTestId("team-page")).toBeInTheDocument()
     expect(teamPageMock).toHaveBeenCalledTimes(1)
+    expect(teamPageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerAccountGroups: props.providerAccountGroups,
+        providerAccountSharingSettings: props.providerAccountSharingSettings,
+        onProviderAccountSharingChange: props.onProviderAccountSharingChange,
+        onProviderAccountSharingReset: props.onProviderAccountSharingReset,
+      })
+    )
   })
 
   it("passes retry callback for provider detail view", () => {

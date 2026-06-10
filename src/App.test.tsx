@@ -32,6 +32,9 @@ const state = vi.hoisted(() => ({
   saveWindowsTrayGuidanceSeenMock: vi.fn(),
   loadProviderAccountRegistryMock: vi.fn(),
   saveProviderAccountRegistryMock: vi.fn(),
+  loadProviderAccountSharingSettingsMock: vi.fn(),
+  saveProviderAccountSharingSettingsMock: vi.fn(),
+  clearProviderAccountSharingSettingsMock: vi.fn(),
   autostartEnableMock: vi.fn(),
   autostartDisableMock: vi.fn(),
   autostartIsEnabledMock: vi.fn(),
@@ -254,6 +257,12 @@ vi.mock("@/lib/provider-account-registry-store", () => ({
   syncSavedProviderAccountRegistry: vi.fn(async () => ({ ok: true, value: { accounts: [] } })),
 }))
 
+vi.mock("@/lib/provider-account-sharing-store", () => ({
+  loadProviderAccountSharingSettings: state.loadProviderAccountSharingSettingsMock,
+  saveProviderAccountSharingSettings: state.saveProviderAccountSharingSettingsMock,
+  clearProviderAccountSharingSettings: state.clearProviderAccountSharingSettingsMock,
+}))
+
 import { App } from "@/App"
 import { useAppPluginStore } from "@/stores/app-plugin-store"
 import { useAppPreferencesStore } from "@/stores/app-preferences-store"
@@ -299,6 +308,9 @@ describe("App", () => {
     state.saveWindowsTrayGuidanceSeenMock.mockReset()
     state.loadProviderAccountRegistryMock.mockReset()
     state.saveProviderAccountRegistryMock.mockReset()
+    state.loadProviderAccountSharingSettingsMock.mockReset()
+    state.saveProviderAccountSharingSettingsMock.mockReset()
+    state.clearProviderAccountSharingSettingsMock.mockReset()
     state.autostartEnableMock.mockReset()
     state.autostartDisableMock.mockReset()
     state.autostartIsEnabledMock.mockReset()
@@ -343,6 +355,11 @@ describe("App", () => {
     state.saveWindowsTrayGuidanceSeenMock.mockResolvedValue(undefined)
     state.loadProviderAccountRegistryMock.mockResolvedValue({ accounts: [] })
     state.saveProviderAccountRegistryMock.mockResolvedValue(undefined)
+    state.loadProviderAccountSharingSettingsMock.mockResolvedValue({
+      sharedLocalAccountFingerprints: [],
+    })
+    state.saveProviderAccountSharingSettingsMock.mockResolvedValue(undefined)
+    state.clearProviderAccountSharingSettingsMock.mockResolvedValue(undefined)
     state.autostartEnableMock.mockResolvedValue(undefined)
     state.autostartDisableMock.mockResolvedValue(undefined)
     state.autostartIsEnabledMock.mockResolvedValue(false)

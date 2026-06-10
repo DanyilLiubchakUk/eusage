@@ -3,6 +3,7 @@ import { useShallow } from "zustand/react/shallow"
 import { AppShell } from "@/components/app/app-shell"
 import { useAppPluginViews } from "@/hooks/app/use-app-plugin-views"
 import { useProbe } from "@/hooks/app/use-probe"
+import { useProviderAccountSharing } from "@/hooks/app/use-provider-account-sharing"
 import { useProviderAccountSettings } from "@/hooks/app/use-provider-account-settings"
 import { useSettingsBootstrap } from "@/hooks/app/use-settings-bootstrap"
 import { useSettingsDisplayActions } from "@/hooks/app/use-settings-display-actions"
@@ -201,6 +202,16 @@ function App() {
     [providerAccountRegistry.accounts, settingsPlugins]
   )
 
+  const {
+    providerAccountSharingSettings,
+    resetProviderAccountSharing,
+    handleProviderAccountSharingChange,
+  } = useProviderAccountSharing(providerAccountGroups)
+
+  const handleTeamConnected = useCallback(() => {
+    handleForceRefreshAll()
+  }, [handleForceRefreshAll])
+
   const { displayPlugins, navPlugins, selectedPlugin } = useAppPluginViews({
     activeView,
     setActiveView,
@@ -279,8 +290,11 @@ function App() {
         traySettingsPreview,
         onGlobalShortcutChange: handleGlobalShortcutChange,
         onStartOnLoginChange: handleStartOnLoginChange,
-        onTeamConnected: handleForceRefreshAll,
+        onTeamConnected: handleTeamConnected,
         providerAccountGroups,
+        providerAccountSharingSettings,
+        onProviderAccountSharingChange: handleProviderAccountSharingChange,
+        onProviderAccountSharingReset: resetProviderAccountSharing,
         onProviderAccountRename: handleProviderAccountRename,
         onProviderAccountVisibilityChange: handleProviderAccountVisibilityChange,
         onProviderAccountForget: handleProviderAccountForget,
