@@ -279,7 +279,7 @@ Day one setup for a developer:
 
 The desktop app uses the app URL from the connection string to discover non-secret team config such as endpoint paths. After check-in, Admin shows the device status under the developer. The developer does not manually enter Convex URLs.
 
-Usage upload uses `POST /api/v1/usage/batch` with the same bearer token. The first supported upload schema is `1.0.0`. A valid shared provider account upload stores the redacted raw payload for 90 days, upserts the latest usage snapshot for the provider/device/period/data identity, and upserts daily metric samples. If one provider payload is invalid, valid providers in the same batch still sync; rejected provider IDs are returned and short-lived sync errors are stored without raw payloads or secret values.
+Usage upload uses `POST /api/v1/usage/batch` with the same bearer token. The first supported upload schema is `1.0.0`. A valid shared provider account upload stores shared account metadata and the redacted raw payload for 90 days, upserts the latest usage snapshot for the provider/device/period/data identity, and upserts daily metric samples. If one provider payload is invalid, valid providers in the same batch still sync; rejected provider IDs are returned and short-lived sync errors are stored without raw payloads or secret values.
 
 ## Desktop Releases
 

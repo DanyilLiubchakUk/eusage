@@ -2,9 +2,11 @@ import {
   SUPPORTED_UPLOAD_SCHEMA_VERSION,
   type MetricSampleRecord,
   type NewMetricSampleRecord,
+  type NewProviderAccountRecord,
   type NewRawPayloadRecord,
   type NewSyncErrorRecord,
   type NewUsageSnapshotRecord,
+  type ProviderAccountRecord,
   type RawPayloadRecord,
   type SyncErrorRecord,
   type UsageIngestStore,
@@ -68,6 +70,7 @@ export async function createUsageIngestTestStore() {
   const rawPayloads: RawPayloadRecord[] = []
   const usageSnapshots: UsageSnapshotRecord[] = []
   const metricSamples: MetricSampleRecord[] = []
+  const providerAccounts: ProviderAccountRecord[] = []
   const syncErrors: SyncErrorRecord[] = []
 
   const store: UsageIngestStore = {
@@ -145,6 +148,28 @@ export async function createUsageIngestTestStore() {
       Object.assign(sample, patch)
       return sample
     },
+    getProviderAccount: async (account) =>
+      providerAccounts.find(
+        (row) =>
+          row.teamId === account.teamId &&
+          row.developerId === account.developerId &&
+          row.providerId === account.providerId &&
+          row.teamAccountFingerprint === account.teamAccountFingerprint
+      ) ?? null,
+    createProviderAccount: async (account: NewProviderAccountRecord) => {
+      const created = {
+        _id: `provider-account-${providerAccounts.length + 1}`,
+        ...account,
+      }
+      providerAccounts.push(created)
+      return created
+    },
+    updateProviderAccount: async (accountId, patch) => {
+      const account = providerAccounts.find((row) => row._id === accountId)
+      if (!account) throw new Error("Missing provider account in fake store.")
+      Object.assign(account, patch)
+      return account
+    },
     createSyncError: async (error: NewSyncErrorRecord) => {
       const created = { _id: `sync-error-${syncErrors.length + 1}`, ...error }
       syncErrors.push(created)
@@ -161,6 +186,7 @@ export async function createUsageIngestTestStore() {
     rawPayloads,
     usageSnapshots,
     metricSamples,
+    providerAccounts,
     syncErrors,
   }
 }

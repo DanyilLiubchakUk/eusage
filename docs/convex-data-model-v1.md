@@ -124,6 +124,26 @@ Indexes:
 - `by_teamId_providerId`
 - `by_teamId_status`
 
+### `providerAccounts`
+
+Backend metadata for Provider Accounts a developer has shared with the Team Deployment.
+Unshared Provider Accounts are unknown to the backend.
+
+- `teamId`
+- `developerId`
+- `providerId`
+- `teamAccountFingerprint`
+- `label`
+- `status`: `shared`
+- `firstSharedAt`
+- `lastSharedAt`
+- `updatedAt`
+
+Indexes:
+
+- `by_team_developer_provider_account`
+- `by_team_account_fingerprint`
+
 ### `usageSnapshots`
 
 Dashboard source of truth.
@@ -336,6 +356,12 @@ The browser keeps only `now` in memory for the ticking label.
 
 ```text
 teamId + developerId + deviceId + providerId + periodKey + dataIdentity
+```
+
+`providerAccounts` upsert key:
+
+```text
+teamId + developerId + providerId + teamAccountFingerprint
 ```
 
 `metricSamples` upsert key:

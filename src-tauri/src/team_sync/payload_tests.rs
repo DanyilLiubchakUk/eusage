@@ -119,13 +119,14 @@ fn provider_upload_prefers_plugin_source_facts_and_redacts_raw_payload() {
 #[test]
 fn provider_account_fingerprint_namespaces_upload_identity() {
     let provider = build_provider_upload(&make_snapshot("cursor", 42.0))
-        .attach_provider_account("team-account-fingerprint");
+        .attach_provider_account("team-account-fingerprint", "Cursor Work");
     let json = serde_json::to_value(&provider).unwrap();
 
     assert_eq!(
         json["providerAccountFingerprint"],
         "team-account-fingerprint"
     );
+    assert_eq!(json["providerAccountLabel"], "Cursor Work");
     assert_eq!(
         provider.data_identity,
         "provider-account:team-account-fingerprint:cursor:2026-06-01"

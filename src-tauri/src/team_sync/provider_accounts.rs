@@ -1,7 +1,7 @@
 use crate::local_http_api::cache::CachedPluginSnapshot;
 use crate::plugin_engine::runtime::ProviderAccountDetection;
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 const SETTINGS_FILE_NAME: &str = "settings.json";
@@ -13,6 +13,7 @@ const LOCAL_SALT_KEY: &str = "providerAccountLocalSalt";
 pub(super) struct SharedProviderAccount {
     pub local_account_fingerprint: String,
     pub team_account_fingerprint: String,
+    pub label: String,
 }
 
 pub(super) fn shared_provider_account_for_snapshot(
@@ -38,16 +39,16 @@ pub(super) fn shared_provider_account_for_snapshot(
         .filter_map(|detection| {
             let local_fingerprint =
                 fingerprint_provider_account(detection, "local", local_salt.as_str())?;
-            if !shared_fingerprints.contains(&local_fingerprint)
-                || !shareable_accounts.contains(&local_fingerprint)
-            {
+            if !shared_fingerprints.contains(&local_fingerprint) {
                 return None;
             }
+            let label = shareable_accounts.get(&local_fingerprint)?.clone();
             let team_fingerprint =
                 fingerprint_provider_account(detection, "team", team_fingerprint)?;
             Some(SharedProviderAccount {
                 local_account_fingerprint: local_fingerprint,
                 team_account_fingerprint: team_fingerprint,
+                label,
             })
         })
         .collect::<Vec<_>>();
@@ -80,7 +81,7 @@ pub(super) fn local_provider_account_is_shareable(
     let local_account_fingerprint = local_account_fingerprint.trim();
     !local_account_fingerprint.is_empty()
         && shared_local_account_fingerprints(&settings).contains(local_account_fingerprint)
-        && shareable_local_accounts(&settings).contains(local_account_fingerprint)
+        && shareable_local_accounts(&settings).contains_key(local_account_fingerprint)
 }
 
 fn read_settings_value(app_data_dir: &Path) -> Option<serde_json::Value> {
@@ -102,7 +103,7 @@ fn shared_local_account_fingerprints(settings: &serde_json::Value) -> HashSet<St
         .unwrap_or_default()
 }
 
-fn shareable_local_accounts(settings: &serde_json::Value) -> HashSet<String> {
+fn shareable_local_accounts(settings: &serde_json::Value) -> HashMap<String, String> {
     settings
         .get(REGISTRY_KEY)
         .and_then(|value| value.get("accounts"))
@@ -116,8 +117,13 @@ fn shareable_local_accounts(settings: &serde_json::Value) -> HashSet<String> {
                 .filter(|account| {
                     string_field(account.get("detectionState")).as_deref() == Some("detected")
                 })
-                .filter_map(|account| string_field(account.get("localAccountFingerprint")))
-                .collect::<HashSet<_>>()
+                .filter_map(|account| {
+                    Some((
+                        string_field(account.get("localAccountFingerprint"))?,
+                        string_field(account.get("label"))?,
+                    ))
+                })
+                .collect::<HashMap<_, _>>()
         })
         .unwrap_or_default()
 }
@@ -271,6 +277,7 @@ mod tests {
             shared_provider_account_for_snapshot(&dir, "team-fingerprint", &snapshot()).unwrap();
 
         assert_eq!(account.local_account_fingerprint, local_fingerprint);
+        assert_eq!(account.label, "Cursor Work");
         assert_eq!(account.team_account_fingerprint.len(), 64);
         assert_ne!(account.team_account_fingerprint, local_fingerprint);
         assert!(!account.team_account_fingerprint.contains("work"));

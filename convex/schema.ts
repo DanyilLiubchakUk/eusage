@@ -83,6 +83,24 @@ export default defineSchema({
   })
     .index("by_teamId_providerId", ["teamId", "providerId"])
     .index("by_teamId_status", ["teamId", "status"]),
+  providerAccounts: defineTable({
+    teamId: v.id("teams"),
+    developerId: v.id("developers"),
+    providerId: v.string(),
+    teamAccountFingerprint: v.string(),
+    label: v.string(),
+    status: v.literal("shared"),
+    firstSharedAt: v.number(),
+    lastSharedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_team_developer_provider_account", [
+      "teamId",
+      "developerId",
+      "providerId",
+      "teamAccountFingerprint",
+    ])
+    .index("by_team_account_fingerprint", ["teamId", "teamAccountFingerprint"]),
   usageSnapshots: defineTable({
     teamId: v.id("teams"),
     developerId: v.id("developers"),

@@ -7,6 +7,7 @@ export const SYNC_ERROR_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 export type JsonObject = Record<string, unknown>
 export type ExtractorVersion = Record<string, string>
 export type MetricSource = "providerReported" | "normalized" | "estimated"
+export type ProviderAccountStatus = "shared"
 
 export type UsageSummary = {
   tokensTotal?: number
@@ -40,8 +41,14 @@ export type UsageMetricSampleInput = {
   coverage?: unknown
 }
 
+export type UsageProviderAccountInput = {
+  teamAccountFingerprint: string
+  label: string
+}
+
 export type UsageProviderInput = {
   providerId: string
+  providerAccount?: UsageProviderAccountInput
   payload: JsonObject
   payloadVersion: string
   redactionVersion: string
@@ -122,6 +129,21 @@ export type MetricSampleRecord = {
 
 export type NewMetricSampleRecord = Omit<MetricSampleRecord, "_id">
 
+export type ProviderAccountRecord = {
+  _id: string
+  teamId: string
+  developerId: string
+  providerId: string
+  teamAccountFingerprint: string
+  label: string
+  status: ProviderAccountStatus
+  firstSharedAt: number
+  lastSharedAt: number
+  updatedAt: number
+}
+
+export type NewProviderAccountRecord = Omit<ProviderAccountRecord, "_id">
+
 export type SyncErrorRecord = {
   _id: string
   teamId: string
@@ -182,6 +204,19 @@ export type UsageIngestStore = Pick<
     sampleId: string,
     patch: Partial<NewMetricSampleRecord>
   ) => Promise<MetricSampleRecord>
+  getProviderAccount: (
+    account: Pick<
+      ProviderAccountRecord,
+      "teamId" | "developerId" | "providerId" | "teamAccountFingerprint"
+    >
+  ) => Promise<ProviderAccountRecord | null>
+  createProviderAccount: (
+    account: NewProviderAccountRecord
+  ) => Promise<ProviderAccountRecord>
+  updateProviderAccount: (
+    accountId: string,
+    patch: Partial<NewProviderAccountRecord>
+  ) => Promise<ProviderAccountRecord>
   createSyncError: (error: NewSyncErrorRecord) => Promise<SyncErrorRecord>
 }
 

@@ -112,8 +112,10 @@ fn enqueue_snapshot_with_debounce(
     else {
         return;
     };
-    let provider = build_provider_upload(snapshot)
-        .attach_provider_account(&shared_account.team_account_fingerprint);
+    let provider = build_provider_upload(snapshot).attach_provider_account(
+        &shared_account.team_account_fingerprint,
+        &shared_account.label,
+    );
     let should_start_worker = enqueue_provider_upload(
         app_data_dir.to_path_buf(),
         connection_key(&connection),

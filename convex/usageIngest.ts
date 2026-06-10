@@ -6,8 +6,10 @@ import { ingestUsageBatch } from "./usageIngestCore"
 import {
   type MetricSampleRecord,
   type NewMetricSampleRecord,
+  type NewProviderAccountRecord,
   type NewRawPayloadRecord,
   type NewUsageSnapshotRecord,
+  type ProviderAccountRecord,
   type RawPayloadRecord,
   type UsageIngestStore,
   type UsageSnapshotRecord,
@@ -23,10 +25,13 @@ export {
   type MetricSampleRecord,
   type MetricSource,
   type NewMetricSampleRecord,
+  type NewProviderAccountRecord,
   type NewRawPayloadRecord,
   type NewSyncErrorRecord,
   type NewUsageSnapshotRecord,
+  type ProviderAccountRecord,
   type RawPayloadRecord,
+  type ProviderAccountStatus,
   type SyncErrorRecord,
   type UsageBatchResult,
   type UsageIngestStore,
@@ -166,6 +171,32 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
       if (!updated) throw new Error("Updated metric sample row was not readable.")
       return updated as MetricSampleRecord
     },
+    getProviderAccount: async (account) =>
+      (await ctx.db
+        .query("providerAccounts")
+        .withIndex("by_team_developer_provider_account", (q) =>
+          q
+            .eq("teamId", account.teamId as Id<"teams">)
+            .eq("developerId", account.developerId as Id<"developers">)
+            .eq("providerId", account.providerId)
+            .eq("teamAccountFingerprint", account.teamAccountFingerprint)
+        )
+        .first()) as ProviderAccountRecord | null,
+    createProviderAccount: async (account) => {
+      const id = await ctx.db.insert("providerAccounts", providerAccountFields(account))
+      const created = await ctx.db.get(id)
+      if (!created) throw new Error("Created provider account row was not readable.")
+      return created as ProviderAccountRecord
+    },
+    updateProviderAccount: async (accountId, patch) => {
+      await ctx.db.patch(
+        accountId as Id<"providerAccounts">,
+        providerAccountFields(patch as NewProviderAccountRecord)
+      )
+      const updated = await ctx.db.get(accountId as Id<"providerAccounts">)
+      if (!updated) throw new Error("Updated provider account row was not readable.")
+      return updated as ProviderAccountRecord
+    },
     createSyncError: async (error) => {
       const { teamId, developerId, ...rest } = error
       const id = await ctx.db.insert("syncErrors", {
@@ -177,6 +208,20 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
       if (!created) throw new Error("Created sync error row was not readable.")
       return created
     },
+  }
+}
+
+function providerAccountFields(account: NewProviderAccountRecord) {
+  return {
+    teamId: account.teamId as Id<"teams">,
+    developerId: account.developerId as Id<"developers">,
+    providerId: account.providerId,
+    teamAccountFingerprint: account.teamAccountFingerprint,
+    label: account.label,
+    status: account.status,
+    ...(account.firstSharedAt !== undefined ? { firstSharedAt: account.firstSharedAt } : {}),
+    lastSharedAt: account.lastSharedAt,
+    updatedAt: account.updatedAt,
   }
 }
 

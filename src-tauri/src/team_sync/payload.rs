@@ -15,6 +15,8 @@ pub(super) struct TeamUsageProvider {
     pub provider_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     provider_account_fingerprint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    provider_account_label: Option<String>,
     payload: Value,
     payload_version: &'static str,
     redaction_version: &'static str,
@@ -105,6 +107,7 @@ pub(super) fn build_provider_upload(snapshot: &CachedPluginSnapshot) -> TeamUsag
     TeamUsageProvider {
         provider_id: snapshot.provider_id.clone(),
         provider_account_fingerprint: None,
+        provider_account_label: None,
         payload,
         payload_version: GENERIC_PAYLOAD_VERSION,
         redaction_version: GENERIC_REDACTION_VERSION,
@@ -122,9 +125,14 @@ pub(super) fn build_provider_upload(snapshot: &CachedPluginSnapshot) -> TeamUsag
 }
 
 impl TeamUsageProvider {
-    pub(super) fn attach_provider_account(mut self, team_account_fingerprint: &str) -> Self {
+    pub(super) fn attach_provider_account(
+        mut self,
+        team_account_fingerprint: &str,
+        label: &str,
+    ) -> Self {
         let team_account_fingerprint = team_account_fingerprint.trim();
         self.provider_account_fingerprint = Some(team_account_fingerprint.to_string());
+        self.provider_account_label = Some(label.trim().to_string());
         self.data_identity = format!(
             "provider-account:{}:{}",
             team_account_fingerprint, self.data_identity
