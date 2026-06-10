@@ -183,7 +183,7 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
         )
         .first()) as ProviderAccountRecord | null,
     createProviderAccount: async (account) => {
-      const id = await ctx.db.insert("providerAccounts", providerAccountFields(account))
+      const id = await ctx.db.insert("providerAccounts", providerAccountInsertFields(account))
       const created = await ctx.db.get(id)
       if (!created) throw new Error("Created provider account row was not readable.")
       return created as ProviderAccountRecord
@@ -191,7 +191,7 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
     updateProviderAccount: async (accountId, patch) => {
       await ctx.db.patch(
         accountId as Id<"providerAccounts">,
-        providerAccountFields(patch as NewProviderAccountRecord)
+        providerAccountPatchFields(patch)
       )
       const updated = await ctx.db.get(accountId as Id<"providerAccounts">)
       if (!updated) throw new Error("Updated provider account row was not readable.")
@@ -211,7 +211,7 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
   }
 }
 
-function providerAccountFields(account: NewProviderAccountRecord) {
+function providerAccountInsertFields(account: NewProviderAccountRecord) {
   return {
     teamId: account.teamId as Id<"teams">,
     developerId: account.developerId as Id<"developers">,
@@ -219,9 +219,27 @@ function providerAccountFields(account: NewProviderAccountRecord) {
     teamAccountFingerprint: account.teamAccountFingerprint,
     label: account.label,
     status: account.status,
-    ...(account.firstSharedAt !== undefined ? { firstSharedAt: account.firstSharedAt } : {}),
+    firstSharedAt: account.firstSharedAt,
     lastSharedAt: account.lastSharedAt,
     updatedAt: account.updatedAt,
+  }
+}
+
+function providerAccountPatchFields(account: Partial<NewProviderAccountRecord>) {
+  return {
+    ...(account.teamId !== undefined ? { teamId: account.teamId as Id<"teams"> } : {}),
+    ...(account.developerId !== undefined
+      ? { developerId: account.developerId as Id<"developers"> }
+      : {}),
+    ...(account.providerId !== undefined ? { providerId: account.providerId } : {}),
+    ...(account.teamAccountFingerprint !== undefined
+      ? { teamAccountFingerprint: account.teamAccountFingerprint }
+      : {}),
+    ...(account.label !== undefined ? { label: account.label } : {}),
+    ...(account.status !== undefined ? { status: account.status } : {}),
+    ...(account.firstSharedAt !== undefined ? { firstSharedAt: account.firstSharedAt } : {}),
+    ...(account.lastSharedAt !== undefined ? { lastSharedAt: account.lastSharedAt } : {}),
+    ...(account.updatedAt !== undefined ? { updatedAt: account.updatedAt } : {}),
   }
 }
 
