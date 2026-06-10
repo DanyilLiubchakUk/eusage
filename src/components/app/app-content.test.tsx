@@ -30,7 +30,7 @@ vi.mock("@/pages/team", () => ({
 }))
 
 vi.mock("@/pages/provider-detail", () => ({
-  ProviderDetailPage: (props: { onRetry?: () => void }) => {
+  ProviderDetailPage: (props: { onRetry?: () => void; providerAccounts?: unknown[] }) => {
     providerDetailPageMock(props)
     return (
       <div data-testid="provider-detail-page">
@@ -41,8 +41,26 @@ vi.mock("@/pages/provider-detail", () => ({
 }))
 
 import { AppContent, type AppContentProps } from "@/components/app/app-content"
+import type { LocalProviderAccount } from "@/lib/provider-account-registry"
 import { useAppPreferencesStore } from "@/stores/app-preferences-store"
 import { useAppUiStore } from "@/stores/app-ui-store"
+
+function providerAccount(
+  overrides: Partial<LocalProviderAccount> = {}
+): LocalProviderAccount {
+  return {
+    providerId: "codex",
+    localAccountFingerprint: "fp-work",
+    label: "Work Codex",
+    visibility: "visible",
+    identityConfidence: "high",
+    confirmationState: "unconfirmed",
+    firstSeenAt: "2026-06-01T00:00:00.000Z",
+    lastSeenAt: "2026-06-02T00:00:00.000Z",
+    detectionState: "detected",
+    ...overrides,
+  }
+}
 
 function createProps(): AppContentProps {
   return {
@@ -139,5 +157,45 @@ describe("AppContent", () => {
 
     expect(providerDetailPageMock).toHaveBeenCalledTimes(1)
     expect(props.onRetryPlugin).toHaveBeenCalledWith("codex")
+  })
+
+  it("passes selected provider accounts to provider detail view", () => {
+    const props = createProps()
+    const visible = providerAccount()
+    const hidden = providerAccount({
+      localAccountFingerprint: "fp-hidden",
+      label: "Hidden Codex",
+      visibility: "hidden",
+    })
+    const notDetected = providerAccount({
+      localAccountFingerprint: "fp-old",
+      label: "Old Codex",
+      detectionState: "notDetected",
+    })
+    props.providerAccountGroups = [
+      {
+        providerId: "codex",
+        providerName: "Codex",
+        visibleAccounts: [visible],
+        hiddenAccounts: [hidden],
+        notDetectedAccounts: [notDetected],
+      },
+      {
+        providerId: "claude",
+        providerName: "Claude",
+        visibleAccounts: [providerAccount({ providerId: "claude" })],
+        hiddenAccounts: [],
+        notDetectedAccounts: [],
+      },
+    ]
+    useAppUiStore.getState().setActiveView("codex")
+
+    render(<AppContent {...props} />)
+
+    expect(providerDetailPageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerAccounts: [visible, hidden, notDetected],
+      })
+    )
   })
 })
