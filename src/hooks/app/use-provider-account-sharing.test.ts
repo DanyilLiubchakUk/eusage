@@ -10,7 +10,7 @@ const store = vi.hoisted(() => ({
   clearProviderAccountSharingSettings: vi.fn(),
 }))
 const teamSync = vi.hoisted(() => ({
-  updateSharedProviderAccountLabel: vi.fn(),
+  syncSharedProviderAccount: vi.fn(),
 }))
 
 vi.mock("@/lib/provider-account-sharing-store", () => ({
@@ -19,7 +19,7 @@ vi.mock("@/lib/provider-account-sharing-store", () => ({
   clearProviderAccountSharingSettings: store.clearProviderAccountSharingSettings,
 }))
 vi.mock("@/lib/provider-account-team-sync", () => ({
-  updateSharedProviderAccountLabel: teamSync.updateSharedProviderAccountLabel,
+  syncSharedProviderAccount: teamSync.syncSharedProviderAccount,
 }))
 
 describe("useProviderAccountSharing", () => {
@@ -27,13 +27,13 @@ describe("useProviderAccountSharing", () => {
     store.loadProviderAccountSharingSettings.mockReset()
     store.saveProviderAccountSharingSettings.mockReset()
     store.clearProviderAccountSharingSettings.mockReset()
-    teamSync.updateSharedProviderAccountLabel.mockReset()
+    teamSync.syncSharedProviderAccount.mockReset()
     store.loadProviderAccountSharingSettings.mockResolvedValue({
       sharedLocalAccountFingerprints: [],
     })
     store.saveProviderAccountSharingSettings.mockResolvedValue(undefined)
     store.clearProviderAccountSharingSettings.mockResolvedValue(undefined)
-    teamSync.updateSharedProviderAccountLabel.mockResolvedValue(undefined)
+    teamSync.syncSharedProviderAccount.mockResolvedValue(undefined)
   })
 
   it("loads, updates, prunes, and resets local sharing settings", async () => {
@@ -82,7 +82,14 @@ describe("useProviderAccountSharing", () => {
     })
   })
 
-  it("syncs Team metadata after saving a share-on toggle", async () => {
+  it("syncs Team current data and metadata after saving a share-on toggle", async () => {
+    const syncOrder: string[] = []
+    store.saveProviderAccountSharingSettings.mockImplementation(async () => {
+      syncOrder.push("save")
+    })
+    teamSync.syncSharedProviderAccount.mockImplementation(async () => {
+      syncOrder.push("sync")
+    })
     const { result } = renderHook(
       ({ groups }) => useProviderAccountSharing(groups),
       { initialProps: { groups: [providerGroup()] } }
@@ -104,7 +111,7 @@ describe("useProviderAccountSharing", () => {
       })
     })
     await waitFor(() => {
-      expect(teamSync.updateSharedProviderAccountLabel).toHaveBeenCalledWith(
+      expect(teamSync.syncSharedProviderAccount).toHaveBeenCalledWith(
         expect.objectContaining({
           providerId: "codex",
           localAccountFingerprint: "fp-work",
@@ -112,11 +119,12 @@ describe("useProviderAccountSharing", () => {
         })
       )
     })
+    expect(syncOrder).toEqual(["save", "sync"])
     expect(result.current.providerAccountSharingSyncError).toBeNull()
   })
 
   it("keeps local sharing saved when immediate Team metadata sync fails", async () => {
-    teamSync.updateSharedProviderAccountLabel.mockRejectedValueOnce("fresh scan required")
+    teamSync.syncSharedProviderAccount.mockRejectedValueOnce("fresh scan required")
     const { result } = renderHook(
       ({ groups }) => useProviderAccountSharing(groups),
       { initialProps: { groups: [providerGroup()] } }

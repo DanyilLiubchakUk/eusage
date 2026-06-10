@@ -11,7 +11,7 @@ import {
   loadProviderAccountSharingSettings,
   saveProviderAccountSharingSettings,
 } from "@/lib/provider-account-sharing-store"
-import { updateSharedProviderAccountLabel } from "@/lib/provider-account-team-sync"
+import { syncSharedProviderAccount as syncSharedProviderAccountWithTeam } from "@/lib/provider-account-team-sync"
 import type { LocalProviderAccount } from "@/lib/provider-account-registry"
 import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings"
 
@@ -67,7 +67,7 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
 
   const syncSharedProviderAccount = useCallback(async (account: LocalProviderAccount) => {
     try {
-      await updateSharedProviderAccountLabel(account)
+      await syncSharedProviderAccountWithTeam(account)
     } catch (error) {
       const message =
         error instanceof Error

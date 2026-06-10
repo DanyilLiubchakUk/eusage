@@ -10,3 +10,20 @@ export async function updateSharedProviderAccountLabel(
     label: account.label,
   })
 }
+
+export async function uploadSharedProviderAccountCurrentData(
+  account: LocalProviderAccount
+): Promise<void> {
+  await invoke("upload_shared_provider_account_current_data", {
+    providerId: account.providerId,
+    localAccountFingerprint: account.localAccountFingerprint,
+    label: account.label,
+  })
+}
+
+export async function syncSharedProviderAccount(
+  account: LocalProviderAccount
+): Promise<void> {
+  await uploadSharedProviderAccountCurrentData(account)
+  await updateSharedProviderAccountLabel(account)
+}

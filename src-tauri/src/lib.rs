@@ -190,6 +190,25 @@ fn update_shared_provider_account_label(
 }
 
 #[tauri::command]
+fn upload_shared_provider_account_current_data(
+    state: tauri::State<'_, Mutex<AppState>>,
+    provider_id: String,
+    local_account_fingerprint: String,
+    label: String,
+) -> Result<(), String> {
+    let app_data_dir = {
+        let locked = state.lock().map_err(|e| e.to_string())?;
+        locked.app_data_dir.clone()
+    };
+    team_sync::upload_current_shared_provider_account_data(
+        &app_data_dir,
+        &provider_id,
+        &local_account_fingerprint,
+        &label,
+    )
+}
+
+#[tauri::command]
 async fn start_probe_batch(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, Mutex<AppState>>,
@@ -508,6 +527,7 @@ pub fn run() {
             read_team_token,
             delete_team_token,
             update_shared_provider_account_label,
+            upload_shared_provider_account_current_data,
             start_probe_batch,
             list_plugins,
             get_log_path,
