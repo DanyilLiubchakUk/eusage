@@ -11,6 +11,8 @@ import {
   loadProviderAccountSharingSettings,
   saveProviderAccountSharingSettings,
 } from "@/lib/provider-account-sharing-store"
+import { updateSharedProviderAccountLabel } from "@/lib/provider-account-team-sync"
+import type { LocalProviderAccount } from "@/lib/provider-account-registry"
 import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings"
 
 export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]) {
@@ -18,10 +20,14 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
     useState<ProviderAccountSharingSettings>({
       ...DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS,
     })
+  const [providerAccountSharingSyncError, setProviderAccountSharingSyncError] =
+    useState<string | null>(null)
+
+  const shareableAccounts = useMemo(() => getShareableAccounts(groups), [groups])
 
   const shareableFingerprintKey = useMemo(
-    () => getShareableFingerprints(groups).join("\n"),
-    [groups]
+    () => [...shareableAccounts.keys()].sort().join("\n"),
+    [shareableAccounts]
   )
 
   const shareableFingerprints = useMemo(
@@ -59,30 +65,53 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
     })
   }, [shareableFingerprints])
 
+  const syncSharedProviderAccount = useCallback(async (account: LocalProviderAccount) => {
+    try {
+      await updateSharedProviderAccountLabel(account)
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Team Provider Account update failed."
+      setProviderAccountSharingSyncError(message)
+      console.error("Failed to sync shared Provider Account with team:", error)
+    }
+  }, [])
+
   const handleProviderAccountSharingChange = useCallback((
     localAccountFingerprint: string,
     shared: boolean
   ) => {
-    if (shared && !shareableFingerprints.has(localAccountFingerprint)) return
+    const fingerprint = localAccountFingerprint.trim()
+    const account = shareableAccounts.get(fingerprint)
+    if (shared && !account) return
+    setProviderAccountSharingSyncError(null)
 
     setProviderAccountSharingSettings((current) => {
       const result = updateProviderAccountSharing(
         current,
-        localAccountFingerprint,
+        fingerprint,
         shared
       )
       if (!result.ok) {
         console.error("Failed to update provider account sharing settings:", result)
         return current
       }
-      void saveProviderAccountSharingSettings(result.value).catch((error) => {
-        console.error("Failed to save provider account sharing settings:", error)
-      })
+      void saveProviderAccountSharingSettings(result.value)
+        .then(() => {
+          if (shared && account) return syncSharedProviderAccount(account)
+        })
+        .catch((error) => {
+          console.error("Failed to save provider account sharing settings:", error)
+        })
       return result.value
     })
-  }, [shareableFingerprints])
+  }, [shareableAccounts, syncSharedProviderAccount])
 
   const resetProviderAccountSharing = useCallback(async () => {
+    setProviderAccountSharingSyncError(null)
     setProviderAccountSharingSettings({ ...DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS })
     try {
       await clearProviderAccountSharingSettings()
@@ -93,15 +122,21 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
 
   return {
     providerAccountSharingSettings,
+    providerAccountSharingSyncError,
     reloadProviderAccountSharingSettings,
     resetProviderAccountSharing,
     handleProviderAccountSharingChange,
   }
 }
 
-function getShareableFingerprints(groups: ProviderAccountSettingsGroup[]): string[] {
-  return groups
-    .flatMap((group) => group.visibleAccounts)
-    .map((account) => account.localAccountFingerprint)
-    .sort()
+function getShareableAccounts(
+  groups: ProviderAccountSettingsGroup[]
+): Map<string, LocalProviderAccount> {
+  const accounts = new Map<string, LocalProviderAccount>()
+  for (const group of groups) {
+    for (const account of group.visibleAccounts) {
+      accounts.set(account.localAccountFingerprint, account)
+    }
+  }
+  return accounts
 }

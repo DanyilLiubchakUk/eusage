@@ -102,6 +102,7 @@ function createProps(): AppContentProps {
     providerAccountGroups: [],
     providerAccountLabelSyncError: null,
     providerAccountSharingSettings: { sharedLocalAccountFingerprints: [] },
+    providerAccountSharingSyncError: null,
     onProviderAccountSharingChange: vi.fn(),
     onProviderAccountSharingReset: vi.fn(),
     onProviderAccountRename: vi.fn(),
@@ -168,6 +169,7 @@ describe("AppContent", () => {
       expect.objectContaining({
         providerAccountGroups: props.providerAccountGroups,
         providerAccountSharingSettings: props.providerAccountSharingSettings,
+        providerAccountSharingSyncError: null,
         onProviderAccountSharingChange: props.onProviderAccountSharingChange,
         onProviderAccountSharingReset: props.onProviderAccountSharingReset,
       })

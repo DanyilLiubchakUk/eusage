@@ -144,6 +144,7 @@ Settings owns local account management. The Team page owns team sharing consent.
 - The onboarding overlay follows the existing eUsage modal overlay style.
 - All Provider Accounts start unchecked in onboarding.
 - "Skip for now", closing the modal, or pressing Escape uploads nothing.
+- Turning on sharing updates Team Provider Account metadata immediately when current account detection exists, without raw payload or history rows.
 - Turning on sharing uploads current account data immediately when current data exists.
 - Turning on sharing without current data enables future upload after the next successful probe.
 - Turning off sharing removes pending queued upload data for that account and stops future uploads.
@@ -152,9 +153,9 @@ Settings owns local account management. The Team page owns team sharing consent.
 - A future explicit history-sharing flow may offer radio-button choices such as last 7 days, last 30 days, and custom range.
 - Add backend Provider Account metadata for shared accounts only.
 - Backend Provider Account metadata stores team, developer, provider, team account fingerprint, label, status, first shared time, last shared time, and updated time.
-- Add a team API operation for immediate shared Provider Account label updates.
-- The desktop app should call the team API for shared account label changes. It should not talk directly to Convex.
-- If immediate team label update fails, the local label remains saved and the Team keeps the old label until retry or a later successful update.
+- Add a team API operation for immediate shared Provider Account metadata updates.
+- The desktop app should call the team API for share-on metadata and shared account label changes. It should not talk directly to Convex.
+- If immediate team metadata update fails, the local label or sharing choice remains saved and the Team keeps the old metadata until retry or a later successful update.
 - Usage ingest must keep Provider Account identity distinct so multiple accounts for the same provider and period do not overwrite each other.
 - Update team config or check-in response to provide a safe team fingerprint.
 - Update product docs that currently imply team connect starts syncing local usage. Team connect enables opt-in sharing only.

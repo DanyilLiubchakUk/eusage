@@ -205,6 +205,7 @@ function App() {
 
   const {
     providerAccountSharingSettings,
+    providerAccountSharingSyncError,
     resetProviderAccountSharing,
     handleProviderAccountSharingChange,
   } = useProviderAccountSharing(providerAccountGroups)
@@ -295,6 +296,7 @@ function App() {
         providerAccountGroups,
         providerAccountLabelSyncError,
         providerAccountSharingSettings,
+        providerAccountSharingSyncError,
         onProviderAccountSharingChange: handleProviderAccountSharingChange,
         onProviderAccountSharingReset: resetProviderAccountSharing,
         onProviderAccountRename: handleProviderAccountRename,

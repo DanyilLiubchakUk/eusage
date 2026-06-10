@@ -9,12 +9,14 @@ import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settin
 type ProviderAccountSharingSectionProps = {
   groups: ProviderAccountSettingsGroup[];
   sharingSettings: ProviderAccountSharingSettings;
+  syncError?: string | null;
   onSharingChange: (localAccountFingerprint: string, shared: boolean) => void;
 };
 
 export function ProviderAccountSharingSection({
   groups,
   sharingSettings,
+  syncError,
   onSharingChange,
 }: ProviderAccountSharingSectionProps) {
   const shareableGroups = groups
@@ -49,6 +51,11 @@ export function ProviderAccountSharingSection({
           {sharedCount}/{shareableCount} shared
         </Badge>
       </div>
+      {syncError ? (
+        <p role="alert" className="mb-2 text-xs text-destructive">
+          {syncError}
+        </p>
+      ) : null}
 
       {shareableGroups.length === 0 ? (
         <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-sm text-muted-foreground">

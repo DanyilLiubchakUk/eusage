@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react"
-import { invoke } from "@tauri-apps/api/core"
 import {
   forgetProviderAccount,
   updateProviderAccountLabel,
@@ -13,6 +12,7 @@ import {
   saveProviderAccountRegistry,
 } from "@/lib/provider-account-registry-store"
 import { loadProviderAccountSharingSettings } from "@/lib/provider-account-sharing-store"
+import { updateSharedProviderAccountLabel } from "@/lib/provider-account-team-sync"
 
 export function useProviderAccountSettings() {
   const [providerAccountRegistry, setProviderAccountRegistry] =
@@ -65,11 +65,7 @@ export function useProviderAccountSettings() {
           return
         }
 
-        await invoke("update_shared_provider_account_label", {
-          providerId: account.providerId,
-          localAccountFingerprint: account.localAccountFingerprint,
-          label: account.label,
-        })
+        await updateSharedProviderAccountLabel(account)
       } catch (error) {
         const message =
           error instanceof Error

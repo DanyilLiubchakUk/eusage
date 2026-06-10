@@ -17,6 +17,7 @@ type TeamPageProps = {
   plugins: DisplayPluginState[]
   providerAccountGroups: ProviderAccountSettingsGroup[]
   providerAccountSharingSettings: ProviderAccountSharingSettings
+  providerAccountSharingSyncError?: string | null
   onProviderAccountSharingChange: (localAccountFingerprint: string, shared: boolean) => void
   onProviderAccountSharingReset: () => Promise<void> | void
   onConnected?: () => void
@@ -26,6 +27,7 @@ export function TeamPage({
   plugins,
   providerAccountGroups,
   providerAccountSharingSettings,
+  providerAccountSharingSyncError = null,
   onProviderAccountSharingChange,
   onProviderAccountSharingReset,
   onConnected,
@@ -84,6 +86,7 @@ export function TeamPage({
           providerSummary={providerSummary}
           providerAccountGroups={providerAccountGroups}
           providerAccountSharingSettings={providerAccountSharingSettings}
+          providerAccountSharingSyncError={providerAccountSharingSyncError}
           onCheckIn={checkIn}
           onUpdateDeviceName={updateDeviceName}
           onProviderAccountSharingChange={onProviderAccountSharingChange}

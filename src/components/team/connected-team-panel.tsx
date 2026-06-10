@@ -27,6 +27,7 @@ type ConnectedTeamPanelProps = {
   providerSummary: TeamProviderSummary
   providerAccountGroups: ProviderAccountSettingsGroup[]
   providerAccountSharingSettings: ProviderAccountSharingSettings
+  providerAccountSharingSyncError?: string | null
   onCheckIn: () => void
   onUpdateDeviceName: (deviceNameOverride: string | null) => Promise<unknown>
   onProviderAccountSharingChange: (localAccountFingerprint: string, shared: boolean) => void
@@ -41,6 +42,7 @@ export function ConnectedTeamPanel({
   providerSummary,
   providerAccountGroups,
   providerAccountSharingSettings,
+  providerAccountSharingSyncError,
   onCheckIn,
   onUpdateDeviceName,
   onProviderAccountSharingChange,
@@ -79,6 +81,7 @@ export function ConnectedTeamPanel({
       <ProviderAccountSharingSection
         groups={providerAccountGroups}
         sharingSettings={providerAccountSharingSettings}
+        syncError={providerAccountSharingSyncError}
         onSharingChange={onProviderAccountSharingChange}
       />
 

@@ -9,11 +9,17 @@ const store = vi.hoisted(() => ({
   saveProviderAccountSharingSettings: vi.fn(),
   clearProviderAccountSharingSettings: vi.fn(),
 }))
+const teamSync = vi.hoisted(() => ({
+  updateSharedProviderAccountLabel: vi.fn(),
+}))
 
 vi.mock("@/lib/provider-account-sharing-store", () => ({
   loadProviderAccountSharingSettings: store.loadProviderAccountSharingSettings,
   saveProviderAccountSharingSettings: store.saveProviderAccountSharingSettings,
   clearProviderAccountSharingSettings: store.clearProviderAccountSharingSettings,
+}))
+vi.mock("@/lib/provider-account-team-sync", () => ({
+  updateSharedProviderAccountLabel: teamSync.updateSharedProviderAccountLabel,
 }))
 
 describe("useProviderAccountSharing", () => {
@@ -21,11 +27,13 @@ describe("useProviderAccountSharing", () => {
     store.loadProviderAccountSharingSettings.mockReset()
     store.saveProviderAccountSharingSettings.mockReset()
     store.clearProviderAccountSharingSettings.mockReset()
+    teamSync.updateSharedProviderAccountLabel.mockReset()
     store.loadProviderAccountSharingSettings.mockResolvedValue({
       sharedLocalAccountFingerprints: [],
     })
     store.saveProviderAccountSharingSettings.mockResolvedValue(undefined)
     store.clearProviderAccountSharingSettings.mockResolvedValue(undefined)
+    teamSync.updateSharedProviderAccountLabel.mockResolvedValue(undefined)
   })
 
   it("loads, updates, prunes, and resets local sharing settings", async () => {
@@ -71,6 +79,68 @@ describe("useProviderAccountSharing", () => {
     expect(store.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
     expect(result.current.providerAccountSharingSettings).toEqual({
       sharedLocalAccountFingerprints: [],
+    })
+  })
+
+  it("syncs Team metadata after saving a share-on toggle", async () => {
+    const { result } = renderHook(
+      ({ groups }) => useProviderAccountSharing(groups),
+      { initialProps: { groups: [providerGroup()] } }
+    )
+
+    await waitFor(() => {
+      expect(result.current.providerAccountSharingSettings).toEqual({
+        sharedLocalAccountFingerprints: [],
+      })
+    })
+
+    act(() => {
+      result.current.handleProviderAccountSharingChange("fp-work", true)
+    })
+
+    await waitFor(() => {
+      expect(store.saveProviderAccountSharingSettings).toHaveBeenCalledWith({
+        sharedLocalAccountFingerprints: ["fp-work"],
+      })
+    })
+    await waitFor(() => {
+      expect(teamSync.updateSharedProviderAccountLabel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          providerId: "codex",
+          localAccountFingerprint: "fp-work",
+          label: "Work Codex",
+        })
+      )
+    })
+    expect(result.current.providerAccountSharingSyncError).toBeNull()
+  })
+
+  it("keeps local sharing saved when immediate Team metadata sync fails", async () => {
+    teamSync.updateSharedProviderAccountLabel.mockRejectedValueOnce("fresh scan required")
+    const { result } = renderHook(
+      ({ groups }) => useProviderAccountSharing(groups),
+      { initialProps: { groups: [providerGroup()] } }
+    )
+
+    await waitFor(() => {
+      expect(result.current.providerAccountSharingSettings).toEqual({
+        sharedLocalAccountFingerprints: [],
+      })
+    })
+
+    act(() => {
+      result.current.handleProviderAccountSharingChange("fp-work", true)
+    })
+
+    await waitFor(() => {
+      expect(result.current.providerAccountSharingSettings).toEqual({
+        sharedLocalAccountFingerprints: ["fp-work"],
+      })
+    })
+    await waitFor(() => {
+      expect(result.current.providerAccountSharingSyncError).toBe(
+        "fresh scan required"
+      )
     })
   })
 })

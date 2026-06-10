@@ -281,10 +281,26 @@ describe("TeamPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows Provider Account sharing sync errors", () => {
+    teamHook.state = {
+      status: "connected",
+      connection: connectedSettings(),
+      message: null,
+    };
+
+    renderTeamPage({
+      providerAccountGroups: [providerGroup()],
+      providerAccountSharingSyncError: "fresh scan required",
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("fresh scan required");
+  });
+
   function renderTeamPage(
     overrides: Partial<{
       providerAccountGroups: ProviderAccountSettingsGroup[];
       providerAccountSharingSettings: ProviderAccountSharingSettings;
+      providerAccountSharingSyncError: string | null;
       onConnected: () => void;
     }> = {},
   ) {
@@ -297,6 +313,7 @@ describe("TeamPage", () => {
             sharedLocalAccountFingerprints: [],
           }
         }
+        providerAccountSharingSyncError={overrides.providerAccountSharingSyncError}
         onProviderAccountSharingChange={sharingChange}
         onProviderAccountSharingReset={sharingReset}
         onConnected={overrides.onConnected}
