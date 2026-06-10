@@ -76,6 +76,7 @@ function createDeps(seed?: {
     clearTeamConnectionSettings: vi.fn(async () => {
       connection = null
     }),
+    clearProviderAccountSharingSettings: vi.fn(async () => undefined),
     createDeviceId: vi.fn(() => "device-1"),
     getDesktopPlatform: vi.fn(async () => "macos"),
     getDetectedDeviceName: vi.fn(async () => "Alex MacBook"),
@@ -117,6 +118,7 @@ describe("team connection actions", () => {
       })
     )
     expect(fake.token).toBe("eusage_dev_secret")
+    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
     expect(JSON.stringify(fake.connection)).not.toContain("eusage_dev_secret")
     expect(fake.connection).toMatchObject({
       teamName: "Acme Team",
@@ -171,6 +173,7 @@ describe("team connection actions", () => {
       message: "Disconnected locally. Team deployment was not reachable.",
     })
     expect(fake.deps.disconnectTeamDevice).toHaveBeenCalled()
+    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
     expect(fake.token).toBeNull()
     expect(fake.connection).toBeNull()
   })
@@ -196,6 +199,7 @@ describe("team connection actions", () => {
     })
     expect(fake.token).toBeNull()
     expect(fake.connection).toBeNull()
+    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
   })
 
   it("saves a device name override and sends it on check-in", async () => {
@@ -288,6 +292,7 @@ describe("team connection actions", () => {
     })
     expect(fake.token).toBeNull()
     expect(fake.connection).toBeNull()
+    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
   })
 
   it("updates saved reporting timezone from device check-in metadata", async () => {

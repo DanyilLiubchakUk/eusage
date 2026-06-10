@@ -1,0 +1,119 @@
+import { act, renderHook, waitFor } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { useProviderAccountSharing } from "@/hooks/app/use-provider-account-sharing"
+import type { LocalProviderAccount } from "@/lib/provider-account-registry"
+import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings"
+
+const store = vi.hoisted(() => ({
+  loadProviderAccountSharingSettings: vi.fn(),
+  saveProviderAccountSharingSettings: vi.fn(),
+  clearProviderAccountSharingSettings: vi.fn(),
+}))
+
+vi.mock("@/lib/provider-account-sharing-store", () => ({
+  loadProviderAccountSharingSettings: store.loadProviderAccountSharingSettings,
+  saveProviderAccountSharingSettings: store.saveProviderAccountSharingSettings,
+  clearProviderAccountSharingSettings: store.clearProviderAccountSharingSettings,
+}))
+
+describe("useProviderAccountSharing", () => {
+  beforeEach(() => {
+    store.loadProviderAccountSharingSettings.mockReset()
+    store.saveProviderAccountSharingSettings.mockReset()
+    store.clearProviderAccountSharingSettings.mockReset()
+    store.loadProviderAccountSharingSettings.mockResolvedValue({
+      sharedLocalAccountFingerprints: [],
+    })
+    store.saveProviderAccountSharingSettings.mockResolvedValue(undefined)
+    store.clearProviderAccountSharingSettings.mockResolvedValue(undefined)
+  })
+
+  it("loads, updates, prunes, and resets local sharing settings", async () => {
+    store.loadProviderAccountSharingSettings.mockResolvedValue({
+      sharedLocalAccountFingerprints: ["fp-work", "fp-hidden", "fp-old"],
+    })
+
+    const { result, rerender } = renderHook(
+      ({ groups }) => useProviderAccountSharing(groups),
+      { initialProps: { groups: [providerGroup()] } }
+    )
+
+    await waitFor(() => {
+      expect(result.current.providerAccountSharingSettings).toEqual({
+        sharedLocalAccountFingerprints: ["fp-work"],
+      })
+    })
+    expect(store.saveProviderAccountSharingSettings).toHaveBeenCalledWith({
+      sharedLocalAccountFingerprints: ["fp-work"],
+    })
+
+    act(() => {
+      result.current.handleProviderAccountSharingChange("fp-side", true)
+    })
+    expect(store.saveProviderAccountSharingSettings).not.toHaveBeenLastCalledWith({
+      sharedLocalAccountFingerprints: ["fp-work", "fp-side"],
+    })
+
+    act(() => {
+      result.current.handleProviderAccountSharingChange("fp-work", false)
+    })
+    await waitFor(() => {
+      expect(result.current.providerAccountSharingSettings).toEqual({
+        sharedLocalAccountFingerprints: [],
+      })
+    })
+
+    rerender({ groups: [providerGroup({ visibleAccounts: [] })] })
+    await act(async () => {
+      await result.current.resetProviderAccountSharing()
+    })
+
+    expect(store.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
+    expect(result.current.providerAccountSharingSettings).toEqual({
+      sharedLocalAccountFingerprints: [],
+    })
+  })
+})
+
+function providerGroup(
+  overrides: Partial<ProviderAccountSettingsGroup> = {}
+): ProviderAccountSettingsGroup {
+  return {
+    providerId: "codex",
+    providerName: "Codex",
+    providerIconUrl: "/codex.svg",
+    visibleAccounts: [providerAccount()],
+    hiddenAccounts: [
+      providerAccount({
+        localAccountFingerprint: "fp-hidden",
+        label: "Hidden Codex",
+        visibility: "hidden",
+      }),
+    ],
+    notDetectedAccounts: [
+      providerAccount({
+        localAccountFingerprint: "fp-old",
+        label: "Old Codex",
+        detectionState: "notDetected",
+      }),
+    ],
+    ...overrides,
+  }
+}
+
+function providerAccount(
+  overrides: Partial<LocalProviderAccount> = {}
+): LocalProviderAccount {
+  return {
+    providerId: "codex",
+    localAccountFingerprint: "fp-work",
+    label: "Work Codex",
+    visibility: "visible",
+    identityConfidence: "high",
+    confirmationState: "unconfirmed",
+    firstSeenAt: "2026-06-01T00:00:00.000Z",
+    lastSeenAt: "2026-06-02T00:00:00.000Z",
+    detectionState: "detected",
+    ...overrides,
+  }
+}

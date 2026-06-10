@@ -5,6 +5,7 @@ import type { TeamConnectionSettings } from "@/lib/team-settings"
 const connection: TeamConnectionSettings = {
   teamUrl: "https://team.example.com",
   teamName: "Acme Team",
+  reportingTimeZone: "America/New_York",
   tokenFingerprint: "abcd1234...wxyz7890",
   deviceId: "device-1",
   deviceName: "Alex MacBook",
