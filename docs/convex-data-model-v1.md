@@ -364,6 +364,8 @@ teamId + developerId + deviceId + providerId + periodKey + dataIdentity
 teamId + developerId + providerId + teamAccountFingerprint
 ```
 
+Usage ingest creates or refreshes shared Provider Account metadata. The desktop Team API can update a shared account label immediately with the same key without creating raw payloads or history rows.
+
 `metricSamples` upsert key:
 
 ```text

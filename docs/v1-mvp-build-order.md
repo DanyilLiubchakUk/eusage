@@ -22,6 +22,7 @@ The first milestone creates the web/backend target that desktop clients will tal
    - `POST /api/v1/device/check-in`
    - `POST /api/v1/usage/batch`
    - `POST /api/v1/device/disconnect`
+   - `POST /api/v1/provider-account/update`
 6. Add minimal Admin.
    - Clerk login.
    - Setup owner.

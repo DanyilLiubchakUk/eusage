@@ -23,6 +23,7 @@ GET  /api/v1/team-config
 POST /api/v1/device/check-in
 POST /api/v1/usage/batch
 POST /api/v1/device/disconnect
+POST /api/v1/provider-account/update
 ```
 
 The team config response may still include `apiVersion: "v1"` for display/debugging.
