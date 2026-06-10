@@ -20,12 +20,14 @@ export const DESKTOP_API_CORS_HEADERS = {
 type TeamConfigInput = {
   teamName: string
   reportingTimeZone: string
+  teamFingerprint: string
 }
 
 export function buildTeamConfigResponse(input: TeamConfigInput) {
   return {
     teamName: input.teamName,
     reportingTimeZone: input.reportingTimeZone,
+    teamFingerprint: input.teamFingerprint,
     appVersion: packageJson.version,
     apiVersion: DESKTOP_API_VERSION,
     endpoints: DESKTOP_API_ENDPOINTS,

@@ -111,8 +111,11 @@ describe("desktop API", () => {
       team: {
         name: "Acme Team",
         reportingTimeZone: "America/New_York",
+        teamFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
       },
     })
+    const result = await getPublicTeamConfig({ store: fake.store })
+    expect(JSON.stringify(result)).not.toContain("team-1")
   })
 
   it("rejects missing bearer auth before device writes", async () => {

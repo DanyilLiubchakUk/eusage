@@ -34,6 +34,7 @@ const connection: TeamConnectionSettings = {
   teamUrl: "https://team.example.com",
   teamName: "Acme Team",
   reportingTimeZone: "America/New_York",
+  teamFingerprint: "team-fingerprint",
   tokenFingerprint: "abcd1234...wxyz7890",
   deviceId: "device-1",
   deviceName: "Alex MacBook",
@@ -84,10 +85,12 @@ describe("team settings", () => {
       detectedDeviceName: undefined,
       deviceNameOverride: undefined,
       reportingTimeZone: undefined,
+      teamFingerprint: undefined,
     }
 
     expect(normalizeTeamConnectionSettings(legacy)).toMatchObject({
       reportingTimeZone: "UTC",
+      teamFingerprint: "",
       deviceName: "Desktop",
       detectedDeviceName: null,
       deviceNameOverride: null,

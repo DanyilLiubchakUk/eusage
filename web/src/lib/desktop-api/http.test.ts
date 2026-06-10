@@ -13,11 +13,13 @@ describe("desktop API HTTP helpers", () => {
     const response = buildTeamConfigResponse({
       teamName: "Acme Team",
       reportingTimeZone: "America/New_York",
+      teamFingerprint: "team-fingerprint",
     })
 
     expect(response).toMatchObject({
       teamName: "Acme Team",
       reportingTimeZone: "America/New_York",
+      teamFingerprint: "team-fingerprint",
       apiVersion: "v1",
       endpoints: {
         teamConfig: "/api/v1/team-config",

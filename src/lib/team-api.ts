@@ -11,6 +11,7 @@ export const DEFAULT_TEAM_API_ENDPOINTS: TeamApiEndpoints = {
 export type TeamConfig = {
   teamName: string
   reportingTimeZone: string
+  teamFingerprint: string
   appVersion: string
   apiVersion: string
   endpoints: TeamApiEndpoints
@@ -25,6 +26,7 @@ export type TeamDevice = {
 
 export type TeamResponseMetadata = {
   reportingTimeZone: string
+  teamFingerprint: string
 }
 
 export type TeamApiResult<T> =
@@ -137,19 +139,24 @@ function normalizeTeamConfig(value: unknown): TeamConfig | null {
 
   const teamName = stringField(row.teamName)
   const reportingTimeZone = normalizeReportingTimeZone(row.reportingTimeZone)
+  const teamFingerprint = stringField(row.teamFingerprint)
   const appVersion = stringField(row.appVersion)
   const apiVersion = stringField(row.apiVersion)
-  if (!teamName || !reportingTimeZone || !appVersion || !apiVersion) return null
+  if (!teamName || !reportingTimeZone || !teamFingerprint || !appVersion || !apiVersion) return null
 
-  return { teamName, reportingTimeZone, appVersion, apiVersion, endpoints }
+  return { teamName, reportingTimeZone, teamFingerprint, appVersion, apiVersion, endpoints }
 }
 
 function normalizeTeamResponseMetadata(value: unknown): TeamResponseMetadata | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const row = value as Record<string, unknown>
   const reportingTimeZone = normalizeReportingTimeZone(
-    (value as Record<string, unknown>).reportingTimeZone
+    row.reportingTimeZone
   )
-  return reportingTimeZone ? { reportingTimeZone } : null
+  const teamFingerprint = stringField(row.teamFingerprint)
+  return reportingTimeZone && teamFingerprint
+    ? { reportingTimeZone, teamFingerprint }
+    : null
 }
 
 function normalizeEndpoints(value: unknown): TeamApiEndpoints | null {

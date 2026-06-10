@@ -321,6 +321,7 @@ async function buildConnectionSettings(args: {
     teamUrl: args.teamUrl,
     teamName: args.config.teamName,
     reportingTimeZone: args.config.reportingTimeZone,
+    teamFingerprint: args.config.teamFingerprint,
     tokenFingerprint: await args.deps.fingerprintDeveloperToken(args.token),
     deviceId: args.deviceId,
     deviceName: "Desktop",
@@ -406,6 +407,8 @@ async function checkInConnection(
     ...connection,
     reportingTimeZone:
       result.value.team?.reportingTimeZone ?? connection.reportingTimeZone,
+    teamFingerprint:
+      result.value.team?.teamFingerprint ?? connection.teamFingerprint,
     deviceName: normalizeDeviceName(result.value.device.deviceName) ?? deviceName,
     detectedDeviceName,
     syncStatus: "connected",

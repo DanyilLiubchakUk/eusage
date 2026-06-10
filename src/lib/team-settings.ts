@@ -19,6 +19,7 @@ export type TeamConnectionSettings = {
   teamUrl: string
   teamName: string
   reportingTimeZone: string
+  teamFingerprint: string
   tokenFingerprint: string
   deviceId: string
   deviceName: string
@@ -72,6 +73,7 @@ export function normalizeTeamConnectionSettings(
   const teamUrl = stringField(row.teamUrl)
   const teamName = stringField(row.teamName)
   const reportingTimeZone = normalizeReportingTimeZone(row.reportingTimeZone)
+  const teamFingerprint = stringField(row.teamFingerprint)
   const tokenFingerprint = stringField(row.tokenFingerprint)
   const deviceId = stringField(row.deviceId)
   const detectedDeviceName = normalizeDeviceName(row.detectedDeviceName)
@@ -88,6 +90,7 @@ export function normalizeTeamConnectionSettings(
     teamUrl,
     teamName,
     reportingTimeZone,
+    teamFingerprint,
     tokenFingerprint,
     deviceId,
     deviceName,

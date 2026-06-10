@@ -7,6 +7,7 @@ import {
 } from "./developerTokens"
 import { displayDeviceName } from "./deviceNames"
 import { reportingTimeZoneOrDefault } from "./reportingTimeZone"
+import { hashSecret } from "./tokenSecrets"
 
 export const DEVICE_STALE_AFTER_MS = 72 * 60 * 60 * 1000
 
@@ -52,6 +53,7 @@ export type PublicTeamConfigResult =
       team: {
         name: string
         reportingTimeZone: string
+        teamFingerprint: string
       }
     }
   | DesktopApiError
@@ -108,6 +110,7 @@ export type DeviceCheckInResult =
       developerId: string
       team: {
         reportingTimeZone: string
+        teamFingerprint: string
       }
       device: PublicDeviceRow
     }
@@ -120,6 +123,7 @@ export type DeviceDisconnectResult =
       developerId: string
       team: {
         reportingTimeZone: string
+        teamFingerprint: string
       }
       device: PublicDeviceRow
     }
@@ -170,6 +174,7 @@ export async function getPublicTeamConfig(args: {
     team: {
       name: team.name,
       reportingTimeZone: reportingTimeZoneOrDefault(team.reportingTimeZone),
+      teamFingerprint: await teamFingerprint(team._id),
     },
   }
 }
@@ -259,6 +264,7 @@ export async function checkInDevice(args: {
     developerId: auth.developer._id,
     team: {
       reportingTimeZone: reportingTimeZoneOrDefault(auth.team.reportingTimeZone),
+      teamFingerprint: await teamFingerprint(auth.team._id),
     },
     device: publicDeviceRow(device, args.now),
   }
@@ -297,9 +303,14 @@ export async function disconnectDevice(args: {
     developerId: auth.developer._id,
     team: {
       reportingTimeZone: reportingTimeZoneOrDefault(auth.team.reportingTimeZone),
+      teamFingerprint: await teamFingerprint(auth.team._id),
     },
     device: publicDeviceRow(updatedDevice, args.now),
   }
+}
+
+async function teamFingerprint(teamId: string) {
+  return hashSecret(["eusage-team-fingerprint:v1", teamId].join("\0"))
 }
 
 export function publicDeviceRow(device: DeviceRecord, now: number): PublicDeviceRow {

@@ -28,6 +28,7 @@ function createDeps(seed?: {
       value: {
         teamName: "Acme Team",
         reportingTimeZone: "America/New_York",
+        teamFingerprint: "team-fingerprint",
         appVersion: "0.6.24",
         apiVersion: "v1",
         endpoints,
@@ -44,6 +45,7 @@ function createDeps(seed?: {
         },
         team: {
           reportingTimeZone: "America/New_York",
+          teamFingerprint: "team-fingerprint",
         },
       },
     })),
@@ -58,6 +60,7 @@ function createDeps(seed?: {
         },
         team: {
           reportingTimeZone: "America/New_York",
+          teamFingerprint: "team-fingerprint",
         },
       },
     })),
@@ -123,6 +126,7 @@ describe("team connection actions", () => {
     expect(fake.connection).toMatchObject({
       teamName: "Acme Team",
       reportingTimeZone: "America/New_York",
+      teamFingerprint: "team-fingerprint",
       tokenFingerprint: "abcd1234...wxyz7890",
       deviceName: "Alex MacBook",
       detectedDeviceName: "Alex MacBook",
@@ -311,6 +315,7 @@ describe("team connection actions", () => {
         },
         team: {
           reportingTimeZone: "America/Los_Angeles",
+          teamFingerprint: "team-fingerprint",
         },
       },
     })
@@ -327,6 +332,7 @@ function connectedSettings(): TeamConnectionSettings {
     teamUrl: "https://team.example.com",
     teamName: "Acme Team",
     reportingTimeZone: "America/New_York",
+    teamFingerprint: "team-fingerprint",
     tokenFingerprint: "abcd1234...wxyz7890",
     deviceId: "device-1",
     deviceName: "Alex MacBook",
