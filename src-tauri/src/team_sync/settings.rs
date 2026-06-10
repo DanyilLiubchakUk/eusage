@@ -20,6 +20,8 @@ pub(super) struct TeamConnectionSettings {
 #[serde(rename_all = "camelCase")]
 pub(super) struct TeamApiEndpoints {
     pub usage_batch: String,
+    #[serde(default = "default_provider_account_update_endpoint")]
+    pub provider_account_update: String,
 }
 
 pub(super) fn load_connection(app_data_dir: &Path) -> Option<TeamConnectionSettings> {
@@ -35,6 +37,10 @@ pub(super) fn valid_connection(connection: &TeamConnectionSettings) -> bool {
         && !connection.token_fingerprint.trim().is_empty()
         && !connection.device_id.trim().is_empty()
         && connection.endpoints.usage_batch.starts_with('/')
+        && connection
+            .endpoints
+            .provider_account_update
+            .starts_with('/')
 }
 
 pub(super) fn connection_key(connection: &TeamConnectionSettings) -> String {
@@ -50,6 +56,21 @@ pub(super) fn usage_batch_endpoint(connection: &TeamConnectionSettings) -> Strin
         connection.team_url.trim_end_matches('/'),
         connection.endpoints.usage_batch.trim_start_matches('/')
     )
+}
+
+pub(super) fn provider_account_update_endpoint(connection: &TeamConnectionSettings) -> String {
+    format!(
+        "{}/{}",
+        connection.team_url.trim_end_matches('/'),
+        connection
+            .endpoints
+            .provider_account_update
+            .trim_start_matches('/')
+    )
+}
+
+fn default_provider_account_update_endpoint() -> String {
+    "/api/v1/provider-account/update".to_string()
 }
 
 pub(super) fn mark_connection_success(app_data_dir: &Path, server_time: &str) {
@@ -137,12 +158,17 @@ mod tests {
             device_id: "device-1".to_string(),
             endpoints: TeamApiEndpoints {
                 usage_batch: "/api/v1/usage/batch".to_string(),
+                provider_account_update: "/api/v1/provider-account/update".to_string(),
             },
         };
 
         assert_eq!(
             usage_batch_endpoint(&connection),
             "https://team.example.com/api/v1/usage/batch"
+        );
+        assert_eq!(
+            provider_account_update_endpoint(&connection),
+            "https://team.example.com/api/v1/provider-account/update"
         );
     }
 }

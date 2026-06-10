@@ -262,6 +262,19 @@ pub fn cache_successful_output(output: &PluginOutput) {
     crate::team_sync::upload_snapshot(&app_data_dir, &snapshot);
 }
 
+pub(crate) fn cached_snapshot(provider_id: &str) -> Option<CachedPluginSnapshot> {
+    let provider_id = provider_id.trim();
+    if provider_id.is_empty() {
+        return None;
+    }
+    cache_state()
+        .lock()
+        .expect("cache state poisoned")
+        .snapshots
+        .get(provider_id)
+        .cloned()
+}
+
 pub fn flush_cache() {
     if let CacheFlushResult::Failed(e) = flush_pending_cache_once() {
         log::warn!("{}", e);

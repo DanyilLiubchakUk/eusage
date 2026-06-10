@@ -17,6 +17,7 @@ const connection: TeamConnectionSettings = {
     deviceCheckIn: "/api/v1/device/check-in",
     usageBatch: "/api/v1/usage/batch",
     deviceDisconnect: "/api/v1/device/disconnect",
+    providerAccountUpdate: "/api/v1/provider-account/update",
   },
   syncStatus: "connected",
   lastContactAt: "2026-06-01T12:00:00.000Z",

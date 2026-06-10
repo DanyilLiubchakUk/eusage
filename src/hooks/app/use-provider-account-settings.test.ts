@@ -6,9 +6,20 @@ import type { ProviderAccountRegistry } from "@/lib/provider-account-registry"
 const store = vi.hoisted(() => ({
   loadProviderAccountRegistry: vi.fn(),
   saveProviderAccountRegistry: vi.fn(),
+  loadProviderAccountSharingSettings: vi.fn(),
+  invoke: vi.fn(),
 }))
 
-vi.mock("@/lib/provider-account-registry-store", () => store)
+vi.mock("@/lib/provider-account-registry-store", () => ({
+  loadProviderAccountRegistry: store.loadProviderAccountRegistry,
+  saveProviderAccountRegistry: store.saveProviderAccountRegistry,
+}))
+vi.mock("@/lib/provider-account-sharing-store", () => ({
+  loadProviderAccountSharingSettings: store.loadProviderAccountSharingSettings,
+}))
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: store.invoke,
+}))
 
 const registry: ProviderAccountRegistry = {
   accounts: [
@@ -41,8 +52,14 @@ describe("useProviderAccountSettings", () => {
   beforeEach(() => {
     store.loadProviderAccountRegistry.mockReset()
     store.saveProviderAccountRegistry.mockReset()
+    store.loadProviderAccountSharingSettings.mockReset()
+    store.invoke.mockReset()
     store.loadProviderAccountRegistry.mockResolvedValue(registry)
     store.saveProviderAccountRegistry.mockResolvedValue(undefined)
+    store.loadProviderAccountSharingSettings.mockResolvedValue({
+      sharedLocalAccountFingerprints: [],
+    })
+    store.invoke.mockResolvedValue(undefined)
   })
 
   it("loads, renames, hides, and forgets local provider accounts", async () => {
@@ -77,6 +94,59 @@ describe("useProviderAccountSettings", () => {
     })
     expect(store.saveProviderAccountRegistry).toHaveBeenLastCalledWith({
       accounts: [expect.objectContaining({ localAccountFingerprint: "fp-work" })],
+    })
+  })
+
+  it("syncs shared Provider Account label changes with the Team API", async () => {
+    store.loadProviderAccountSharingSettings.mockResolvedValue({
+      sharedLocalAccountFingerprints: ["fp-work"],
+    })
+    const { result } = renderHook(() => useProviderAccountSettings())
+
+    await waitFor(() => {
+      expect(result.current.providerAccountRegistry.accounts).toHaveLength(2)
+    })
+
+    act(() => {
+      result.current.handleProviderAccountRename("fp-work", "Main Claude")
+    })
+
+    await waitFor(() => {
+      expect(store.invoke).toHaveBeenCalledWith(
+        "update_shared_provider_account_label",
+        {
+          providerId: "claude",
+          localAccountFingerprint: "fp-work",
+          label: "Main Claude",
+        }
+      )
+    })
+    expect(result.current.providerAccountLabelSyncError).toBeNull()
+  })
+
+  it("keeps local label saved when Team label sync fails", async () => {
+    store.loadProviderAccountSharingSettings.mockResolvedValue({
+      sharedLocalAccountFingerprints: ["fp-work"],
+    })
+    store.invoke.mockRejectedValueOnce("offline")
+    const { result } = renderHook(() => useProviderAccountSettings())
+
+    await waitFor(() => {
+      expect(result.current.providerAccountRegistry.accounts).toHaveLength(2)
+    })
+
+    act(() => {
+      result.current.handleProviderAccountRename("fp-work", "Main Claude")
+    })
+
+    await waitFor(() => {
+      expect(result.current.providerAccountLabelSyncError).toBe("offline")
+    })
+    expect(store.saveProviderAccountRegistry).toHaveBeenLastCalledWith({
+      accounts: [
+        expect.objectContaining({ localAccountFingerprint: "fp-work", label: "Main Claude" }),
+        expect.objectContaining({ localAccountFingerprint: "fp-old" }),
+      ],
     })
   })
 })

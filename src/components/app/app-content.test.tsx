@@ -100,6 +100,7 @@ function createProps(): AppContentProps {
     onStartOnLoginChange: vi.fn(),
     onTeamConnected: vi.fn(),
     providerAccountGroups: [],
+    providerAccountLabelSyncError: null,
     providerAccountSharingSettings: { sharedLocalAccountFingerprints: [] },
     onProviderAccountSharingChange: vi.fn(),
     onProviderAccountSharingReset: vi.fn(),

@@ -8,6 +8,7 @@ import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settin
 
 type ProviderAccountSettingsSectionProps = {
   groups: ProviderAccountSettingsGroup[]
+  labelSyncError?: string | null
   onRename: (localAccountFingerprint: string, label: string) => void
   onVisibilityChange: (localAccountFingerprint: string, visible: boolean) => void
   onForget: (localAccountFingerprint: string) => void
@@ -17,6 +18,7 @@ type ProviderAccountActions = Omit<ProviderAccountSettingsSectionProps, "groups"
 
 export function ProviderAccountSettingsSection({
   groups,
+  labelSyncError,
   onRename,
   onVisibilityChange,
   onForget,
@@ -27,6 +29,11 @@ export function ProviderAccountSettingsSection({
       <p className="text-sm text-muted-foreground mb-2">
         Local labels and visibility
       </p>
+      {labelSyncError ? (
+        <p role="alert" className="mb-2 text-xs text-destructive">
+          {labelSyncError}
+        </p>
+      ) : null}
       {groups.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
           No Provider Accounts detected yet.

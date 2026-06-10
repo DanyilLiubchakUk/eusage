@@ -43,6 +43,7 @@ export type AppContentActionProps = {
   onStartOnLoginChange: (value: boolean) => void
   onTeamConnected: () => void
   providerAccountGroups: ProviderAccountSettingsGroup[]
+  providerAccountLabelSyncError: string | null
   providerAccountSharingSettings: ProviderAccountSharingSettings
   onProviderAccountSharingChange: (localAccountFingerprint: string, shared: boolean) => void
   onProviderAccountSharingReset: () => Promise<void> | void
@@ -72,6 +73,7 @@ export function AppContent({
   onStartOnLoginChange,
   onTeamConnected,
   providerAccountGroups,
+  providerAccountLabelSyncError,
   providerAccountSharingSettings,
   onProviderAccountSharingChange,
   onProviderAccountSharingReset,
@@ -147,6 +149,7 @@ export function AppContent({
         startOnLogin={startOnLogin}
         onStartOnLoginChange={onStartOnLoginChange}
         providerAccountGroups={providerAccountGroups}
+        providerAccountLabelSyncError={providerAccountLabelSyncError}
         onProviderAccountRename={onProviderAccountRename}
         onProviderAccountVisibilityChange={onProviderAccountVisibilityChange}
         onProviderAccountForget={onProviderAccountForget}

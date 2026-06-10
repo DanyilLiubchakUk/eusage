@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react"
+import { invoke } from "@tauri-apps/api/core"
 import {
   forgetProviderAccount,
   updateProviderAccountLabel,
   updateProviderAccountVisibility,
+  type LocalProviderAccount,
   type ProviderAccountRegistry,
   type ProviderAccountRegistryResult,
 } from "@/lib/provider-account-registry"
@@ -10,10 +12,13 @@ import {
   loadProviderAccountRegistry,
   saveProviderAccountRegistry,
 } from "@/lib/provider-account-registry-store"
+import { loadProviderAccountSharingSettings } from "@/lib/provider-account-sharing-store"
 
 export function useProviderAccountSettings() {
   const [providerAccountRegistry, setProviderAccountRegistry] =
     useState<ProviderAccountRegistry>({ accounts: [] })
+  const [providerAccountLabelSyncError, setProviderAccountLabelSyncError] =
+    useState<string | null>(null)
 
   const reloadProviderAccountRegistry = useCallback(async () => {
     try {
@@ -46,16 +51,67 @@ export function useProviderAccountSettings() {
     })
   }, [])
 
+  const syncSharedProviderAccountLabel = useCallback(
+    async (account?: LocalProviderAccount) => {
+      if (!account) return
+
+      try {
+        const sharingSettings = await loadProviderAccountSharingSettings()
+        if (
+          !sharingSettings.sharedLocalAccountFingerprints.includes(
+            account.localAccountFingerprint
+          )
+        ) {
+          return
+        }
+
+        await invoke("update_shared_provider_account_label", {
+          providerId: account.providerId,
+          localAccountFingerprint: account.localAccountFingerprint,
+          label: account.label,
+        })
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Team Provider Account label update failed."
+        setProviderAccountLabelSyncError(message)
+        console.error("Failed to sync Provider Account label with team:", error)
+      }
+    },
+    []
+  )
+
   const handleProviderAccountRename = useCallback((
     localAccountFingerprint: string,
     label: string
   ) => {
-    applyRegistryUpdate(
-      (registry) =>
-        updateProviderAccountLabel(registry, localAccountFingerprint, label),
-      "Failed to rename provider account:"
-    )
-  }, [applyRegistryUpdate])
+    setProviderAccountLabelSyncError(null)
+    setProviderAccountRegistry((current) => {
+      const result = updateProviderAccountLabel(
+        current,
+        localAccountFingerprint,
+        label
+      )
+      if (!result.ok) {
+        console.error("Failed to rename provider account:", result)
+        return current
+      }
+
+      const account = result.value.accounts.find(
+        (candidate) =>
+          candidate.localAccountFingerprint === localAccountFingerprint
+      )
+      void saveProviderAccountRegistry(result.value)
+        .then(() => syncSharedProviderAccountLabel(account))
+        .catch((error) => {
+          console.error("Failed to save provider account registry:", error)
+        })
+      return result.value
+    })
+  }, [syncSharedProviderAccountLabel])
 
   const handleProviderAccountVisibilityChange = useCallback((
     localAccountFingerprint: string,
@@ -81,6 +137,7 @@ export function useProviderAccountSettings() {
 
   return {
     providerAccountRegistry,
+    providerAccountLabelSyncError,
     reloadProviderAccountRegistry,
     handleProviderAccountRename,
     handleProviderAccountVisibilityChange,

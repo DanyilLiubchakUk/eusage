@@ -71,6 +71,68 @@ pub(super) fn shared_provider_account_for_snapshot(
     }
 }
 
+pub(super) fn shared_provider_account_for_label_update(
+    app_data_dir: &Path,
+    team_fingerprint: &str,
+    snapshot: &CachedPluginSnapshot,
+    local_account_fingerprint: &str,
+    label: &str,
+) -> Result<SharedProviderAccount, String> {
+    let local_account_fingerprint = local_account_fingerprint.trim();
+    if local_account_fingerprint.is_empty() {
+        return Err("Provider Account fingerprint is required.".to_string());
+    }
+    let label = label.trim();
+    if label.is_empty() {
+        return Err("Provider Account label is required.".to_string());
+    }
+
+    let settings = read_settings_value(app_data_dir)
+        .ok_or_else(|| "Provider Account settings are missing.".to_string())?;
+    let local_salt = string_field(settings.get(LOCAL_SALT_KEY))
+        .ok_or_else(|| "Provider Account local salt is missing.".to_string())?;
+    if !shared_local_account_fingerprints(&settings).contains(local_account_fingerprint) {
+        return Err("Provider Account is not shared with team.".to_string());
+    }
+    if !shareable_local_accounts(&settings).contains_key(local_account_fingerprint) {
+        return Err("Provider Account is not shareable.".to_string());
+    }
+
+    let mut matches = snapshot
+        .provider_account_detections
+        .iter()
+        .filter(|detection| detection.provider_id.trim() == snapshot.provider_id)
+        .filter_map(|detection| {
+            let local_fingerprint =
+                fingerprint_provider_account(detection, "local", local_salt.as_str())?;
+            if local_fingerprint != local_account_fingerprint {
+                return None;
+            }
+            let team_fingerprint =
+                fingerprint_provider_account(detection, "team", team_fingerprint)?;
+            Some(SharedProviderAccount {
+                local_account_fingerprint: local_fingerprint,
+                team_account_fingerprint: team_fingerprint,
+                label: label.to_string(),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    matches.dedup_by(|a, b| {
+        a.local_account_fingerprint == b.local_account_fingerprint
+            && a.team_account_fingerprint == b.team_account_fingerprint
+    });
+
+    match matches.as_slice() {
+        [account] => Ok(account.clone()),
+        [] => Err(
+            "Shared Provider Account needs a fresh provider scan before updating Team metadata."
+                .to_string(),
+        ),
+        _ => Err("Multiple Provider Account detections matched the shared account.".to_string()),
+    }
+}
+
 pub(super) fn local_provider_account_is_shareable(
     app_data_dir: &Path,
     local_account_fingerprint: &str,
@@ -285,6 +347,25 @@ mod tests {
             &dir,
             &local_fingerprint
         ));
+    }
+
+    #[test]
+    fn label_update_uses_current_detection_and_new_label() {
+        let dir = temp_dir("label-update");
+        let local_fingerprint = write_settings(&dir, serde_json::json!({}), true);
+
+        let account = shared_provider_account_for_label_update(
+            &dir,
+            "team-fingerprint",
+            &snapshot(),
+            &local_fingerprint,
+            "Cursor Team",
+        )
+        .unwrap();
+
+        assert_eq!(account.local_account_fingerprint, local_fingerprint);
+        assert_eq!(account.label, "Cursor Team");
+        assert_eq!(account.team_account_fingerprint.len(), 64);
     }
 
     #[test]

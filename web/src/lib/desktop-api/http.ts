@@ -9,6 +9,7 @@ export const DESKTOP_API_ENDPOINTS = {
   deviceCheckIn: "/api/v1/device/check-in",
   usageBatch: "/api/v1/usage/batch",
   deviceDisconnect: "/api/v1/device/disconnect",
+  providerAccountUpdate: "/api/v1/provider-account/update",
 }
 
 export const DESKTOP_API_CORS_HEADERS = {

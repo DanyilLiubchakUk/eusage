@@ -6,6 +6,7 @@ export const DEFAULT_TEAM_API_ENDPOINTS: TeamApiEndpoints = {
   deviceCheckIn: "/api/v1/device/check-in",
   usageBatch: "/api/v1/usage/batch",
   deviceDisconnect: "/api/v1/device/disconnect",
+  providerAccountUpdate: "/api/v1/provider-account/update",
 }
 
 export type TeamConfig = {
@@ -167,6 +168,9 @@ function normalizeEndpoints(value: unknown): TeamApiEndpoints | null {
     deviceCheckIn: stringField(row.deviceCheckIn),
     usageBatch: stringField(row.usageBatch),
     deviceDisconnect: stringField(row.deviceDisconnect),
+    providerAccountUpdate:
+      stringField(row.providerAccountUpdate) ||
+      DEFAULT_TEAM_API_ENDPOINTS.providerAccountUpdate,
   }
   return Object.values(endpoints).every((path) => path.startsWith("/"))
     ? endpoints

@@ -283,6 +283,7 @@ interface SettingsPageProps {
   startOnLogin: boolean;
   onStartOnLoginChange: (value: boolean) => void;
   providerAccountGroups: ProviderAccountSettingsGroup[];
+  providerAccountLabelSyncError: string | null;
   onProviderAccountRename: (localAccountFingerprint: string, label: string) => void;
   onProviderAccountVisibilityChange: (localAccountFingerprint: string, visible: boolean) => void;
   onProviderAccountForget: (localAccountFingerprint: string) => void;
@@ -310,6 +311,7 @@ export function SettingsPage({
   startOnLogin,
   onStartOnLoginChange,
   providerAccountGroups,
+  providerAccountLabelSyncError,
   onProviderAccountRename,
   onProviderAccountVisibilityChange,
   onProviderAccountForget,
@@ -528,6 +530,7 @@ export function SettingsPage({
       />
       <ProviderAccountSettingsSection
         groups={providerAccountGroups}
+        labelSyncError={providerAccountLabelSyncError}
         onRename={onProviderAccountRename}
         onVisibilityChange={onProviderAccountVisibilityChange}
         onForget={onProviderAccountForget}

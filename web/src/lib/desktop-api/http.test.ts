@@ -26,6 +26,7 @@ describe("desktop API HTTP helpers", () => {
         deviceCheckIn: "/api/v1/device/check-in",
         usageBatch: "/api/v1/usage/batch",
         deviceDisconnect: "/api/v1/device/disconnect",
+        providerAccountUpdate: "/api/v1/provider-account/update",
       },
     })
     expect(JSON.stringify(response)).not.toContain("Convex")

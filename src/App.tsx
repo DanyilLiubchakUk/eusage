@@ -86,6 +86,7 @@ function App() {
 
   const {
     providerAccountRegistry,
+    providerAccountLabelSyncError,
     reloadProviderAccountRegistry,
     handleProviderAccountRename,
     handleProviderAccountVisibilityChange,
@@ -292,6 +293,7 @@ function App() {
         onStartOnLoginChange: handleStartOnLoginChange,
         onTeamConnected: handleTeamConnected,
         providerAccountGroups,
+        providerAccountLabelSyncError,
         providerAccountSharingSettings,
         onProviderAccountSharingChange: handleProviderAccountSharingChange,
         onProviderAccountSharingReset: resetProviderAccountSharing,

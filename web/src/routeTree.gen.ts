@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as TvDisplayTokenRouteImport } from './routes/tv_.display.$token'
 import { Route as ApiV1TeamConfigRouteImport } from './routes/api/v1/team-config'
 import { Route as ApiV1UsageBatchRouteImport } from './routes/api/v1/usage/batch'
+import { Route as ApiV1ProviderAccountUpdateRouteImport } from './routes/api/v1/provider-account/update'
 import { Route as ApiV1DeviceDisconnectRouteImport } from './routes/api/v1/device/disconnect'
 import { Route as ApiV1DeviceCheckInRouteImport } from './routes/api/v1/device/check-in'
 
@@ -54,6 +55,12 @@ const ApiV1UsageBatchRoute = ApiV1UsageBatchRouteImport.update({
   path: '/api/v1/usage/batch',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1ProviderAccountUpdateRoute =
+  ApiV1ProviderAccountUpdateRouteImport.update({
+    id: '/api/v1/provider-account/update',
+    path: '/api/v1/provider-account/update',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiV1DeviceDisconnectRoute = ApiV1DeviceDisconnectRouteImport.update({
   id: '/api/v1/device/disconnect',
   path: '/api/v1/device/disconnect',
@@ -74,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/tv/display/$token': typeof TvDisplayTokenRoute
   '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
   '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
+  '/api/v1/provider-account/update': typeof ApiV1ProviderAccountUpdateRoute
   '/api/v1/usage/batch': typeof ApiV1UsageBatchRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +93,7 @@ export interface FileRoutesByTo {
   '/tv/display/$token': typeof TvDisplayTokenRoute
   '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
   '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
+  '/api/v1/provider-account/update': typeof ApiV1ProviderAccountUpdateRoute
   '/api/v1/usage/batch': typeof ApiV1UsageBatchRoute
 }
 export interface FileRoutesById {
@@ -97,6 +106,7 @@ export interface FileRoutesById {
   '/tv_/display/$token': typeof TvDisplayTokenRoute
   '/api/v1/device/check-in': typeof ApiV1DeviceCheckInRoute
   '/api/v1/device/disconnect': typeof ApiV1DeviceDisconnectRoute
+  '/api/v1/provider-account/update': typeof ApiV1ProviderAccountUpdateRoute
   '/api/v1/usage/batch': typeof ApiV1UsageBatchRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/tv/display/$token'
     | '/api/v1/device/check-in'
     | '/api/v1/device/disconnect'
+    | '/api/v1/provider-account/update'
     | '/api/v1/usage/batch'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/tv/display/$token'
     | '/api/v1/device/check-in'
     | '/api/v1/device/disconnect'
+    | '/api/v1/provider-account/update'
     | '/api/v1/usage/batch'
   id:
     | '__root__'
@@ -132,6 +144,7 @@ export interface FileRouteTypes {
     | '/tv_/display/$token'
     | '/api/v1/device/check-in'
     | '/api/v1/device/disconnect'
+    | '/api/v1/provider-account/update'
     | '/api/v1/usage/batch'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +157,7 @@ export interface RootRouteChildren {
   TvDisplayTokenRoute: typeof TvDisplayTokenRoute
   ApiV1DeviceCheckInRoute: typeof ApiV1DeviceCheckInRoute
   ApiV1DeviceDisconnectRoute: typeof ApiV1DeviceDisconnectRoute
+  ApiV1ProviderAccountUpdateRoute: typeof ApiV1ProviderAccountUpdateRoute
   ApiV1UsageBatchRoute: typeof ApiV1UsageBatchRoute
 }
 
@@ -198,6 +212,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1UsageBatchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/provider-account/update': {
+      id: '/api/v1/provider-account/update'
+      path: '/api/v1/provider-account/update'
+      fullPath: '/api/v1/provider-account/update'
+      preLoaderRoute: typeof ApiV1ProviderAccountUpdateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/device/disconnect': {
       id: '/api/v1/device/disconnect'
       path: '/api/v1/device/disconnect'
@@ -224,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   TvDisplayTokenRoute: TvDisplayTokenRoute,
   ApiV1DeviceCheckInRoute: ApiV1DeviceCheckInRoute,
   ApiV1DeviceDisconnectRoute: ApiV1DeviceDisconnectRoute,
+  ApiV1ProviderAccountUpdateRoute: ApiV1ProviderAccountUpdateRoute,
   ApiV1UsageBatchRoute: ApiV1UsageBatchRoute,
 }
 export const routeTree = rootRouteImport

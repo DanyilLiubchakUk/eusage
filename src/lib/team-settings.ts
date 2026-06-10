@@ -13,6 +13,7 @@ export type TeamApiEndpoints = {
   deviceCheckIn: string
   usageBatch: string
   deviceDisconnect: string
+  providerAccountUpdate: string
 }
 
 export type TeamConnectionSettings = {
@@ -33,6 +34,7 @@ export type TeamConnectionSettings = {
 }
 
 const store = new LazyStore(SETTINGS_STORE_PATH)
+const DEFAULT_PROVIDER_ACCOUNT_UPDATE_ENDPOINT = "/api/v1/provider-account/update"
 
 type StoreWithDelete = {
   delete?: (key: string) => Promise<void>
@@ -112,6 +114,8 @@ function normalizeTeamApiEndpoints(value: unknown): TeamApiEndpoints | null {
     deviceCheckIn: stringField(row.deviceCheckIn),
     usageBatch: stringField(row.usageBatch),
     deviceDisconnect: stringField(row.deviceDisconnect),
+    providerAccountUpdate:
+      stringField(row.providerAccountUpdate) || DEFAULT_PROVIDER_ACCOUNT_UPDATE_ENDPOINT,
   }
   return Object.values(endpoints).every((path) => path.startsWith("/"))
     ? endpoints

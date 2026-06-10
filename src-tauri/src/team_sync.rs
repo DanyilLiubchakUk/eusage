@@ -1,5 +1,6 @@
 mod client;
 mod payload;
+mod provider_account_updates;
 mod provider_accounts;
 mod settings;
 
@@ -21,6 +22,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
+
+pub(crate) use provider_account_updates::update_shared_provider_account_label;
 
 const UPLOAD_SCHEMA_VERSION: &str = "1.0.0";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
@@ -379,7 +382,7 @@ fn mark_upload_finished(allow_reschedule: bool) {
     }
 }
 
-fn clear_pending_uploads() {
+pub(super) fn clear_pending_uploads() {
     let mut state = team_sync_state().lock().expect("team sync state poisoned");
     state.pending.clear();
     state.upload_scheduled = false;

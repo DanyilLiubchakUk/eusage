@@ -70,6 +70,7 @@ const defaultProps = {
   startOnLogin: false,
   onStartOnLoginChange: vi.fn(),
   providerAccountGroups: [],
+  providerAccountLabelSyncError: null,
   onProviderAccountRename: vi.fn(),
   onProviderAccountVisibilityChange: vi.fn(),
   onProviderAccountForget: vi.fn(),
