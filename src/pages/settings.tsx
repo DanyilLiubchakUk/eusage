@@ -19,6 +19,7 @@ import { GripVertical } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { GlobalShortcutSection } from "@/components/global-shortcut-section";
+import { ProviderAccountSettingsSection } from "@/components/settings/provider-account-settings-section";
 import { getBarFillLayout, getTrayIconSizePx } from "@/lib/tray-bars-icon";
 import {
   AUTO_UPDATE_OPTIONS,
@@ -37,6 +38,7 @@ import {
 } from "@/lib/settings";
 import { getTimeFormatter } from "@/lib/reset-tooltip";
 import type { TraySettingsPreview } from "@/hooks/app/use-tray-icon";
+import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings";
 import { cn } from "@/lib/utils";
 
 interface PluginConfig {
@@ -280,6 +282,10 @@ interface SettingsPageProps {
   onGlobalShortcutChange: (value: GlobalShortcut) => void;
   startOnLogin: boolean;
   onStartOnLoginChange: (value: boolean) => void;
+  providerAccountGroups: ProviderAccountSettingsGroup[];
+  onProviderAccountRename: (localAccountFingerprint: string, label: string) => void;
+  onProviderAccountVisibilityChange: (localAccountFingerprint: string, visible: boolean) => void;
+  onProviderAccountForget: (localAccountFingerprint: string) => void;
 }
 
 export function SettingsPage({
@@ -303,6 +309,10 @@ export function SettingsPage({
   onGlobalShortcutChange,
   startOnLogin,
   onStartOnLoginChange,
+  providerAccountGroups,
+  onProviderAccountRename,
+  onProviderAccountVisibilityChange,
+  onProviderAccountForget,
 }: SettingsPageProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -515,6 +525,12 @@ export function SettingsPage({
       <GlobalShortcutSection
         globalShortcut={globalShortcut}
         onGlobalShortcutChange={onGlobalShortcutChange}
+      />
+      <ProviderAccountSettingsSection
+        groups={providerAccountGroups}
+        onRename={onProviderAccountRename}
+        onVisibilityChange={onProviderAccountVisibilityChange}
+        onForget={onProviderAccountForget}
       />
       <section>
         <h3 className="text-lg font-semibold mb-0">Start on Login</h3>

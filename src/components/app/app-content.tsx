@@ -6,6 +6,7 @@ import { TeamPage } from "@/pages/team"
 import type { DisplayPluginState } from "@/hooks/app/use-app-plugin-views"
 import type { SettingsPluginState } from "@/hooks/app/use-settings-plugin-list"
 import type { TraySettingsPreview } from "@/hooks/app/use-tray-icon"
+import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings"
 import { useAppPreferencesStore } from "@/stores/app-preferences-store"
 import { useAppUiStore } from "@/stores/app-ui-store"
 import type {
@@ -39,6 +40,10 @@ export type AppContentActionProps = {
   onGlobalShortcutChange: (value: GlobalShortcut) => void
   onStartOnLoginChange: (value: boolean) => void
   onTeamConnected: () => void
+  providerAccountGroups: ProviderAccountSettingsGroup[]
+  onProviderAccountRename: (localAccountFingerprint: string, label: string) => void
+  onProviderAccountVisibilityChange: (localAccountFingerprint: string, visible: boolean) => void
+  onProviderAccountForget: (localAccountFingerprint: string) => void
 }
 
 export type AppContentProps = AppContentDerivedProps & AppContentActionProps
@@ -61,6 +66,10 @@ export function AppContent({
   onGlobalShortcutChange,
   onStartOnLoginChange,
   onTeamConnected,
+  providerAccountGroups,
+  onProviderAccountRename,
+  onProviderAccountVisibilityChange,
+  onProviderAccountForget,
 }: AppContentProps) {
   const { activeView } = useAppUiStore(
     useShallow((state) => ({
@@ -126,6 +135,10 @@ export function AppContent({
         onGlobalShortcutChange={onGlobalShortcutChange}
         startOnLogin={startOnLogin}
         onStartOnLoginChange={onStartOnLoginChange}
+        providerAccountGroups={providerAccountGroups}
+        onProviderAccountRename={onProviderAccountRename}
+        onProviderAccountVisibilityChange={onProviderAccountVisibilityChange}
+        onProviderAccountForget={onProviderAccountForget}
       />
     )
   }

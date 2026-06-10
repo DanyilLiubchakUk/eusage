@@ -30,6 +30,8 @@ const state = vi.hoisted(() => ({
   saveStartOnLoginMock: vi.fn(),
   loadWindowsTrayGuidanceSeenMock: vi.fn(),
   saveWindowsTrayGuidanceSeenMock: vi.fn(),
+  loadProviderAccountRegistryMock: vi.fn(),
+  saveProviderAccountRegistryMock: vi.fn(),
   autostartEnableMock: vi.fn(),
   autostartDisableMock: vi.fn(),
   autostartIsEnabledMock: vi.fn(),
@@ -246,6 +248,8 @@ vi.mock("@/lib/settings", async () => {
 })
 
 vi.mock("@/lib/provider-account-registry-store", () => ({
+  loadProviderAccountRegistry: state.loadProviderAccountRegistryMock,
+  saveProviderAccountRegistry: state.saveProviderAccountRegistryMock,
   getOrCreateProviderAccountLocalSalt: vi.fn(async () => "test-provider-account-salt"),
   syncSavedProviderAccountRegistry: vi.fn(async () => ({ ok: true, value: { accounts: [] } })),
 }))
@@ -293,6 +297,8 @@ describe("App", () => {
     state.saveStartOnLoginMock.mockReset()
     state.loadWindowsTrayGuidanceSeenMock.mockReset()
     state.saveWindowsTrayGuidanceSeenMock.mockReset()
+    state.loadProviderAccountRegistryMock.mockReset()
+    state.saveProviderAccountRegistryMock.mockReset()
     state.autostartEnableMock.mockReset()
     state.autostartDisableMock.mockReset()
     state.autostartIsEnabledMock.mockReset()
@@ -335,6 +341,8 @@ describe("App", () => {
     state.saveStartOnLoginMock.mockResolvedValue(undefined)
     state.loadWindowsTrayGuidanceSeenMock.mockResolvedValue(false)
     state.saveWindowsTrayGuidanceSeenMock.mockResolvedValue(undefined)
+    state.loadProviderAccountRegistryMock.mockResolvedValue({ accounts: [] })
+    state.saveProviderAccountRegistryMock.mockResolvedValue(undefined)
     state.autostartEnableMock.mockResolvedValue(undefined)
     state.autostartDisableMock.mockResolvedValue(undefined)
     state.autostartIsEnabledMock.mockResolvedValue(false)

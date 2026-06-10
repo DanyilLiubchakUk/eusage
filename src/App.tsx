@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { AppShell } from "@/components/app/app-shell"
 import { useAppPluginViews } from "@/hooks/app/use-app-plugin-views"
 import { useProbe } from "@/hooks/app/use-probe"
+import { useProviderAccountSettings } from "@/hooks/app/use-provider-account-settings"
 import { useSettingsBootstrap } from "@/hooks/app/use-settings-bootstrap"
 import { useSettingsDisplayActions } from "@/hooks/app/use-settings-display-actions"
 import { useSettingsPluginActions } from "@/hooks/app/use-settings-plugin-actions"
@@ -10,6 +11,7 @@ import { useSettingsPluginList } from "@/hooks/app/use-settings-plugin-list"
 import { useSettingsSystemActions } from "@/hooks/app/use-settings-system-actions"
 import { useSettingsTheme } from "@/hooks/app/use-settings-theme"
 import { useTrayIcon } from "@/hooks/app/use-tray-icon"
+import { buildProviderAccountSettingsGroups } from "@/lib/provider-account-settings"
 import { REFRESH_COOLDOWN_MS, savePluginSettings } from "@/lib/settings"
 import { type PluginContextAction } from "@/components/side-nav"
 import { useAppPluginStore } from "@/stores/app-plugin-store"
@@ -82,6 +84,14 @@ function App() {
   }, [])
 
   const {
+    providerAccountRegistry,
+    reloadProviderAccountRegistry,
+    handleProviderAccountRename,
+    handleProviderAccountVisibilityChange,
+    handleProviderAccountForget,
+  } = useProviderAccountSettings()
+
+  const {
     pluginStates,
     setLoadingForPlugins,
     setErrorForPlugins,
@@ -95,6 +105,7 @@ function App() {
     pluginSettings,
     autoUpdateInterval,
     onProbeResult: handleProbeResult,
+    onProviderAccountRegistryChange: reloadProviderAccountRegistry,
   })
 
   const { scheduleTrayIconUpdate, traySettingsPreview } = useTrayIcon({
@@ -177,6 +188,19 @@ function App() {
     pluginsMeta,
   })
 
+  const providerAccountGroups = useMemo(
+    () =>
+      buildProviderAccountSettingsGroups({
+        accounts: providerAccountRegistry.accounts,
+        providers: settingsPlugins.map((plugin) => ({
+          id: plugin.id,
+          name: plugin.name,
+          iconUrl: plugin.iconUrl,
+        })),
+      }),
+    [providerAccountRegistry.accounts, settingsPlugins]
+  )
+
   const { displayPlugins, navPlugins, selectedPlugin } = useAppPluginViews({
     activeView,
     setActiveView,
@@ -256,6 +280,10 @@ function App() {
         onGlobalShortcutChange: handleGlobalShortcutChange,
         onStartOnLoginChange: handleStartOnLoginChange,
         onTeamConnected: handleForceRefreshAll,
+        providerAccountGroups,
+        onProviderAccountRename: handleProviderAccountRename,
+        onProviderAccountVisibilityChange: handleProviderAccountVisibilityChange,
+        onProviderAccountForget: handleProviderAccountForget,
       }}
     />
   )

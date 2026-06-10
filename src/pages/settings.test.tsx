@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import type { ReactNode } from "react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -69,7 +69,58 @@ const defaultProps = {
   onGlobalShortcutChange: vi.fn(),
   startOnLogin: false,
   onStartOnLoginChange: vi.fn(),
+  providerAccountGroups: [],
+  onProviderAccountRename: vi.fn(),
+  onProviderAccountVisibilityChange: vi.fn(),
+  onProviderAccountForget: vi.fn(),
 }
+
+const providerAccountGroups = [
+  {
+    providerId: "claude",
+    providerName: "Claude",
+    providerIconUrl: "claude.svg",
+    visibleAccounts: [
+      {
+        providerId: "claude",
+        localAccountFingerprint: "fp-work",
+        label: "Work Claude",
+        visibility: "visible" as const,
+        identityConfidence: "high" as const,
+        confirmationState: "unconfirmed" as const,
+        firstSeenAt: "2026-06-01T00:00:00.000Z",
+        lastSeenAt: "2026-06-02T00:00:00.000Z",
+        detectionState: "detected" as const,
+      },
+    ],
+    hiddenAccounts: [
+      {
+        providerId: "claude",
+        localAccountFingerprint: "fp-hidden",
+        label: "Hidden Claude",
+        visibility: "hidden" as const,
+        identityConfidence: "medium" as const,
+        confirmationState: "confirmed" as const,
+        firstSeenAt: "2026-05-01T00:00:00.000Z",
+        lastSeenAt: "2026-05-02T00:00:00.000Z",
+        detectionState: "detected" as const,
+      },
+    ],
+    notDetectedAccounts: [
+      {
+        providerId: "claude",
+        localAccountFingerprint: "fp-old",
+        label: "Old Claude",
+        visibility: "visible" as const,
+        identityConfidence: "low" as const,
+        confirmationState: "unconfirmed" as const,
+        firstSeenAt: "2026-04-01T00:00:00.000Z",
+        lastSeenAt: "2026-04-02T00:00:00.000Z",
+        detectionState: "notDetected" as const,
+      },
+    ],
+  },
+]
 
 afterEach(() => {
   cleanup()
@@ -269,5 +320,79 @@ describe("SettingsPage", () => {
     )
     await userEvent.click(screen.getByText("Start on login"))
     expect(onStartOnLoginChange).toHaveBeenCalledWith(true)
+  })
+
+  it("renders grouped Provider Accounts with hidden and not detected sections", async () => {
+    render(
+      <SettingsPage
+        {...defaultProps}
+        providerAccountGroups={providerAccountGroups}
+      />
+    )
+
+    expect(screen.getByText("Provider Accounts")).toBeInTheDocument()
+    expect(screen.getByText("Claude")).toBeInTheDocument()
+    expect(screen.getByRole("textbox", { name: "Label for Work Claude" })).toHaveValue("Work Claude")
+    expect(screen.queryByRole("button", { name: "Forget Work Claude" })).not.toBeInTheDocument()
+
+    expect(screen.queryByText("Hidden 1")).not.toBeInTheDocument()
+    expect(screen.getByRole("textbox", { name: "Label for Hidden Claude" })).toHaveValue("Hidden Claude")
+    expect(screen.getByRole("textbox", { name: "Label for Hidden Claude" })).toHaveAttribute("readonly")
+
+    expect(screen.getByText("Not detected 1")).toBeInTheDocument()
+    expect(screen.getByRole("textbox", { name: "Label for Old Claude" })).toHaveValue("Old Claude")
+    expect(screen.getByRole("textbox", { name: "Label for Old Claude" })).toHaveAttribute("readonly")
+    expect(screen.getByRole("button", { name: "Forget Old Claude" })).toBeInTheDocument()
+  })
+
+  it("renames Provider Accounts on label blur", async () => {
+    const onProviderAccountRename = vi.fn()
+    render(
+      <SettingsPage
+        {...defaultProps}
+        providerAccountGroups={providerAccountGroups}
+        onProviderAccountRename={onProviderAccountRename}
+      />
+    )
+
+    const input = screen.getByRole("textbox", { name: "Label for Work Claude" })
+    await userEvent.clear(input)
+    await userEvent.type(input, "Main Claude")
+    fireEvent.blur(input)
+
+    expect(onProviderAccountRename).toHaveBeenCalledWith("fp-work", "Main Claude")
+  })
+
+  it("updates local Provider Account visibility", async () => {
+    const onProviderAccountVisibilityChange = vi.fn()
+    render(
+      <SettingsPage
+        {...defaultProps}
+        providerAccountGroups={providerAccountGroups}
+        onProviderAccountVisibilityChange={onProviderAccountVisibilityChange}
+      />
+    )
+
+    await userEvent.click(screen.getByRole("button", { name: "Hide Work Claude" }))
+    expect(onProviderAccountVisibilityChange).toHaveBeenCalledWith("fp-work", false)
+
+    await userEvent.click(screen.getByRole("button", { name: "Show Hidden Claude" }))
+    expect(onProviderAccountVisibilityChange).toHaveBeenCalledWith("fp-hidden", true)
+  })
+
+  it("forgets only not detected Provider Accounts", async () => {
+    const onProviderAccountForget = vi.fn()
+    render(
+      <SettingsPage
+        {...defaultProps}
+        providerAccountGroups={providerAccountGroups}
+        onProviderAccountForget={onProviderAccountForget}
+      />
+    )
+
+    expect(screen.queryByRole("button", { name: "Forget Work Claude" })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Forget Old Claude" }))
+
+    expect(onProviderAccountForget).toHaveBeenCalledWith("fp-old")
   })
 })

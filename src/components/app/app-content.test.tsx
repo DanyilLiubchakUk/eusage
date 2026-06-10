@@ -80,6 +80,11 @@ function createProps(): AppContentProps {
     },
     onGlobalShortcutChange: vi.fn(),
     onStartOnLoginChange: vi.fn(),
+    onTeamConnected: vi.fn(),
+    providerAccountGroups: [],
+    onProviderAccountRename: vi.fn(),
+    onProviderAccountVisibilityChange: vi.fn(),
+    onProviderAccountForget: vi.fn(),
   }
 }
 
@@ -107,6 +112,14 @@ describe("AppContent", () => {
 
     expect(screen.getByTestId("settings-page")).toBeInTheDocument()
     expect(settingsPageMock).toHaveBeenCalledTimes(1)
+    expect(settingsPageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerAccountGroups: [],
+        onProviderAccountRename: expect.any(Function),
+        onProviderAccountVisibilityChange: expect.any(Function),
+        onProviderAccountForget: expect.any(Function),
+      })
+    )
   })
 
   it("renders team page for team view", () => {
