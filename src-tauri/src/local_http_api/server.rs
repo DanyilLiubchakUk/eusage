@@ -234,6 +234,7 @@ mod tests {
             display_name: name.to_string(),
             plan: Some("Pro".to_string()),
             lines: vec![],
+            provider_account_detections: Vec::new(),
             source_facts: None,
             raw_payload: None,
             fetched_at: "2026-03-26T08:15:30Z".to_string(),

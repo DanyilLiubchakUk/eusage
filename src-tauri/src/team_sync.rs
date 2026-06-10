@@ -1,5 +1,6 @@
 mod client;
 mod payload;
+mod provider_accounts;
 mod settings;
 
 #[cfg(test)]
@@ -8,6 +9,9 @@ mod tests;
 use crate::local_http_api::cache::CachedPluginSnapshot;
 use client::{TeamUploadResult, send_usage_batch_http};
 use payload::{TeamUsageProvider, build_provider_upload};
+use provider_accounts::{
+    local_provider_account_is_shareable, shared_provider_account_for_snapshot,
+};
 use serde::Serialize;
 use settings::{
     TeamConnectionSettings, clear_team_connection, connection_key, load_connection,
@@ -27,6 +31,7 @@ const TEAM_SYNC_MAX_PENDING_AGE: Duration = Duration::from_secs(60);
 #[derive(Debug, Clone)]
 struct PendingProvider {
     generation: u64,
+    local_account_fingerprint: String,
     upload: TeamUsageProvider,
 }
 
@@ -40,7 +45,7 @@ struct TeamUsageBatch {
 
 #[derive(Debug, Clone)]
 struct SentProvider {
-    provider_id: String,
+    upload_key: String,
     generation: u64,
 }
 
@@ -102,10 +107,17 @@ fn enqueue_snapshot_with_debounce(
         return;
     }
 
-    let provider = build_provider_upload(snapshot);
+    let Some(shared_account) =
+        shared_provider_account_for_snapshot(app_data_dir, &connection.team_fingerprint, snapshot)
+    else {
+        return;
+    };
+    let provider = build_provider_upload(snapshot)
+        .attach_provider_account(&shared_account.team_account_fingerprint);
     let should_start_worker = enqueue_provider_upload(
         app_data_dir.to_path_buf(),
         connection_key(&connection),
+        shared_account.local_account_fingerprint,
         provider,
     );
 
@@ -117,17 +129,20 @@ fn enqueue_snapshot_with_debounce(
 fn enqueue_provider_upload(
     app_data_dir: PathBuf,
     connection_key: String,
+    local_account_fingerprint: String,
     provider: TeamUsageProvider,
 ) -> bool {
     let mut state = team_sync_state().lock().expect("team sync state poisoned");
     let next_generation = state.generation.wrapping_add(1);
+    let upload_key = provider.upload_key();
     state.generation = next_generation;
     state.app_data_dir = app_data_dir;
     state.connection_key = Some(connection_key);
     state.pending.insert(
-        provider.provider_id.clone(),
+        upload_key,
         PendingProvider {
             generation: next_generation,
+            local_account_fingerprint,
             upload: provider,
         },
     );
@@ -260,12 +275,27 @@ where
 
         let mut sent_providers = Vec::with_capacity(state.pending.len());
         let mut providers = Vec::with_capacity(state.pending.len());
-        for pending in state.pending.values() {
+        let mut stale_upload_keys = Vec::new();
+        for (upload_key, pending) in state.pending.iter() {
+            if !local_provider_account_is_shareable(
+                &state.app_data_dir,
+                &pending.local_account_fingerprint,
+            ) {
+                stale_upload_keys.push(upload_key.clone());
+                continue;
+            }
             sent_providers.push(SentProvider {
-                provider_id: pending.upload.provider_id.clone(),
+                upload_key: upload_key.clone(),
                 generation: pending.generation,
             });
             providers.push(pending.upload.clone());
+        }
+        for upload_key in stale_upload_keys {
+            state.pending.remove(&upload_key);
+        }
+        if providers.is_empty() {
+            state.upload_scheduled = false;
+            return None;
         }
 
         (
@@ -321,11 +351,11 @@ fn finish_sent_providers(sent_providers: &[SentProvider]) {
     for sent in sent_providers {
         let should_remove = state
             .pending
-            .get(&sent.provider_id)
+            .get(&sent.upload_key)
             .map(|current| current.generation == sent.generation)
             .unwrap_or(false);
         if should_remove {
-            state.pending.remove(&sent.provider_id);
+            state.pending.remove(&sent.upload_key);
         }
     }
     state.upload_scheduled = false;
