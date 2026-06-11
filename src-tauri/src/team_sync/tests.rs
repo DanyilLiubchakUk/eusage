@@ -1,9 +1,9 @@
 use super::*;
 use crate::plugin_engine::runtime::{MetricLine, ProgressFormat};
 use payload::build_provider_upload;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use serial_test::serial;
-use settings::{load_connection, SETTINGS_FILE_NAME};
+use settings::{SETTINGS_FILE_NAME, load_connection};
 use std::sync::{Arc, Mutex};
 
 const LOCAL_ACCOUNT_FINGERPRINT: &str = "local-account-fingerprint";
@@ -61,6 +61,7 @@ fn write_connection(dir: &Path) {
                 }]
             },
             "providerAccountSharing": {
+                "teamFingerprint": "team-fingerprint",
                 "sharedLocalAccountFingerprints": [LOCAL_ACCOUNT_FINGERPRINT]
             }
         }))

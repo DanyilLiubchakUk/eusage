@@ -101,6 +101,7 @@ fn write_settings(dir: &Path, shared: bool) -> String {
                 }]
             },
             "providerAccountSharing": {
+                "teamFingerprint": "team-fingerprint",
                 "sharedLocalAccountFingerprints": shared_fingerprints
             }
         }))

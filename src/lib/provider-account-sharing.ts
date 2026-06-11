@@ -2,6 +2,11 @@ export type ProviderAccountSharingSettings = {
   sharedLocalAccountFingerprints: string[]
 }
 
+export type StoredProviderAccountSharingSettings =
+  ProviderAccountSharingSettings & {
+    teamFingerprint: string
+  }
+
 export type ProviderAccountSharingSyncNotice = {
   tone: "info" | "error"
   message: string
@@ -19,11 +24,17 @@ export const DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS: ProviderAccountSharingSe
 }
 
 export function normalizeProviderAccountSharingSettings(
-  value: unknown
+  value: unknown,
+  activeTeamFingerprint?: string | null
 ): ProviderAccountSharingSettings | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
   const row = value as Record<string, unknown>
   if (!Array.isArray(row.sharedLocalAccountFingerprints)) return null
+  if (activeTeamFingerprint !== undefined) {
+    const activeTeam = (activeTeamFingerprint ?? "").trim()
+    const teamFingerprint = stringField(row.teamFingerprint)
+    if (!teamFingerprint || teamFingerprint !== activeTeam) return null
+  }
 
   return {
     sharedLocalAccountFingerprints: normalizeFingerprints(
@@ -58,6 +69,16 @@ export function updateProviderAccountSharing(
     value: {
       sharedLocalAccountFingerprints: [...fingerprints],
     },
+  }
+}
+
+export function withProviderAccountSharingTeamFingerprint(
+  settings: ProviderAccountSharingSettings,
+  teamFingerprint: string
+): StoredProviderAccountSharingSettings {
+  return {
+    teamFingerprint: teamFingerprint.trim(),
+    sharedLocalAccountFingerprints: settings.sharedLocalAccountFingerprints,
   }
 }
 
@@ -100,4 +121,8 @@ function normalizeFingerprints(value: unknown[]): string[] {
 
 function trimString(value: string): string {
   return value.trim()
+}
+
+function stringField(value: unknown): string {
+  return typeof value === "string" ? value.trim() : ""
 }

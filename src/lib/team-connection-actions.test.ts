@@ -138,6 +138,52 @@ describe("team connection actions", () => {
     })
   })
 
+  it("clears Provider Account sharing when reconnecting to another team", async () => {
+    const fake = createDeps({
+      connection: connectedSettings(),
+      token: "eusage_dev_old",
+    })
+    fake.deps.fetchTeamConfig.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        teamName: "Beta Team",
+        reportingTimeZone: "America/New_York",
+        teamFingerprint: "team-b-fingerprint",
+        appVersion: "0.6.24",
+        apiVersion: "v1",
+        endpoints,
+      },
+    })
+    fake.deps.checkInTeamDevice.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        device: {
+          deviceName: "Alex MacBook",
+          status: "connected",
+          lastSeenAt: 1780340000000,
+          updatedAt: 1780340000000,
+        },
+        team: {
+          reportingTimeZone: "America/New_York",
+          teamFingerprint: "team-b-fingerprint",
+        },
+      },
+    })
+
+    const result = await connectTeam(
+      "eusage://connect?url=https://beta.example.com&token=eusage_dev_new",
+      fake.deps
+    )
+
+    expect(result.ok).toBe(true)
+    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
+    expect(fake.connection).toMatchObject({
+      teamName: "Beta Team",
+      teamFingerprint: "team-b-fingerprint",
+      deviceId: "device-1",
+    })
+  })
+
   it("fails connection when credential storage fails", async () => {
     const fake = createDeps()
     fake.deps.saveTeamToken.mockRejectedValueOnce(new Error("credential store unavailable"))

@@ -36,13 +36,16 @@ describe("provider account sharing store", () => {
   })
 
   it("loads default sharing settings when missing", async () => {
+    saveTeamConnection("team-a")
     await expect(loadProviderAccountSharingSettings()).resolves.toEqual({
       sharedLocalAccountFingerprints: [],
     })
   })
 
   it("normalizes stored sharing settings", async () => {
+    saveTeamConnection("team-a")
     storeState.set("providerAccountSharing", {
+      teamFingerprint: "team-a",
       sharedLocalAccountFingerprints: [" fp-work ", "fp-work", "fp-side"],
     })
 
@@ -51,11 +54,25 @@ describe("provider account sharing store", () => {
     })
   })
 
+  it("starts private when stored sharing belongs to another team", async () => {
+    saveTeamConnection("team-b")
+    storeState.set("providerAccountSharing", {
+      teamFingerprint: "team-a",
+      sharedLocalAccountFingerprints: ["fp-work"],
+    })
+
+    await expect(loadProviderAccountSharingSettings()).resolves.toEqual({
+      sharedLocalAccountFingerprints: [],
+    })
+  })
+
   it("saves and clears sharing settings", async () => {
+    saveTeamConnection("team-a")
     await saveProviderAccountSharingSettings({
       sharedLocalAccountFingerprints: ["fp-work"],
     })
     expect(storeState.get("providerAccountSharing")).toEqual({
+      teamFingerprint: "team-a",
       sharedLocalAccountFingerprints: ["fp-work"],
     })
 
@@ -65,4 +82,17 @@ describe("provider account sharing store", () => {
     expect(storeState.has("providerAccountSharing")).toBe(false)
     expect(storeSaveMock).toHaveBeenCalled()
   })
+
+  it("does not save sharing without a current team fingerprint", async () => {
+    await expect(
+      saveProviderAccountSharingSettings({
+        sharedLocalAccountFingerprints: ["fp-work"],
+      })
+    ).rejects.toThrow("Team fingerprint is required")
+    expect(storeState.has("providerAccountSharing")).toBe(false)
+  })
 })
+
+function saveTeamConnection(teamFingerprint: string) {
+  storeState.set("teamConnection", { teamFingerprint })
+}
