@@ -33,7 +33,12 @@ describe("useProviderAccountSharing", () => {
     })
     store.saveProviderAccountSharingSettings.mockResolvedValue(undefined)
     store.clearProviderAccountSharingSettings.mockResolvedValue(undefined)
-    teamSync.syncSharedProviderAccount.mockResolvedValue(undefined)
+    teamSync.syncSharedProviderAccount.mockResolvedValue({
+      ok: true,
+      status: "synced",
+      currentDataQueued: true,
+      metadataUpdated: true,
+    })
   })
 
   it("loads, updates, prunes, and resets local sharing settings", async () => {
@@ -89,6 +94,12 @@ describe("useProviderAccountSharing", () => {
     })
     teamSync.syncSharedProviderAccount.mockImplementation(async () => {
       syncOrder.push("sync")
+      return {
+        ok: true,
+        status: "synced",
+        currentDataQueued: true,
+        metadataUpdated: true,
+      }
     })
     const { result } = renderHook(
       ({ groups }) => useProviderAccountSharing(groups),
@@ -120,11 +131,18 @@ describe("useProviderAccountSharing", () => {
       )
     })
     expect(syncOrder).toEqual(["save", "sync"])
-    expect(result.current.providerAccountSharingSyncError).toBeNull()
+    expect(result.current.providerAccountSharingSyncNotice).toBeNull()
   })
 
-  it("keeps local sharing saved when immediate Team metadata sync fails", async () => {
-    teamSync.syncSharedProviderAccount.mockRejectedValueOnce("fresh scan required")
+  it("keeps local sharing saved and shows retry clarity when immediate Team sync fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    teamSync.syncSharedProviderAccount.mockResolvedValueOnce({
+      ok: false,
+      status: "failed",
+      currentDataQueued: true,
+      metadataUpdated: false,
+      message: "offline",
+    })
     const { result } = renderHook(
       ({ groups }) => useProviderAccountSharing(groups),
       { initialProps: { groups: [providerGroup()] } }
@@ -146,8 +164,75 @@ describe("useProviderAccountSharing", () => {
       })
     })
     await waitFor(() => {
-      expect(result.current.providerAccountSharingSyncError).toBe(
-        "fresh scan required"
+      expect(result.current.providerAccountSharingSyncNotice).toEqual({
+        tone: "error",
+        message:
+          "Sharing saved locally. Team still sees old or missing account data. offline",
+      })
+    })
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Failed to sync shared Provider Account with team:",
+      "offline"
+    )
+    errorSpy.mockRestore()
+  })
+
+  it("shows waiting notice when Team needs a fresh provider scan", async () => {
+    teamSync.syncSharedProviderAccount.mockResolvedValueOnce({
+      ok: true,
+      status: "waitingForProviderScan",
+      currentDataQueued: false,
+      metadataUpdated: false,
+      message: "Sharing saved. Team updates after the next successful provider scan.",
+    })
+    const { result } = renderHook(
+      ({ groups }) => useProviderAccountSharing(groups),
+      { initialProps: { groups: [providerGroup()] } }
+    )
+
+    await waitFor(() => {
+      expect(result.current.providerAccountSharingSettings).toEqual({
+        sharedLocalAccountFingerprints: [],
+      })
+    })
+
+    act(() => {
+      result.current.handleProviderAccountSharingChange("fp-work", true)
+    })
+
+    await waitFor(() => {
+      expect(result.current.providerAccountSharingSyncNotice).toEqual({
+        tone: "info",
+        message: "Sharing saved. Team updates after the next successful provider scan.",
+      })
+    })
+  })
+
+  it("retries current shared Provider Account sync", async () => {
+    store.loadProviderAccountSharingSettings.mockResolvedValue({
+      sharedLocalAccountFingerprints: ["fp-work"],
+    })
+    const { result } = renderHook(
+      ({ groups }) => useProviderAccountSharing(groups),
+      { initialProps: { groups: [providerGroup()] } }
+    )
+
+    await waitFor(() => {
+      expect(result.current.providerAccountSharingSettings).toEqual({
+        sharedLocalAccountFingerprints: ["fp-work"],
+      })
+    })
+
+    act(() => {
+      result.current.retryProviderAccountSharingSync()
+    })
+
+    await waitFor(() => {
+      expect(teamSync.syncSharedProviderAccount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          providerId: "codex",
+          localAccountFingerprint: "fp-work",
+        })
       )
     })
   })

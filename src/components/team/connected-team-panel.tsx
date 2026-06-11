@@ -3,7 +3,10 @@ import { RefreshCw, RotateCcw, Save, Unplug } from "lucide-react"
 import { ProviderAccountSharingSection } from "@/components/team/provider-account-sharing-section"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import type { ProviderAccountSharingSettings } from "@/lib/provider-account-sharing"
+import type {
+  ProviderAccountSharingSettings,
+  ProviderAccountSharingSyncNotice,
+} from "@/lib/provider-account-sharing"
 import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings"
 import type { TeamConnectionSettings } from "@/lib/team-settings"
 import { cn } from "@/lib/utils"
@@ -27,11 +30,12 @@ type ConnectedTeamPanelProps = {
   providerSummary: TeamProviderSummary
   providerAccountGroups: ProviderAccountSettingsGroup[]
   providerAccountSharingSettings: ProviderAccountSharingSettings
-  providerAccountSharingSyncError?: string | null
+  providerAccountSharingSyncNotice?: ProviderAccountSharingSyncNotice | null
   onCheckIn: () => void
   onUpdateDeviceName: (deviceNameOverride: string | null) => Promise<unknown>
   onProviderAccountSharingChange: (localAccountFingerprint: string, shared: boolean) => void
   onProviderAccountSharingConfirm: (localAccountFingerprint: string) => void
+  onProviderAccountSharingRetry: () => void
   onDisconnect: () => void
   onCancelDisconnect: () => void
 }
@@ -43,11 +47,12 @@ export function ConnectedTeamPanel({
   providerSummary,
   providerAccountGroups,
   providerAccountSharingSettings,
-  providerAccountSharingSyncError,
+  providerAccountSharingSyncNotice,
   onCheckIn,
   onUpdateDeviceName,
   onProviderAccountSharingChange,
   onProviderAccountSharingConfirm,
+  onProviderAccountSharingRetry,
   onDisconnect,
   onCancelDisconnect,
 }: ConnectedTeamPanelProps) {
@@ -83,9 +88,10 @@ export function ConnectedTeamPanel({
       <ProviderAccountSharingSection
         groups={providerAccountGroups}
         sharingSettings={providerAccountSharingSettings}
-        syncError={providerAccountSharingSyncError}
+        syncNotice={providerAccountSharingSyncNotice}
         onSharingChange={onProviderAccountSharingChange}
         onSharingConfirm={onProviderAccountSharingConfirm}
+        onSharingRetry={onProviderAccountSharingRetry}
       />
 
       <div className="flex items-center justify-between gap-2 mb-2">

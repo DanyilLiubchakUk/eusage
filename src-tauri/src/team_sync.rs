@@ -24,7 +24,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-pub(crate) use current_data_upload::upload_current_shared_provider_account_data;
+pub(crate) use current_data_upload::{
+    CurrentSharedProviderAccountUploadResult, upload_current_shared_provider_account_data,
+};
 pub(crate) use provider_account_updates::update_shared_provider_account_label;
 
 const UPLOAD_SCHEMA_VERSION: &str = "1.0.0";

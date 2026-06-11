@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { CheckCircle2, Eye, EyeOff, X } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, RefreshCw, X } from "lucide-react";
 import { ProviderAccountIcon } from "@/components/provider-account-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { ProviderAccountSharingSettings } from "@/lib/provider-account-sharing";
+import type {
+  ProviderAccountSharingSettings,
+  ProviderAccountSharingSyncNotice,
+} from "@/lib/provider-account-sharing";
 import type { LocalProviderAccount } from "@/lib/provider-account-registry";
 import {
   getShareableProviderAccountGroups,
@@ -14,17 +17,19 @@ import {
 type ProviderAccountSharingSectionProps = {
   groups: ProviderAccountSettingsGroup[];
   sharingSettings: ProviderAccountSharingSettings;
-  syncError?: string | null;
+  syncNotice?: ProviderAccountSharingSyncNotice | null;
   onSharingChange: (localAccountFingerprint: string, shared: boolean) => void;
   onSharingConfirm: (localAccountFingerprint: string) => void;
+  onSharingRetry: () => void;
 };
 
 export function ProviderAccountSharingSection({
   groups,
   sharingSettings,
-  syncError,
+  syncNotice,
   onSharingChange,
   onSharingConfirm,
+  onSharingRetry,
 }: ProviderAccountSharingSectionProps) {
   const shareableGroups = getShareableProviderAccountGroups(groups);
   const sharedFingerprints = new Set(
@@ -53,10 +58,8 @@ export function ProviderAccountSharingSection({
           {sharedCount}/{shareableCount} shared
         </Badge>
       </div>
-      {syncError ? (
-        <p role="alert" className="mb-2 text-xs text-destructive">
-          {syncError}
-        </p>
+      {syncNotice ? (
+        <SyncNotice notice={syncNotice} onRetry={onSharingRetry} />
       ) : null}
 
       {shareableGroups.length === 0 ? (
@@ -81,6 +84,38 @@ export function ProviderAccountSharingSection({
         </div>
       )}
     </section>
+  );
+}
+
+function SyncNotice({
+  notice,
+  onRetry,
+}: {
+  notice: ProviderAccountSharingSyncNotice;
+  onRetry: () => void;
+}) {
+  const isError = notice.tone === "error";
+  return (
+    <div
+      role={isError ? "alert" : "status"}
+      className={
+        isError
+          ? "mb-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
+          : "mb-2 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-xs text-muted-foreground"
+      }
+    >
+      <p className="min-w-0 flex-1 break-words">{notice.message}</p>
+      <Button
+        type="button"
+        size="xs"
+        variant="outline"
+        className="h-6 shrink-0 px-2 text-xs"
+        onClick={onRetry}
+      >
+        <RefreshCw aria-hidden className="size-3" />
+        Retry
+      </Button>
+    </div>
   );
 }
 

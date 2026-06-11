@@ -195,7 +195,7 @@ fn upload_shared_provider_account_current_data(
     provider_id: String,
     local_account_fingerprint: String,
     label: String,
-) -> Result<(), String> {
+) -> Result<team_sync::CurrentSharedProviderAccountUploadResult, String> {
     let app_data_dir = {
         let locked = state.lock().map_err(|e| e.to_string())?;
         locked.app_data_dir.clone()

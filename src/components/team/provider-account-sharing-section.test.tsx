@@ -8,10 +8,12 @@ import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settin
 describe("ProviderAccountSharingSection", () => {
   const onSharingChange = vi.fn();
   const onSharingConfirm = vi.fn();
+  const onSharingRetry = vi.fn();
 
   beforeEach(() => {
     onSharingChange.mockClear();
     onSharingConfirm.mockClear();
+    onSharingRetry.mockClear();
   });
 
   it("lists visible Provider Accounts for sharing only", async () => {
@@ -112,11 +114,31 @@ describe("ProviderAccountSharingSection", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows retry action for Team sharing sync notices", async () => {
+    renderSection({
+      syncNotice: {
+        tone: "error",
+        message: "Sharing saved locally. Team still sees old data.",
+      },
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Sharing saved locally. Team still sees old data.",
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(onSharingRetry).toHaveBeenCalledTimes(1);
+  });
+
   function renderSection(
     overrides: Partial<{
       groups: ProviderAccountSettingsGroup[];
       sharedLocalAccountFingerprints: string[];
-      syncError: string | null;
+      syncNotice: {
+        tone: "info" | "error";
+        message: string;
+      } | null;
     }> = {},
   ) {
     return render(
@@ -126,9 +148,10 @@ describe("ProviderAccountSharingSection", () => {
           sharedLocalAccountFingerprints:
             overrides.sharedLocalAccountFingerprints ?? [],
         }}
-        syncError={overrides.syncError}
+        syncNotice={overrides.syncNotice}
         onSharingChange={onSharingChange}
         onSharingConfirm={onSharingConfirm}
+        onSharingRetry={onSharingRetry}
       />,
     );
   }

@@ -2,6 +2,11 @@ export type ProviderAccountSharingSettings = {
   sharedLocalAccountFingerprints: string[]
 }
 
+export type ProviderAccountSharingSyncNotice = {
+  tone: "info" | "error"
+  message: string
+}
+
 export type ProviderAccountSharingErrorCode =
   | "local-account-fingerprint-required"
 

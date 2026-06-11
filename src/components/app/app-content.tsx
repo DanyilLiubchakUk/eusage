@@ -7,7 +7,10 @@ import type { DisplayPluginState } from "@/hooks/app/use-app-plugin-views"
 import type { SettingsPluginState } from "@/hooks/app/use-settings-plugin-list"
 import type { TraySettingsPreview } from "@/hooks/app/use-tray-icon"
 import type { LocalProviderAccount } from "@/lib/provider-account-registry"
-import type { ProviderAccountSharingSettings } from "@/lib/provider-account-sharing"
+import type {
+  ProviderAccountSharingSettings,
+  ProviderAccountSharingSyncNotice,
+} from "@/lib/provider-account-sharing"
 import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings"
 import { useAppPreferencesStore } from "@/stores/app-preferences-store"
 import { useAppUiStore } from "@/stores/app-ui-store"
@@ -45,9 +48,10 @@ export type AppContentActionProps = {
   providerAccountGroups: ProviderAccountSettingsGroup[]
   providerAccountLabelSyncError: string | null
   providerAccountSharingSettings: ProviderAccountSharingSettings
-  providerAccountSharingSyncError: string | null
+  providerAccountSharingSyncNotice: ProviderAccountSharingSyncNotice | null
   onProviderAccountSharingChange: (localAccountFingerprint: string, shared: boolean) => void
   onProviderAccountSharingConfirm: (localAccountFingerprint: string) => void
+  onProviderAccountSharingRetry: () => void
   onProviderAccountSharingReset: () => Promise<void> | void
   onProviderAccountRename: (localAccountFingerprint: string, label: string) => void
   onProviderAccountVisibilityChange: (localAccountFingerprint: string, visible: boolean) => void
@@ -77,9 +81,10 @@ export function AppContent({
   providerAccountGroups,
   providerAccountLabelSyncError,
   providerAccountSharingSettings,
-  providerAccountSharingSyncError,
+  providerAccountSharingSyncNotice,
   onProviderAccountSharingChange,
   onProviderAccountSharingConfirm,
+  onProviderAccountSharingRetry,
   onProviderAccountSharingReset,
   onProviderAccountRename,
   onProviderAccountVisibilityChange,
@@ -167,9 +172,10 @@ export function AppContent({
         plugins={displayPlugins}
         providerAccountGroups={providerAccountGroups}
         providerAccountSharingSettings={providerAccountSharingSettings}
-        providerAccountSharingSyncError={providerAccountSharingSyncError}
+        providerAccountSharingSyncNotice={providerAccountSharingSyncNotice}
         onProviderAccountSharingChange={onProviderAccountSharingChange}
         onProviderAccountSharingConfirm={onProviderAccountSharingConfirm}
+        onProviderAccountSharingRetry={onProviderAccountSharingRetry}
         onProviderAccountSharingReset={onProviderAccountSharingReset}
         onConnected={onTeamConnected}
       />

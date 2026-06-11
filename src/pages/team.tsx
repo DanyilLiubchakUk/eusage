@@ -7,7 +7,10 @@ import {
 import { Badge } from "@/components/ui/badge"
 import type { DisplayPluginState } from "@/hooks/app/use-app-plugin-views"
 import { useTeamConnection } from "@/hooks/app/use-team-connection"
-import type { ProviderAccountSharingSettings } from "@/lib/provider-account-sharing"
+import type {
+  ProviderAccountSharingSettings,
+  ProviderAccountSharingSyncNotice,
+} from "@/lib/provider-account-sharing"
 import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings"
 import type { TeamConnectionSettings } from "@/lib/team-settings"
 import { cn } from "@/lib/utils"
@@ -17,9 +20,10 @@ type TeamPageProps = {
   plugins: DisplayPluginState[]
   providerAccountGroups: ProviderAccountSettingsGroup[]
   providerAccountSharingSettings: ProviderAccountSharingSettings
-  providerAccountSharingSyncError?: string | null
+  providerAccountSharingSyncNotice?: ProviderAccountSharingSyncNotice | null
   onProviderAccountSharingChange: (localAccountFingerprint: string, shared: boolean) => void
   onProviderAccountSharingConfirm: (localAccountFingerprint: string) => void
+  onProviderAccountSharingRetry: () => void
   onProviderAccountSharingReset: () => Promise<void> | void
   onConnected?: () => void
 }
@@ -28,9 +32,10 @@ export function TeamPage({
   plugins,
   providerAccountGroups,
   providerAccountSharingSettings,
-  providerAccountSharingSyncError = null,
+  providerAccountSharingSyncNotice = null,
   onProviderAccountSharingChange,
   onProviderAccountSharingConfirm,
+  onProviderAccountSharingRetry,
   onProviderAccountSharingReset,
   onConnected,
 }: TeamPageProps) {
@@ -88,11 +93,12 @@ export function TeamPage({
           providerSummary={providerSummary}
           providerAccountGroups={providerAccountGroups}
           providerAccountSharingSettings={providerAccountSharingSettings}
-          providerAccountSharingSyncError={providerAccountSharingSyncError}
+          providerAccountSharingSyncNotice={providerAccountSharingSyncNotice}
           onCheckIn={checkIn}
           onUpdateDeviceName={updateDeviceName}
           onProviderAccountSharingChange={onProviderAccountSharingChange}
           onProviderAccountSharingConfirm={onProviderAccountSharingConfirm}
+          onProviderAccountSharingRetry={onProviderAccountSharingRetry}
           onDisconnect={handleDisconnect}
           onCancelDisconnect={() => setConfirmDisconnect(false)}
         />

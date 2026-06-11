@@ -5,13 +5,17 @@ import {
   pruneProviderAccountSharing,
   updateProviderAccountSharing,
   type ProviderAccountSharingSettings,
+  type ProviderAccountSharingSyncNotice,
 } from "@/lib/provider-account-sharing"
 import {
   clearProviderAccountSharingSettings,
   loadProviderAccountSharingSettings,
   saveProviderAccountSharingSettings,
 } from "@/lib/provider-account-sharing-store"
-import { syncSharedProviderAccount as syncSharedProviderAccountWithTeam } from "@/lib/provider-account-team-sync"
+import {
+  syncSharedProviderAccount as syncSharedProviderAccountWithTeam,
+  type SharedProviderAccountSyncResult,
+} from "@/lib/provider-account-team-sync"
 import type { LocalProviderAccount } from "@/lib/provider-account-registry"
 import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings"
 
@@ -20,8 +24,8 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
     useState<ProviderAccountSharingSettings>({
       ...DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS,
     })
-  const [providerAccountSharingSyncError, setProviderAccountSharingSyncError] =
-    useState<string | null>(null)
+  const [providerAccountSharingSyncNotice, setProviderAccountSharingSyncNotice] =
+    useState<ProviderAccountSharingSyncNotice | null>(null)
 
   const shareableAccounts = useMemo(() => getShareableAccounts(groups), [groups])
 
@@ -66,17 +70,11 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
   }, [shareableFingerprints])
 
   const syncSharedProviderAccount = useCallback(async (account: LocalProviderAccount) => {
-    try {
-      await syncSharedProviderAccountWithTeam(account)
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : typeof error === "string"
-            ? error
-            : "Team Provider Account update failed."
-      setProviderAccountSharingSyncError(message)
-      console.error("Failed to sync shared Provider Account with team:", error)
+    const result = await syncSharedProviderAccountWithTeam(account)
+    const notice = syncResultToNotice(result)
+    if (notice) setProviderAccountSharingSyncNotice(notice)
+    if (!result.ok) {
+      console.error("Failed to sync shared Provider Account with team:", result.message)
     }
   }, [])
 
@@ -87,7 +85,7 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
     const fingerprint = localAccountFingerprint.trim()
     const account = shareableAccounts.get(fingerprint)
     if (shared && !account) return
-    setProviderAccountSharingSyncError(null)
+    setProviderAccountSharingSyncNotice(null)
 
     setProviderAccountSharingSettings((current) => {
       const result = updateProviderAccountSharing(
@@ -111,7 +109,7 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
   }, [shareableAccounts, syncSharedProviderAccount])
 
   const resetProviderAccountSharing = useCallback(async () => {
-    setProviderAccountSharingSyncError(null)
+    setProviderAccountSharingSyncNotice(null)
     setProviderAccountSharingSettings({ ...DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS })
     try {
       await clearProviderAccountSharingSettings()
@@ -120,12 +118,41 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
     }
   }, [])
 
+  const retryProviderAccountSharingSync = useCallback(() => {
+    setProviderAccountSharingSyncNotice(null)
+    for (const fingerprint of providerAccountSharingSettings.sharedLocalAccountFingerprints) {
+      const account = shareableAccounts.get(fingerprint)
+      if (account) void syncSharedProviderAccount(account)
+    }
+  }, [
+    providerAccountSharingSettings.sharedLocalAccountFingerprints,
+    shareableAccounts,
+    syncSharedProviderAccount,
+  ])
+
   return {
     providerAccountSharingSettings,
-    providerAccountSharingSyncError,
+    providerAccountSharingSyncNotice,
     reloadProviderAccountSharingSettings,
     resetProviderAccountSharing,
     handleProviderAccountSharingChange,
+    retryProviderAccountSharingSync,
+  }
+}
+
+function syncResultToNotice(
+  result: SharedProviderAccountSyncResult
+): ProviderAccountSharingSyncNotice | null {
+  if (result.ok && result.status === "synced") return null
+  if (result.ok && result.status === "waitingForProviderScan") {
+    return {
+      tone: "info",
+      message: result.message,
+    }
+  }
+  return {
+    tone: "error",
+    message: `Sharing saved locally. Team still sees old or missing account data. ${result.message}`,
   }
 }
 

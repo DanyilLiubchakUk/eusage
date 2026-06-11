@@ -30,6 +30,8 @@ describe("provider account team sync", () => {
   })
 
   it("queues current shared Provider Account data through Tauri", async () => {
+    invokeMock.mockResolvedValueOnce({ currentDataQueued: true })
+
     await uploadSharedProviderAccountCurrentData(providerAccount())
 
     expect(invokeMock).toHaveBeenCalledWith(
@@ -43,12 +45,54 @@ describe("provider account team sync", () => {
   })
 
   it("queues current data before metadata on share sync", async () => {
-    await syncSharedProviderAccount(providerAccount())
+    invokeMock.mockResolvedValueOnce({ currentDataQueued: true })
+
+    const result = await syncSharedProviderAccount(providerAccount())
 
     expect(invokeMock.mock.calls.map(([command]) => command)).toEqual([
       "upload_shared_provider_account_current_data",
       "update_shared_provider_account_label",
     ])
+    expect(result).toEqual({
+      ok: true,
+      status: "synced",
+      currentDataQueued: true,
+      metadataUpdated: true,
+    })
+  })
+
+  it("reports waiting when sharing has no fresh provider scan yet", async () => {
+    invokeMock
+      .mockResolvedValueOnce({ currentDataQueued: false })
+      .mockRejectedValueOnce(
+        "Shared Provider Account needs a fresh provider scan before updating Team metadata."
+      )
+
+    const result = await syncSharedProviderAccount(providerAccount())
+
+    expect(result).toEqual({
+      ok: true,
+      status: "waitingForProviderScan",
+      currentDataQueued: false,
+      metadataUpdated: false,
+      message: "Sharing saved. Team updates after the next successful provider scan.",
+    })
+  })
+
+  it("reports failed metadata sync after current data queues", async () => {
+    invokeMock
+      .mockResolvedValueOnce({ currentDataQueued: true })
+      .mockRejectedValueOnce("offline")
+
+    const result = await syncSharedProviderAccount(providerAccount())
+
+    expect(result).toEqual({
+      ok: false,
+      status: "failed",
+      currentDataQueued: true,
+      metadataUpdated: false,
+      message: "offline",
+    })
   })
 })
 

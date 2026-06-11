@@ -207,9 +207,10 @@ function App() {
 
   const {
     providerAccountSharingSettings,
-    providerAccountSharingSyncError,
+    providerAccountSharingSyncNotice,
     resetProviderAccountSharing,
     handleProviderAccountSharingChange,
+    retryProviderAccountSharingSync,
   } = useProviderAccountSharing(providerAccountGroups)
   const [showProviderAccountSharingPrompt, setShowProviderAccountSharingPrompt] =
     useState(false)
@@ -318,9 +319,10 @@ function App() {
         providerAccountGroups,
         providerAccountLabelSyncError,
         providerAccountSharingSettings,
-        providerAccountSharingSyncError,
+        providerAccountSharingSyncNotice,
         onProviderAccountSharingChange: handleProviderAccountSharingChange,
         onProviderAccountSharingConfirm: handleProviderAccountSharingConfirm,
+        onProviderAccountSharingRetry: retryProviderAccountSharingSync,
         onProviderAccountSharingReset: resetProviderAccountSharing,
         onProviderAccountRename: handleProviderAccountRename,
         onProviderAccountVisibilityChange: handleProviderAccountVisibilityChange,

@@ -102,9 +102,10 @@ function createProps(): AppContentProps {
     providerAccountGroups: [],
     providerAccountLabelSyncError: null,
     providerAccountSharingSettings: { sharedLocalAccountFingerprints: [] },
-    providerAccountSharingSyncError: null,
+    providerAccountSharingSyncNotice: null,
     onProviderAccountSharingChange: vi.fn(),
     onProviderAccountSharingConfirm: vi.fn(),
+    onProviderAccountSharingRetry: vi.fn(),
     onProviderAccountSharingReset: vi.fn(),
     onProviderAccountRename: vi.fn(),
     onProviderAccountVisibilityChange: vi.fn(),
@@ -170,9 +171,10 @@ describe("AppContent", () => {
       expect.objectContaining({
         providerAccountGroups: props.providerAccountGroups,
         providerAccountSharingSettings: props.providerAccountSharingSettings,
-        providerAccountSharingSyncError: null,
+        providerAccountSharingSyncNotice: null,
         onProviderAccountSharingChange: props.onProviderAccountSharingChange,
         onProviderAccountSharingConfirm: props.onProviderAccountSharingConfirm,
+        onProviderAccountSharingRetry: props.onProviderAccountSharingRetry,
         onProviderAccountSharingReset: props.onProviderAccountSharingReset,
       })
     )

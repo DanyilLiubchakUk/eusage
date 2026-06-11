@@ -33,6 +33,7 @@ describe("TeamPage", () => {
   const sharingReset = vi.fn(async () => undefined);
   const sharingChange = vi.fn();
   const sharingConfirm = vi.fn();
+  const sharingRetry = vi.fn();
 
   beforeEach(() => {
     teamHook.state = {
@@ -51,6 +52,7 @@ describe("TeamPage", () => {
     sharingReset.mockClear();
     sharingChange.mockClear();
     sharingConfirm.mockClear();
+    sharingRetry.mockClear();
   });
 
   it("does not flash the connection form while loading", () => {
@@ -202,7 +204,7 @@ describe("TeamPage", () => {
     expect(teamHook.updateDeviceName).toHaveBeenCalledWith(null);
   });
 
-  it("shows Provider Account sharing sync errors", () => {
+  it("shows Provider Account sharing sync notices", async () => {
     teamHook.state = {
       status: "connected",
       connection: connectedSettings(),
@@ -211,17 +213,28 @@ describe("TeamPage", () => {
 
     renderTeamPage({
       providerAccountGroups: [providerGroup()],
-      providerAccountSharingSyncError: "fresh scan required",
+      providerAccountSharingSyncNotice: {
+        tone: "info",
+        message: "Sharing saved. Team updates after the next successful provider scan.",
+      },
     });
 
-    expect(screen.getByRole("alert")).toHaveTextContent("fresh scan required");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Sharing saved. Team updates after the next successful provider scan.",
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(sharingRetry).toHaveBeenCalledTimes(1);
   });
 
   function renderTeamPage(
     overrides: Partial<{
       providerAccountGroups: ProviderAccountSettingsGroup[];
       providerAccountSharingSettings: ProviderAccountSharingSettings;
-      providerAccountSharingSyncError: string | null;
+      providerAccountSharingSyncNotice: {
+        tone: "info" | "error";
+        message: string;
+      } | null;
       onConnected: () => void;
     }> = {},
   ) {
@@ -234,9 +247,10 @@ describe("TeamPage", () => {
             sharedLocalAccountFingerprints: [],
           }
         }
-        providerAccountSharingSyncError={overrides.providerAccountSharingSyncError}
+        providerAccountSharingSyncNotice={overrides.providerAccountSharingSyncNotice}
         onProviderAccountSharingChange={sharingChange}
         onProviderAccountSharingConfirm={sharingConfirm}
+        onProviderAccountSharingRetry={sharingRetry}
         onProviderAccountSharingReset={sharingReset}
         onConnected={overrides.onConnected}
       />,
