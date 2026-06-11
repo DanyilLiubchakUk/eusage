@@ -45,6 +45,58 @@ describe("usage ingest provider account metadata", () => {
       }),
     ])
     expect(fake.usageSnapshots).toHaveLength(2)
+    expect(
+      fake.usageSnapshots.find((snapshot) => snapshot.providerId === "cursor")
+    ).toMatchObject({
+      providerAccountFingerprint: "team-account-fingerprint",
+    })
+    expect(
+      fake.metricSamples
+        .filter((sample) => sample.providerId === "cursor")
+        .every((sample) => sample.providerAccountFingerprint === "team-account-fingerprint")
+    ).toBe(true)
+  })
+
+  it("keeps shared account metric samples separate for the same provider", async () => {
+    const fake = await createUsageIngestTestStore()
+
+    await ingestUsageBatch({
+      input: {
+        tokenHash: fake.tokenHash,
+        batch: usageBatch([
+          sharedProvider({
+            providerAccountFingerprint: "team-account-work",
+            providerAccountLabel: "Cursor Work",
+            dataIdentity: "provider-account:team-account-work:cursor:billing-cycle",
+          }),
+        ]),
+      },
+      now,
+      store: fake.store,
+    })
+    await ingestUsageBatch({
+      input: {
+        tokenHash: fake.tokenHash,
+        batch: usageBatch([
+          sharedProvider({
+            providerAccountFingerprint: "team-account-side",
+            providerAccountLabel: "Cursor Side",
+            dataIdentity: "provider-account:team-account-side:cursor:billing-cycle",
+          }),
+        ]),
+      },
+      now: now + 1_000,
+      store: fake.store,
+    })
+
+    const tokenSamples = fake.metricSamples.filter(
+      (sample) => sample.providerId === "cursor" && sample.metricKey === "mock.tokens.total"
+    )
+    expect(tokenSamples).toHaveLength(2)
+    expect(tokenSamples.map((sample) => sample.providerAccountFingerprint).sort()).toEqual([
+      "team-account-side",
+      "team-account-work",
+    ])
   })
 
   it("updates shared Provider Account label without changing first shared time", async () => {

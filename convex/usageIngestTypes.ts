@@ -91,6 +91,7 @@ export type UsageSnapshotRecord = {
   developerId: string
   deviceId: string
   providerId: string
+  providerAccountFingerprint?: string
   periodStart?: number
   periodEnd?: number
   periodKey: string
@@ -110,6 +111,7 @@ export type MetricSampleRecord = {
   _id: string
   teamId: string
   providerId: string
+  providerAccountFingerprint?: string
   developerId?: string
   deviceId?: string
   metricKey: string
@@ -197,6 +199,7 @@ export type UsageIngestStore = Pick<
       | "sampleDay"
       | "periodStart"
       | "periodEnd"
+      | "providerAccountFingerprint"
     >
   ) => Promise<MetricSampleRecord | null>
   createMetricSample: (sample: NewMetricSampleRecord) => Promise<MetricSampleRecord>

@@ -141,6 +141,7 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
                 .eq("sampleDay", sample.sampleDay)
                 .eq("periodStart", sample.periodStart)
                 .eq("periodEnd", sample.periodEnd)
+                .eq("providerAccountFingerprint", sample.providerAccountFingerprint)
             )
             .first()) as MetricSampleRecord | null)
         : ((await ctx.db
@@ -154,6 +155,7 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
                 .eq("sampleDay", sample.sampleDay)
                 .eq("periodStart", sample.periodStart)
                 .eq("periodEnd", sample.periodEnd)
+                .eq("providerAccountFingerprint", sample.providerAccountFingerprint)
             )
             .first()) as MetricSampleRecord | null)),
     createMetricSample: async (sample) => {
@@ -257,6 +259,9 @@ function usageSnapshotFields(snapshot: NewUsageSnapshotRecord) {
     developerId: snapshot.developerId as Id<"developers">,
     deviceId: snapshot.deviceId,
     providerId: snapshot.providerId,
+    ...(snapshot.providerAccountFingerprint !== undefined
+      ? { providerAccountFingerprint: snapshot.providerAccountFingerprint }
+      : {}),
     ...(snapshot.periodStart !== undefined ? { periodStart: snapshot.periodStart } : {}),
     ...(snapshot.periodEnd !== undefined ? { periodEnd: snapshot.periodEnd } : {}),
     periodKey: snapshot.periodKey,
@@ -277,6 +282,9 @@ function metricSampleFields(sample: NewMetricSampleRecord) {
   return {
     teamId: sample.teamId as Id<"teams">,
     providerId: sample.providerId,
+    ...(sample.providerAccountFingerprint !== undefined
+      ? { providerAccountFingerprint: sample.providerAccountFingerprint }
+      : {}),
     ...(sample.developerId
       ? { developerId: sample.developerId as Id<"developers"> }
       : {}),

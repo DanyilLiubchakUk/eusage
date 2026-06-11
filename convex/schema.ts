@@ -106,6 +106,7 @@ export default defineSchema({
     developerId: v.id("developers"),
     deviceId: v.string(),
     providerId: v.string(),
+    providerAccountFingerprint: v.optional(v.string()),
     periodStart: v.optional(v.number()),
     periodEnd: v.optional(v.number()),
     periodKey: v.string(),
@@ -157,6 +158,7 @@ export default defineSchema({
   metricSamples: defineTable({
     teamId: v.id("teams"),
     providerId: v.string(),
+    providerAccountFingerprint: v.optional(v.string()),
     developerId: v.optional(v.id("developers")),
     deviceId: v.optional(v.string()),
     metricKey: v.string(),
@@ -193,6 +195,7 @@ export default defineSchema({
       "sampleDay",
       "periodStart",
       "periodEnd",
+      "providerAccountFingerprint",
     ])
     .index("by_sample_identity_device", [
       "teamId",
@@ -203,6 +206,7 @@ export default defineSchema({
       "sampleDay",
       "periodStart",
       "periodEnd",
+      "providerAccountFingerprint",
     ])
     .index("by_team_metric_day", ["teamId", "metricKey", "sampleDay"])
     .index("by_team_provider_metric_day", [

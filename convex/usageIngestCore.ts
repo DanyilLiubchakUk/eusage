@@ -136,6 +136,9 @@ async function upsertUsageSnapshot(
     developerId: args.developerId,
     deviceId: args.deviceId,
     providerId: args.provider.providerId,
+    ...(args.provider.providerAccount
+      ? { providerAccountFingerprint: args.provider.providerAccount.teamAccountFingerprint }
+      : {}),
     periodStart: args.provider.periodStart,
     periodEnd: args.provider.periodEnd,
     periodKey: args.provider.periodKey,
@@ -168,6 +171,9 @@ async function upsertMetricSamples(args: {
     const sample = {
       teamId: args.teamId,
       providerId: args.provider.providerId,
+      ...(args.provider.providerAccount
+        ? { providerAccountFingerprint: args.provider.providerAccount.teamAccountFingerprint }
+        : {}),
       developerId: args.developerId,
       ...(isDeviceScopedUsageSample(args.provider.providerId, sampleInput)
         ? { deviceId: args.deviceId }

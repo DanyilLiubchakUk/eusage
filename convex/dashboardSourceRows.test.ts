@@ -27,6 +27,7 @@ const codexSnapshot = {
   developerId,
   deviceId,
   providerId: "codex",
+  providerAccountFingerprint: "team-account-codex",
   periodKey: "codex:2026-06-03",
   dataIdentity: "codex:daily:2026-06-03",
   summary: { tokensTotal: 100 },
@@ -38,6 +39,7 @@ const codexSample = {
   _id: "metric-codex",
   teamId,
   providerId: "codex",
+  providerAccountFingerprint: "team-account-codex",
   developerId,
   deviceId,
   metricKey: "codex.tokens.total",
@@ -61,6 +63,18 @@ const device = {
   status: "connected",
   lastSeenAt: now,
   createdAt: now,
+  updatedAt: now,
+}
+const providerAccount = {
+  _id: "provider-account-codex",
+  teamId,
+  developerId,
+  providerId: "codex",
+  teamAccountFingerprint: "team-account-codex",
+  label: "Codex Work",
+  status: "shared",
+  firstSharedAt: now - 1_000,
+  lastSharedAt: now,
   updatedAt: now,
 }
 
@@ -142,6 +156,35 @@ describe("dashboard source rows", () => {
     if (result.status === "ready") {
       expect(result.developers[0].devices[0].deviceName).toBe("Windows desktop")
     }
+  })
+
+  it("returns shared Provider Account labels with account-scoped source rows", async () => {
+    const result = await dashboardSourceRowsForTeam(
+      fakeCtx({
+        developers: [developer],
+        usageSnapshots: [codexSnapshot],
+        metricSamples: [codexSample],
+        providerAccounts: [providerAccount],
+      }),
+      team,
+      { includeDeveloperTokens: false }
+    )
+
+    expect(result.providerAccounts).toEqual([
+      {
+        id: "provider-account-codex",
+        developerId,
+        providerId: "codex",
+        teamAccountFingerprint: "team-account-codex",
+        label: "Codex Work",
+        status: "shared",
+        firstSharedAt: now - 1_000,
+        lastSharedAt: now,
+        updatedAt: now,
+      },
+    ])
+    expect(result.snapshots[0].providerAccountFingerprint).toBe("team-account-codex")
+    expect(result.metricSamples[0].providerAccountFingerprint).toBe("team-account-codex")
   })
 })
 
