@@ -155,7 +155,8 @@ Settings owns local account management. The Team page owns team sharing consent.
 - Backend Provider Account metadata stores team, developer, provider, team account fingerprint, label, status, first shared time, last shared time, and updated time.
 - Add a team API operation for immediate shared Provider Account metadata updates.
 - The desktop app should call the team API for share-on metadata and shared account label changes. It should not talk directly to Convex.
-- If immediate team metadata update fails, the local label or sharing choice remains saved and the Team keeps the old metadata until retry or a later successful update.
+- If immediate team metadata or current-data sync fails, the local label or sharing choice remains saved and the Team keeps old or missing shared account data until retry or a later successful provider scan.
+- Team sharing UI should show whether the account is saved but waiting for a provider scan versus failed to sync with Team, and should expose a retry action.
 - Usage ingest must keep Provider Account identity distinct so multiple accounts for the same provider and period do not overwrite each other.
 - Update team config or check-in response to provide a safe team fingerprint.
 - Update product docs that currently imply team connect starts syncing local usage. Team connect enables opt-in sharing only.

@@ -62,6 +62,7 @@ Official v1 path:
 - `POST /api/v1/device/disconnect` requires `Authorization: Bearer ...` and marks the device disconnected without deleting usage history.
 - `POST /api/v1/usage/batch` returns a small sync result: accepted count, rejected provider IDs, and server time.
 - `POST /api/v1/provider-account/update` requires the same bearer token and updates shared Provider Account label metadata without uploading usage history.
+- If immediate Provider Account metadata or current-data sync cannot complete, the desktop app keeps local sharing saved and shows a small wait/retry status.
 - Usage batch accepts valid provider payloads even when other provider payloads in the same batch are rejected.
 - If a provider payload has invalid or missing source facts, that provider is rejected only; other providers in the batch can still be accepted.
 - Rejected provider payload errors are stored in Convex `syncErrors` with `expiresAt`; a Convex cron deletes expired rows.
@@ -280,7 +281,7 @@ Day one setup for a developer:
 
 The desktop app uses the app URL from the connection string to discover non-secret team config such as endpoint paths. After check-in, Admin shows the device status under the developer. The developer does not manually enter Convex URLs.
 
-Usage upload uses `POST /api/v1/usage/batch` with the same bearer token. The first supported upload schema is `1.0.0`. A valid shared provider account upload stores shared account metadata and the redacted raw payload for 90 days, upserts the latest usage snapshot for the provider/device/period/data identity, and upserts daily metric samples. Shared Provider Account share-on toggles enqueue the current in-memory provider snapshot when one exists, and share-on toggles plus label edits use `POST /api/v1/provider-account/update` so dashboards do not wait for the next usage upload to see the shared account row or label. If one provider payload is invalid, valid providers in the same batch still sync; rejected provider IDs are returned and short-lived sync errors are stored without raw payloads or secret values.
+Usage upload uses `POST /api/v1/usage/batch` with the same bearer token. The first supported upload schema is `1.0.0`. A valid shared provider account upload stores shared account metadata and the redacted raw payload for 90 days, upserts the latest usage snapshot for the provider/device/period/data identity, and upserts daily metric samples. Shared Provider Account share-on toggles enqueue the current in-memory provider snapshot when one exists, and share-on toggles plus label edits use `POST /api/v1/provider-account/update` so dashboards do not wait for the next usage upload to see the shared account row or label. If current data or metadata cannot sync immediately, local sharing stays saved and Team shows old/missing shared account data until retry or the next successful provider scan. If one provider payload is invalid, valid providers in the same batch still sync; rejected provider IDs are returned and short-lived sync errors are stored without raw payloads or secret values.
 
 ## Desktop Releases
 
