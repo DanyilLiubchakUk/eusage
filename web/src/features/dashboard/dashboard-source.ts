@@ -2,6 +2,7 @@ import {
   DEFAULT_REPORTING_TIME_ZONE,
   resolveVisibleMetricSource,
   type MetricDateRangeInput,
+  type ProviderAccountSourceRow,
   type UsageMetricSampleSourceRow,
   type UsageSnapshotSourceRow,
 } from "../../lib/metrics"
@@ -27,6 +28,8 @@ type TvViewSettings = {
 export function dashboardSource(state: ReadyDashboardState, view: "admin" | "tv") {
   const snapshots = state.snapshots as UsageSnapshotSourceRow[]
   const metricSamples = state.metricSamples as UsageMetricSampleSourceRow[]
+  const providerAccounts = ((state as { providerAccounts?: unknown }).providerAccounts ??
+    []) as ProviderAccountSourceRow[]
   const disabledProviderIds = (state.providers ?? [])
     .filter((provider) => provider.status === "disabled")
     .map((provider) => provider.providerId)
@@ -51,9 +54,16 @@ export function dashboardSource(state: ReadyDashboardState, view: "admin" | "tv"
         ? Boolean(state.dashboardSettings?.includeInactiveDevelopers)
         : false,
   })
+  const visibleDeveloperIdSet = new Set(visibleSource.visibleDeveloperIds)
+  const visibleProviderIdSet = new Set(visibleSource.visibleProviderIds)
 
   return {
     ...visibleSource,
+    providerAccounts: providerAccounts.filter(
+      (account) =>
+        visibleDeveloperIdSet.has(account.developerId) &&
+        visibleProviderIdSet.has(account.providerId)
+    ),
     dateRange: settingsDateRange(settings),
     reportingTimeZone: teamReportingTimeZone(state.team),
   }

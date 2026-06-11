@@ -70,6 +70,7 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
     window: range.current,
   })
   const syncHealth = buildSyncHealth(source.developers)
+  const providerAccountLabels = providerAccountLabelMap(source.providerAccounts)
   const freshnessLabel = formatUpdateFreshnessLabel(
     visibleUpdateTimestamps(source, range.current, usage.comparison.current),
     now
@@ -112,6 +113,7 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
     quotaPressureRows: quota.details.map((detail) => ({
       providerId: detail.providerId,
       providerName: formatProviderName(detail.providerId),
+      providerAccountLabel: providerAccountLabelForDetail(detail, providerAccountLabels),
       developerName: detail.developerName ?? detail.developerId,
       label: detail.label,
       percent: detail.percent,
@@ -187,6 +189,39 @@ function buildProviderFilters(
 
 function uniqueStable(values: string[]) {
   return [...new Set(values)]
+}
+
+function providerAccountLabelMap(accounts: DashboardSource["providerAccounts"]) {
+  return new Map(
+    accounts.map((account) => [
+      providerAccountKey({
+        developerId: account.developerId,
+        providerId: account.providerId,
+        providerAccountFingerprint: account.teamAccountFingerprint,
+      }),
+      account.label,
+    ])
+  )
+}
+
+function providerAccountLabelForDetail(
+  detail: { developerId: string; providerId: string; providerAccountFingerprint?: string },
+  labels: Map<string, string>
+) {
+  if (!detail.providerAccountFingerprint) return null
+  return labels.get(providerAccountKey(detail)) ?? null
+}
+
+function providerAccountKey(row: {
+  developerId: string
+  providerId: string
+  providerAccountFingerprint?: string
+}) {
+  return [
+    row.developerId,
+    row.providerId,
+    row.providerAccountFingerprint ?? "",
+  ].join("\u0000")
 }
 
 function buildKpis(args: {

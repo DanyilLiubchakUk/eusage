@@ -164,6 +164,7 @@ export type RecentSyncRow = {
 export type QuotaPressureRow = {
   providerId: string
   providerName: string
+  providerAccountLabel: string | null
   developerName: string
   label: string
   percent: number
