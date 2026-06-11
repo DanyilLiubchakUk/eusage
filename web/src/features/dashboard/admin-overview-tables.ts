@@ -101,6 +101,7 @@ export function buildDeveloperLeaderboardRows(
 export type ProviderStatusRow = {
   providerId: string
   providerName: string
+  providerAccountSummary: string | null
   value: string
   quota: string
   status: string
@@ -113,6 +114,7 @@ export function buildProviderStatusRows(args: {
   providerTotals: ProviderTotal[]
   quotaProviders: ReturnType<typeof calculateQuotaPressure>["perProvider"]
   quotaDetails: ReturnType<typeof calculateQuotaPressure>["details"]
+  providerAccountSummaries?: ReadonlyMap<string, string>
   window: MetricRangeWindow
 }): ProviderStatusRow[] {
   const totals = new Map(args.providerTotals.map((provider) => [provider.providerId, provider]))
@@ -145,6 +147,7 @@ export function buildProviderStatusRows(args: {
       return {
         providerId,
         providerName: formatProviderName(providerId),
+        providerAccountSummary: args.providerAccountSummaries?.get(providerId) ?? null,
         value: total ? formatProviderTotal(total) : "No data yet",
         quota: providerQuotaLabel(providerId, args.quotaDetails, quota),
         status: lastUpdatedAt ? "Synced" : "No data yet",

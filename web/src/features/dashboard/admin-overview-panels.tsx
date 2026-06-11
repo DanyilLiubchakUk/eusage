@@ -170,7 +170,10 @@ export function ProviderStatusTable({ rows }: { rows: ProviderStatusRow[] }) {
           rows.map((row) => (
             <TableRow key={row.providerId}>
               <TableCell className="align-top">
-                <strong>{formatProviderName(row.providerId)}</strong>
+                <strong className="block">{formatProviderName(row.providerId)}</strong>
+                {row.providerAccountSummary ? (
+                  <span className="mt-1 block text-muted-foreground">{row.providerAccountSummary}</span>
+                ) : null}
               </TableCell>
               <TableCell className="align-top">{row.value}</TableCell>
               <TableCell className="align-top">{row.quota}</TableCell>

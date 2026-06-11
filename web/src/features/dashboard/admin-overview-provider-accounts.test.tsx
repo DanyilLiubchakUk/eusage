@@ -53,7 +53,7 @@ describe("Admin overview Provider Accounts", () => {
     expect(screen.getByText("Alex Mac")).toBeInTheDocument()
   })
 
-  it("shows shared Provider Account labels on Admin quota rows", () => {
+  it("shows shared Provider Account labels on Admin detail rows", () => {
     const ready = readyState as Extract<DashboardSourceState, { status: "ready" }>
     const claudeSnapshot = ready.snapshots.find((snapshot) => snapshot.providerId === "claude")
     if (!claudeSnapshot) throw new Error("Missing Claude fixture.")
@@ -124,5 +124,6 @@ describe("Admin overview Provider Accounts", () => {
 
     expect(screen.getAllByText("Claude Work").length).toBeGreaterThan(0)
     expect(screen.getAllByText("Claude Side").length).toBeGreaterThan(0)
+    expect(screen.getByText("Alex: Claude Work, Claude Side")).toBeInTheDocument()
   })
 })
