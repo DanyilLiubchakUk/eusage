@@ -408,6 +408,16 @@ fn redact_body(body: &str) -> String {
         "userId",
         "account_id",
         "accountId",
+        "provider_account_id",
+        "providerAccountId",
+        "provider_user_id",
+        "providerUserId",
+        "provider_email",
+        "providerEmail",
+        "local_profile_path",
+        "localProfilePath",
+        "identity_value",
+        "identityValue",
         "team_id",
         "teamId",
         "payment_id",
@@ -3610,6 +3620,32 @@ mod tests {
             "accountId should show first4...last4, got: {}",
             redacted
         );
+    }
+
+    #[test]
+    fn redact_body_redacts_provider_account_identity_fields() {
+        let body = r#"{
+            "providerAccountId":"acct_provider_1234567890abcdef",
+            "providerUserId":"user_provider_abcdefghijklmnopqrstuvwxyz",
+            "providerEmail":"dev@example.com",
+            "localProfilePath":"~/.claude/profiles/work",
+            "identityValue":"acct_detected_1234567890abcdef"
+        }"#;
+        let redacted = redact_body(body);
+
+        for leaked_value in [
+            "acct_provider_1234567890abcdef",
+            "user_provider_abcdefghijklmnopqrstuvwxyz",
+            "dev@example.com",
+            "~/.claude/profiles/work",
+            "acct_detected_1234567890abcdef",
+        ] {
+            assert!(
+                !redacted.contains(leaked_value),
+                "provider account identity should be redacted, got: {}",
+                redacted
+            );
+        }
     }
 
     #[test]

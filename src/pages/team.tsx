@@ -6,7 +6,10 @@ import {
 } from "@/components/team/connected-team-panel"
 import { Badge } from "@/components/ui/badge"
 import type { DisplayPluginState } from "@/hooks/app/use-app-plugin-views"
-import { useTeamConnection } from "@/hooks/app/use-team-connection"
+import {
+  useTeamConnection,
+  type TeamConnectionViewStatus,
+} from "@/hooks/app/use-team-connection"
 import type {
   ProviderAccountSharingSettings,
   ProviderAccountSharingSyncNotice,
@@ -123,7 +126,7 @@ function TeamStatusIndicators({
   message,
 }: {
   connection: TeamConnectionSettings | null
-  status: string
+  status: TeamConnectionViewStatus
   message: string | null
 }) {
   if (!connection) {
@@ -150,7 +153,7 @@ function TeamStatusBadge({
   status,
 }: {
   connection: TeamConnectionSettings | null
-  status: string
+  status: TeamConnectionViewStatus
 }) {
   if (status === "loading") return <Badge variant="outline">Loading</Badge>
   if (!connection) return <Badge variant="outline">Disconnected</Badge>
@@ -164,7 +167,7 @@ function StatusMessage({
   message,
   className,
 }: {
-  status: string
+  status: TeamConnectionViewStatus
   message: string | null
   className?: string
 }) {

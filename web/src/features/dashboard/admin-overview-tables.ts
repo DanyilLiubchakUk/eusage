@@ -11,6 +11,7 @@ import {
   isTimestampInWindow,
   snapshotRangeTimestamp,
   type MetricRangeWindow,
+  type QuotaPressureStatus,
   type ProviderTotal,
   type UsageMetricSampleSourceRow,
   type UsageSnapshotSourceRow,
@@ -23,7 +24,7 @@ import { dashboardDeviceName } from "./dashboard-device-name"
 export type DeveloperLeaderboardRow = {
   developerId: string
   developerName: string
-  developerStatus: string
+  developerStatus: DashboardDeveloperStatus | "unknown"
   tokensTotal: number
   estimatedCostUsd: number
   creditsUsed: number
@@ -40,7 +41,7 @@ export function buildDeveloperLeaderboardRows(
   const names = new Map<string, string>(
     developers.map((developer) => [String(developer.id), developer.displayName])
   )
-  const statuses = new Map<string, string>(
+  const statuses = new Map<string, DashboardDeveloperStatus>(
     developers.map((developer) => [String(developer.id), developer.status])
   )
   const rows = new Map<string, DeveloperLeaderboardRow>()
@@ -160,7 +161,7 @@ export function buildProviderStatusRows(args: {
 export type RecentSyncRow = {
   developerName: string
   deviceName: string
-  status: string
+  status: DashboardDeviceStatus
   lastContactAt: number | null
 }
 
@@ -171,7 +172,7 @@ export type QuotaPressureRow = {
   developerName: string
   label: string
   percent: number
-  status: string
+  status: QuotaPressureStatus
   updatedAt: number
 }
 
@@ -202,6 +203,9 @@ type SyncHealthLike = {
   status: string
   totalDevices: number
 }
+
+type DashboardDeveloperStatus = ReadyDashboardState["developers"][number]["status"]
+type DashboardDeviceStatus = ReadyDashboardState["developers"][number]["devices"][number]["status"]
 
 export function buildAvailableMetricRows(args: {
   usage: ReturnType<typeof calculateDashboardUsage>["comparison"]["current"]

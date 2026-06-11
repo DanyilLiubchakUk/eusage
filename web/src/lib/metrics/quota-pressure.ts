@@ -4,10 +4,14 @@ import {
   quotaDetails,
   quotaStatus,
   type QuotaPressureDetail,
-  type QuotaPressureStatus,
 } from "./quota-pressure-details"
 import { dedupeLatestDeviceSnapshots, snapshotRangeTimestamp } from "./usage-metrics"
-import type { MetricRangeWindow, UsageMetricSampleSourceRow, UsageSnapshotSourceRow } from "./types"
+import type {
+  MetricRangeWindow,
+  QuotaPressureStatus,
+  UsageMetricSampleSourceRow,
+  UsageSnapshotSourceRow,
+} from "./types"
 
 export type QuotaPressureMetrics = {
   teamAveragePercent: number | null

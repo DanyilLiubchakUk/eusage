@@ -8,6 +8,7 @@ export type JsonObject = Record<string, unknown>
 export type ExtractorVersion = Record<string, string>
 export type MetricSource = "providerReported" | "normalized" | "estimated"
 export type ProviderAccountStatus = "shared"
+export const SHARED_PROVIDER_ACCOUNT_STATUS: ProviderAccountStatus = "shared"
 
 export type UsageSummary = {
   tokensTotal?: number

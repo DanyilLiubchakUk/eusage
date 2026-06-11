@@ -1,10 +1,13 @@
 import { isMetricSampleInWindow } from "./date-ranges"
-import type { MetricRangeWindow, UsageMetricSampleSourceRow, UsageSnapshotSourceRow } from "./types"
+import type {
+  MetricRangeWindow,
+  QuotaPressureStatus,
+  UsageMetricSampleSourceRow,
+  UsageSnapshotSourceRow,
+} from "./types"
 
 export const QUOTA_WARNING_THRESHOLD = 80
 export const QUOTA_CRITICAL_THRESHOLD = 95
-
-export type QuotaPressureStatus = "normal" | "warning" | "critical"
 
 export type QuotaPressureDetail = {
   developerId: string

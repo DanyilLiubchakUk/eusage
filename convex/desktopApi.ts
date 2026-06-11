@@ -14,6 +14,10 @@ import type {
   NewProviderAccountRecord,
   ProviderAccountRecord,
 } from "./usageIngest"
+import {
+  SHARED_PROVIDER_ACCOUNT_STATUS,
+  type ProviderAccountStatus,
+} from "./usageIngestTypes"
 import { v } from "convex/values"
 
 export {
@@ -76,7 +80,7 @@ export const updateProviderAccount = mutation({
     providerId: v.string(),
     providerAccountFingerprint: v.string(),
     providerAccountLabel: v.string(),
-    status: v.literal("shared"),
+    status: v.literal(SHARED_PROVIDER_ACCOUNT_STATUS),
   },
   handler: async (ctx, input) =>
     updateProviderAccountMetadata({
@@ -106,7 +110,7 @@ type ProviderAccountMetadataInput = {
   providerId: string
   providerAccountFingerprint: string
   providerAccountLabel: string
-  status: "shared"
+  status: ProviderAccountStatus
 }
 
 type ProviderAccountMetadataResult =
@@ -157,7 +161,7 @@ export async function updateProviderAccountMetadata(args: {
     providerId: normalized.providerId,
     teamAccountFingerprint: normalized.providerAccountFingerprint,
     label: normalized.providerAccountLabel,
-    status: "shared" as const,
+    status: normalized.status,
     updatedAt: args.now,
   }
   const existing = await args.store.getProviderAccount(account)
@@ -215,6 +219,7 @@ function normalizeProviderAccountMetadataInput(input: ProviderAccountMetadataInp
     providerId,
     providerAccountFingerprint,
     providerAccountLabel,
+    status: input.status,
   }
 }
 

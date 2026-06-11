@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AdminDateRangeControls } from "./admin-date-range-controls"
+import type { PublicTvDisplayLink } from "../../../../convex/tvDisplayLinks"
 import {
   normalizeTvSlideConfigs,
   type TvDashboardModel,
@@ -30,13 +31,7 @@ import {
 import { TvSlideDurationInput } from "./tv-slide-duration-input"
 
 export type TvDisplayLinkControls = {
-  link: {
-    fingerprint: string
-    status: string
-    createdAt: number
-    rotatedAt: number | null
-    revokedAt: number | null
-  } | null
+  link: PublicTvDisplayLink | null
   rawToken: string | null
   displayUrl: string | null
   onCreate: () => Promise<void>

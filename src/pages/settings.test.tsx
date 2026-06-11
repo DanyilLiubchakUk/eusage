@@ -3,22 +3,27 @@ import type { ReactNode } from "react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-let latestOnDragEnd: ((event: any) => void) | undefined
+type TestDragEndEvent = {
+  active: { id: string }
+  over: { id: string } | null
+}
+
+let latestOnDragEnd: ((event: TestDragEndEvent) => void) | undefined
 
 vi.mock("@dnd-kit/core", () => ({
-  DndContext: ({ children, onDragEnd }: { children: ReactNode; onDragEnd?: (event: any) => void }) => {
+  DndContext: ({ children, onDragEnd }: { children: ReactNode; onDragEnd?: (event: TestDragEndEvent) => void }) => {
     latestOnDragEnd = onDragEnd
     return <div data-testid="dnd-context">{children}</div>
   },
   closestCenter: vi.fn(),
   PointerSensor: class {},
   KeyboardSensor: class {},
-  useSensor: vi.fn((_sensor: any, options?: any) => ({ sensor: _sensor, options })),
-  useSensors: vi.fn((...sensors: any[]) => sensors),
+  useSensor: vi.fn((sensor: unknown, options?: unknown) => ({ sensor, options })),
+  useSensors: vi.fn((...sensors: unknown[]) => sensors),
 }))
 
 vi.mock("@dnd-kit/sortable", () => ({
-  arrayMove: (items: any[], from: number, to: number) => {
+  arrayMove: (items: unknown[], from: number, to: number) => {
     const next = [...items]
     const [moved] = next.splice(from, 1)
     next.splice(to, 0, moved)

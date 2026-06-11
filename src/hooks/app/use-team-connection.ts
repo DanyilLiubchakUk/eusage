@@ -8,7 +8,7 @@ import {
 } from "@/lib/team-connection-actions"
 import type { TeamConnectionSettings } from "@/lib/team-settings"
 
-type TeamConnectionViewStatus =
+export type TeamConnectionViewStatus =
   | "loading"
   | "disconnected"
   | "connected"

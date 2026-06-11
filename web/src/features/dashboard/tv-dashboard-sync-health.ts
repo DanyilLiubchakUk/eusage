@@ -1,6 +1,8 @@
 import { dashboardDeviceName } from "./dashboard-device-name"
 import type { ReadyDashboardState } from "./dashboard-source"
 
+type TvDeviceStatus = ReadyDashboardState["developers"][number]["devices"][number]["status"]
+
 export type TvSyncHealth = {
   connectedDevices: number
   totalDevices: number
@@ -10,7 +12,7 @@ export type TvSyncHealth = {
   rows: Array<{
     developerName: string
     deviceName: string
-    status: string
+    status: TvDeviceStatus
     lastContactAt: number | null
   }>
 }

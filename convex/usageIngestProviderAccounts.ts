@@ -1,6 +1,7 @@
 import {
   type JsonObject,
   type ProviderRejection,
+  SHARED_PROVIDER_ACCOUNT_STATUS,
   type UsageIngestStore,
   type UsageProviderAccountInput,
   type UsageProviderInput,
@@ -55,7 +56,7 @@ export async function upsertProviderAccount(args: {
     providerId: args.provider.providerId,
     teamAccountFingerprint: providerAccount.teamAccountFingerprint,
     label: providerAccount.label,
-    status: "shared" as const,
+    status: SHARED_PROVIDER_ACCOUNT_STATUS,
     lastSharedAt: args.now,
     updatedAt: args.now,
   }

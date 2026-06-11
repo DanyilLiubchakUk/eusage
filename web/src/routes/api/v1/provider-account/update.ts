@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { api } from "../../../../../../convex/_generated/api"
 import { getConvexHttpClient } from "../../../../lib/desktop-api/convex-client"
+import { SHARED_PROVIDER_ACCOUNT_STATUS } from "../../../../lib/metrics"
 import {
   apiJsonError,
   desktopApiJson,
@@ -31,7 +32,7 @@ export const Route = createFileRoute("/api/v1/provider-account/update")({
               "providerAccountFingerprint"
             ),
             providerAccountLabel: stringField(json.body, "providerAccountLabel"),
-            status: "shared",
+            status: SHARED_PROVIDER_ACCOUNT_STATUS,
           }
         )
         if (!result.ok) return apiJsonError(result)

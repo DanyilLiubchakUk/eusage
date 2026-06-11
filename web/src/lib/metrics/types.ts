@@ -29,6 +29,9 @@ export type MetricRangeWindow = {
 }
 
 export type MetricSource = "providerReported" | "normalized" | "estimated"
+export type QuotaPressureStatus = "normal" | "warning" | "critical"
+export type ProviderAccountStatus = "shared"
+export const SHARED_PROVIDER_ACCOUNT_STATUS: ProviderAccountStatus = "shared"
 
 export type CursorSummary = {
   planUsedUsd?: number
@@ -156,7 +159,7 @@ export type ProviderAccountSourceRow = {
   providerId: string
   teamAccountFingerprint: string
   label: string
-  status: "shared"
+  status: ProviderAccountStatus
   firstSharedAt: number
   lastSharedAt: number
   updatedAt: number

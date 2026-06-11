@@ -7,6 +7,7 @@ import {
   publicTvSettings,
 } from "./dashboardSettings"
 import { displayDeviceName } from "./deviceNames"
+import type { DeveloperTokenStatus } from "./developerTokens"
 import { reportingTimeZoneOrDefault } from "./reportingTimeZone"
 
 type DashboardSourceOptions = {
@@ -264,7 +265,7 @@ function publicToken(
   token: {
     fingerprint: string
     label: string
-    status: string
+    status: DeveloperTokenStatus
     lastUsedAt?: number
   } | null
 ) {

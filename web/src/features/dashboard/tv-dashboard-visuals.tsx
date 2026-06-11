@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import type { AvailableMetricRow } from "./admin-overview-tables"
 import { PoolShapeFigure } from "./cursor-pool-shape"
 
 type TrendPoint = {
@@ -39,7 +40,7 @@ export function TvSignalStrip({ items }: { items: Array<[string, string]> }) {
 export function TvMetricRail({
   rows,
 }: {
-  rows: Array<{ metric: string; value: string; source: string; status: string }>
+  rows: Array<Pick<AvailableMetricRow, "metric" | "value" | "source" | "status">>
 }) {
   return (
     <section
