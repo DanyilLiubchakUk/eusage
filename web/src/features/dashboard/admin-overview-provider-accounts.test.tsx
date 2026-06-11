@@ -126,4 +126,39 @@ describe("Admin overview Provider Accounts", () => {
     expect(screen.getAllByText("Claude Side").length).toBeGreaterThan(0)
     expect(screen.getByText("Alex: Claude Work, Claude Side")).toBeInTheDocument()
   })
+
+  it("does not infer Admin account labels from source row identity fields", () => {
+    const ready = readyState as Extract<DashboardSourceState, { status: "ready" }>
+    const claudeSnapshot = ready.snapshots.find((snapshot) => snapshot.providerId === "claude")
+    if (!claudeSnapshot) throw new Error("Missing Claude fixture.")
+    const state = {
+      ...ready,
+      snapshots: [
+        ...ready.snapshots.filter((snapshot) => snapshot.providerId !== "claude"),
+        {
+          ...claudeSnapshot,
+          providerAccountFingerprint: "team-claude-private",
+          dataIdentity: "provider-account:team-claude-private:claude:daily:2026-06-01",
+          summary: {
+            ...claudeSnapshot.summary,
+            provider: {
+              claude: {
+                ...claudeSnapshot.summary.provider?.claude,
+                providerAccountLabel: "Personal Claude",
+                providerEmail: "work@example.com",
+                localProfilePath: "/Users/alex/.claude-personal",
+              },
+            },
+          },
+        },
+      ],
+      providerAccounts: [],
+    } as unknown as DashboardSourceState
+
+    render(<AdminDashboardPlaceholder state={state} now={now} />)
+
+    expect(screen.queryByText("Personal Claude")).not.toBeInTheDocument()
+    expect(screen.queryByText("work@example.com")).not.toBeInTheDocument()
+    expect(screen.queryByText("/Users/alex/.claude-personal")).not.toBeInTheDocument()
+  })
 })

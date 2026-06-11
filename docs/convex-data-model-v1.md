@@ -128,6 +128,8 @@ Indexes:
 
 Backend metadata for Provider Accounts a developer has shared with the Team Deployment.
 Unshared Provider Accounts are unknown to the backend.
+Admin dashboard Provider Account labels come from this table only.
+Usage source rows carry team-scoped fingerprints for matching, not labels or raw account identity values.
 
 - `teamId`
 - `developerId`
@@ -153,6 +155,7 @@ Upserted, not append-only.
 - `developerId`
 - `deviceId`
 - `providerId`
+- `providerAccountFingerprint` optional; team-scoped shared Provider Account fingerprint
 - `periodStart` optional
 - `periodEnd` optional
 - `periodKey`
@@ -246,6 +249,7 @@ These are source measurements for over-time charts, not precomputed chart aggreg
 
 - `teamId`
 - `providerId`
+- `providerAccountFingerprint` optional; team-scoped shared Provider Account fingerprint
 - `developerId` optional
 - `deviceId` optional, used only for local consumed usage samples that must be summed across devices
 - `metricKey`

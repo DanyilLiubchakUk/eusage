@@ -153,6 +153,7 @@ Settings owns local account management. The Team page owns team sharing consent.
 - A future explicit history-sharing flow may offer radio-button choices such as last 7 days, last 30 days, and custom range.
 - Add backend Provider Account metadata for shared accounts only.
 - Backend Provider Account metadata stores team, developer, provider, team account fingerprint, label, status, first shared time, last shared time, and updated time.
+- Admin dashboard shared-account labels must come from backend Provider Account metadata only. Usage snapshots and metric samples may carry team account fingerprints for matching, but not labels, raw account ids, emails, local paths, or credential source names.
 - Add a team API operation for immediate shared Provider Account metadata updates.
 - The desktop app should call the team API for share-on metadata and shared account label changes. It should not talk directly to Convex.
 - If immediate team metadata or current-data sync fails, the local label or sharing choice remains saved and the Team keeps old or missing shared account data until retry or a later successful provider scan.
