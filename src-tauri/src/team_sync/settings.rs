@@ -4,6 +4,7 @@ use std::path::Path;
 
 pub(super) const SETTINGS_FILE_NAME: &str = "settings.json";
 const TEAM_CONNECTION_KEY: &str = "teamConnection";
+const PROVIDER_ACCOUNT_SHARING_KEY: &str = "providerAccountSharing";
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -107,6 +108,7 @@ pub(super) fn clear_team_connection(app_data_dir: &Path) {
         return;
     };
     object.remove(TEAM_CONNECTION_KEY);
+    object.remove(PROVIDER_ACCOUNT_SHARING_KEY);
     if let Err(error) = write_settings_value(&path, &settings) {
         log::warn!("team sync settings cleanup failed: {}", error);
     }

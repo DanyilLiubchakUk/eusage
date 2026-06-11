@@ -1,9 +1,9 @@
 use super::*;
 use crate::plugin_engine::runtime::{MetricLine, ProgressFormat};
 use payload::build_provider_upload;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use serial_test::serial;
-use settings::{SETTINGS_FILE_NAME, load_connection};
+use settings::{load_connection, SETTINGS_FILE_NAME};
 use std::sync::{Arc, Mutex};
 
 const LOCAL_ACCOUNT_FINGERPRINT: &str = "local-account-fingerprint";
@@ -282,7 +282,7 @@ fn partial_acceptance_response_clears_sent_providers() {
 
 #[test]
 #[serial]
-fn invalid_token_clears_team_connection_and_pending_uploads() {
+fn invalid_token_clears_team_connection_sharing_and_pending_uploads() {
     reset_state();
     let dir = temp_dir("invalid");
     write_connection(&dir);
@@ -313,6 +313,15 @@ fn invalid_token_clears_team_connection_and_pending_uploads() {
     assert!(team_sync_state().lock().unwrap().pending.is_empty());
     let settings = read_settings(&dir);
     assert!(settings.get("teamConnection").is_none());
+    assert!(settings.get("providerAccountSharing").is_none());
+    assert_eq!(
+        settings["providerAccountRegistry"]["accounts"][0]["label"],
+        "Cursor Work"
+    );
+    assert_eq!(
+        settings["providerAccountRegistry"]["accounts"][0]["visibility"],
+        "visible"
+    );
     assert_eq!(settings["themeMode"], "system");
 }
 
