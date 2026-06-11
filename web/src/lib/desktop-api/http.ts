@@ -9,6 +9,7 @@ export const DESKTOP_API_ENDPOINTS = {
   deviceCheckIn: "/api/v1/device/check-in",
   usageBatch: "/api/v1/usage/batch",
   deviceDisconnect: "/api/v1/device/disconnect",
+  providerAccountUpdate: "/api/v1/provider-account/update",
 }
 
 export const DESKTOP_API_CORS_HEADERS = {
@@ -20,12 +21,14 @@ export const DESKTOP_API_CORS_HEADERS = {
 type TeamConfigInput = {
   teamName: string
   reportingTimeZone: string
+  teamFingerprint: string
 }
 
 export function buildTeamConfigResponse(input: TeamConfigInput) {
   return {
     teamName: input.teamName,
     reportingTimeZone: input.reportingTimeZone,
+    teamFingerprint: input.teamFingerprint,
     appVersion: packageJson.version,
     apiVersion: DESKTOP_API_VERSION,
     endpoints: DESKTOP_API_ENDPOINTS,

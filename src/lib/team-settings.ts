@@ -13,12 +13,14 @@ export type TeamApiEndpoints = {
   deviceCheckIn: string
   usageBatch: string
   deviceDisconnect: string
+  providerAccountUpdate: string
 }
 
 export type TeamConnectionSettings = {
   teamUrl: string
   teamName: string
   reportingTimeZone: string
+  teamFingerprint: string
   tokenFingerprint: string
   deviceId: string
   deviceName: string
@@ -32,6 +34,7 @@ export type TeamConnectionSettings = {
 }
 
 const store = new LazyStore(SETTINGS_STORE_PATH)
+const DEFAULT_PROVIDER_ACCOUNT_UPDATE_ENDPOINT = "/api/v1/provider-account/update"
 
 type StoreWithDelete = {
   delete?: (key: string) => Promise<void>
@@ -72,6 +75,7 @@ export function normalizeTeamConnectionSettings(
   const teamUrl = stringField(row.teamUrl)
   const teamName = stringField(row.teamName)
   const reportingTimeZone = normalizeReportingTimeZone(row.reportingTimeZone)
+  const teamFingerprint = stringField(row.teamFingerprint)
   const tokenFingerprint = stringField(row.tokenFingerprint)
   const deviceId = stringField(row.deviceId)
   const detectedDeviceName = normalizeDeviceName(row.detectedDeviceName)
@@ -88,6 +92,7 @@ export function normalizeTeamConnectionSettings(
     teamUrl,
     teamName,
     reportingTimeZone,
+    teamFingerprint,
     tokenFingerprint,
     deviceId,
     deviceName,
@@ -109,6 +114,8 @@ function normalizeTeamApiEndpoints(value: unknown): TeamApiEndpoints | null {
     deviceCheckIn: stringField(row.deviceCheckIn),
     usageBatch: stringField(row.usageBatch),
     deviceDisconnect: stringField(row.deviceDisconnect),
+    providerAccountUpdate:
+      stringField(row.providerAccountUpdate) || DEFAULT_PROVIDER_ACCOUNT_UPDATE_ENDPOINT,
   }
   return Object.values(endpoints).every((path) => path.startsWith("/"))
     ? endpoints

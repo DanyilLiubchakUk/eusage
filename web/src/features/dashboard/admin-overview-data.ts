@@ -26,6 +26,11 @@ import {
 } from "./admin-overview-tables"
 import { buildDashboardDateRangeBounds } from "./dashboard-date-range-bounds"
 import type { AdminProviderFilter } from "./admin-provider-visibility-controls"
+import {
+  buildProviderAccountLabelMap,
+  buildProviderAccountSummaries,
+  providerAccountLabelForDetail,
+} from "./admin-provider-account-labels"
 
 export type {
   AvailableMetricRow,
@@ -70,6 +75,11 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
     window: range.current,
   })
   const syncHealth = buildSyncHealth(source.developers)
+  const providerAccountLabels = buildProviderAccountLabelMap(source.providerAccounts)
+  const providerAccountSummaries = buildProviderAccountSummaries(
+    source.providerAccounts,
+    source.developers
+  )
   const freshnessLabel = formatUpdateFreshnessLabel(
     visibleUpdateTimestamps(source, range.current, usage.comparison.current),
     now
@@ -106,12 +116,14 @@ export function buildAdminOverviewModel(state: ReadyDashboardState, now: number)
       providerTotals: sampledUsage.providerTotals,
       quotaProviders: quota.perProvider,
       quotaDetails: quota.details,
+      providerAccountSummaries,
       window: range.current,
     }),
     recentSyncRows: buildRecentSyncRows(source.developers),
     quotaPressureRows: quota.details.map((detail) => ({
       providerId: detail.providerId,
       providerName: formatProviderName(detail.providerId),
+      providerAccountLabel: providerAccountLabelForDetail(detail, providerAccountLabels),
       developerName: detail.developerName ?? detail.developerId,
       label: detail.label,
       percent: detail.percent,

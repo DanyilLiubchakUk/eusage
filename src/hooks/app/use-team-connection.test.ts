@@ -5,6 +5,8 @@ import type { TeamConnectionSettings } from "@/lib/team-settings"
 const connection: TeamConnectionSettings = {
   teamUrl: "https://team.example.com",
   teamName: "Acme Team",
+  reportingTimeZone: "America/New_York",
+  teamFingerprint: "team-fingerprint",
   tokenFingerprint: "abcd1234...wxyz7890",
   deviceId: "device-1",
   deviceName: "Alex MacBook",
@@ -15,6 +17,7 @@ const connection: TeamConnectionSettings = {
     deviceCheckIn: "/api/v1/device/check-in",
     usageBatch: "/api/v1/usage/batch",
     deviceDisconnect: "/api/v1/device/disconnect",
+    providerAccountUpdate: "/api/v1/provider-account/update",
   },
   syncStatus: "connected",
   lastContactAt: "2026-06-01T12:00:00.000Z",

@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { PluginOutput } from "@/lib/plugin-types"
 import type { PluginState } from "@/hooks/app/types"
+import {
+  getOrCreateProviderAccountLocalSalt,
+  syncSavedProviderAccountRegistry,
+} from "@/lib/provider-account-registry-store"
 
 type UseProbeStateArgs = {
   onProbeResult?: () => void
+  onProviderAccountRegistryChange?: () => void
 }
 
-export function useProbeState({ onProbeResult }: UseProbeStateArgs) {
+export function useProbeState({
+  onProbeResult,
+  onProviderAccountRegistryChange,
+}: UseProbeStateArgs) {
   const [pluginStates, setPluginStates] = useState<Record<string, PluginState>>({})
 
   const pluginStatesRef = useRef(pluginStates)
@@ -97,9 +105,13 @@ export function useProbeState({ onProbeResult }: UseProbeStateArgs) {
         }
       })
 
+      void syncProviderAccountsFromProbeOutput(output, errorMessage)
+        .then((didSync) => {
+          if (didSync) onProviderAccountRegistryChange?.()
+        })
       onProbeResult?.()
     },
-    [getErrorMessage, onProbeResult, updatePluginStates]
+    [getErrorMessage, onProbeResult, onProviderAccountRegistryChange, updatePluginStates]
   )
 
   return {
@@ -109,5 +121,35 @@ export function useProbeState({ onProbeResult }: UseProbeStateArgs) {
     setLoadingForPlugins,
     setErrorForPlugins,
     handleProbeResult,
+  }
+}
+
+async function syncProviderAccountsFromProbeOutput(
+  output: PluginOutput,
+  errorMessage: string | null
+): Promise<boolean> {
+  if (errorMessage) return false
+
+  try {
+    const candidates = output.providerAccountDetections ?? []
+    const localSalt = candidates.length > 0
+      ? await getOrCreateProviderAccountLocalSalt()
+      : ""
+    const result = await syncSavedProviderAccountRegistry({
+      detectedAccounts: candidates.map((candidate) => ({
+        ...candidate,
+        localSalt,
+      })),
+      scannedProviderIds: [output.providerId],
+      detectedAt: new Date().toISOString(),
+    })
+    if (!result.ok) {
+      console.error("Failed to sync provider account registry:", result)
+      return false
+    }
+    return true
+  } catch (error) {
+    console.error("Failed to sync provider account registry:", error)
+    return false
   }
 }

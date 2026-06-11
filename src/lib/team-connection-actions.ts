@@ -19,6 +19,7 @@ import {
   saveTeamConnectionSettings,
   type TeamConnectionSettings,
 } from "@/lib/team-settings"
+import { clearProviderAccountSharingSettings } from "@/lib/provider-account-sharing-store"
 import {
   deleteTeamToken,
   readTeamToken,
@@ -74,6 +75,7 @@ type ActionDeps = {
   loadTeamConnectionSettings: typeof loadTeamConnectionSettings
   saveTeamConnectionSettings: typeof saveTeamConnectionSettings
   clearTeamConnectionSettings: typeof clearTeamConnectionSettings
+  clearProviderAccountSharingSettings: typeof clearProviderAccountSharingSettings
   createDeviceId: () => string
   getDesktopPlatform: () => Promise<string>
   getDetectedDeviceName: () => Promise<string | null>
@@ -92,6 +94,7 @@ const defaultDeps: ActionDeps = {
   loadTeamConnectionSettings,
   saveTeamConnectionSettings,
   clearTeamConnectionSettings,
+  clearProviderAccountSharingSettings,
   createDeviceId: () => crypto.randomUUID(),
   getDesktopPlatform: () => invoke<string>("get_desktop_platform"),
   getDetectedDeviceName: () => invoke<string | null>("get_detected_device_name"),
@@ -118,7 +121,7 @@ export async function loadTeamConnection(
   }
 
   if (!token.value) {
-    await resolved.clearTeamConnectionSettings()
+    await cleanupTeamConnection(resolved)
     return {
       status: "disconnected",
       connection: null,
@@ -200,7 +203,7 @@ export async function refreshTeamCheckIn(
     }
   }
   if (!token.value) {
-    await resolved.clearTeamConnectionSettings()
+    await cleanupTeamConnection(resolved)
     return {
       ok: false,
       code: "credential-error",
@@ -233,6 +236,7 @@ export async function disconnectTeam(
   try {
     await resolved.deleteTeamToken()
     await resolved.clearTeamConnectionSettings()
+    await resolved.clearProviderAccountSharingSettings()
   } catch (error) {
     return {
       ok: false,
@@ -317,6 +321,7 @@ async function buildConnectionSettings(args: {
     teamUrl: args.teamUrl,
     teamName: args.config.teamName,
     reportingTimeZone: args.config.reportingTimeZone,
+    teamFingerprint: args.config.teamFingerprint,
     tokenFingerprint: await args.deps.fingerprintDeveloperToken(args.token),
     deviceId: args.deviceId,
     deviceName: "Desktop",
@@ -338,6 +343,7 @@ async function saveTokenAndSettings(
   try {
     await deps.saveTeamToken(token)
     await deps.saveTeamConnectionSettings(connection)
+    await deps.clearProviderAccountSharingSettings()
     return { ok: true, connection, message: "Team connection saved." }
   } catch (error) {
     await cleanupTeamConnection(deps)
@@ -401,6 +407,8 @@ async function checkInConnection(
     ...connection,
     reportingTimeZone:
       result.value.team?.reportingTimeZone ?? connection.reportingTimeZone,
+    teamFingerprint:
+      result.value.team?.teamFingerprint ?? connection.teamFingerprint,
     deviceName: normalizeDeviceName(result.value.device.deviceName) ?? deviceName,
     detectedDeviceName,
     syncStatus: "connected",
@@ -448,6 +456,7 @@ async function cleanupTeamConnection(deps: ActionDeps) {
   await Promise.allSettled([
     deps.deleteTeamToken(),
     deps.clearTeamConnectionSettings(),
+    deps.clearProviderAccountSharingSettings(),
   ])
 }
 

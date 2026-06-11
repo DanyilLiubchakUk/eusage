@@ -21,6 +21,7 @@ GET  /api/v1/team-config
 POST /api/v1/device/check-in
 POST /api/v1/usage/batch
 POST /api/v1/device/disconnect
+POST /api/v1/provider-account/update
 ```
 
 The Vercel API validates the developer token, derives developer identity from the token record, and writes usage to Convex.

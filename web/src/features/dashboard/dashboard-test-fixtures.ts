@@ -161,6 +161,7 @@ export const readyState = {
     metricSample("metric-11", "claude", "claude.tokens.total", 50, "tokens"),
     metricSample("metric-12", "claude", "claude.cost.estimated", 0.75, "usd", "estimated"),
   ],
+  providerAccounts: [],
 } as unknown as DashboardSourceState
 
 export function quietState(): DashboardSourceState {
@@ -175,6 +176,7 @@ export function quietState(): DashboardSourceState {
     snapshots: [],
     metricSamples: [],
     providers: [],
+    providerAccounts: [],
   } as unknown as DashboardSourceState
 }
 

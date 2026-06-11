@@ -124,6 +124,28 @@ Indexes:
 - `by_teamId_providerId`
 - `by_teamId_status`
 
+### `providerAccounts`
+
+Backend metadata for Provider Accounts a developer has shared with the Team Deployment.
+Unshared Provider Accounts are unknown to the backend.
+Admin dashboard Provider Account labels come from this table only.
+Usage source rows carry team-scoped fingerprints for matching, not labels or raw account identity values.
+
+- `teamId`
+- `developerId`
+- `providerId`
+- `teamAccountFingerprint`
+- `label`
+- `status`: `shared`
+- `firstSharedAt`
+- `lastSharedAt`
+- `updatedAt`
+
+Indexes:
+
+- `by_team_developer_provider_account`
+- `by_team_account_fingerprint`
+
 ### `usageSnapshots`
 
 Dashboard source of truth.
@@ -133,6 +155,7 @@ Upserted, not append-only.
 - `developerId`
 - `deviceId`
 - `providerId`
+- `providerAccountFingerprint` optional; team-scoped shared Provider Account fingerprint
 - `periodStart` optional
 - `periodEnd` optional
 - `periodKey`
@@ -226,6 +249,7 @@ These are source measurements for over-time charts, not precomputed chart aggreg
 
 - `teamId`
 - `providerId`
+- `providerAccountFingerprint` optional; team-scoped shared Provider Account fingerprint
 - `developerId` optional
 - `deviceId` optional, used only for local consumed usage samples that must be summed across devices
 - `metricKey`
@@ -337,6 +361,14 @@ The browser keeps only `now` in memory for the ticking label.
 ```text
 teamId + developerId + deviceId + providerId + periodKey + dataIdentity
 ```
+
+`providerAccounts` upsert key:
+
+```text
+teamId + developerId + providerId + teamAccountFingerprint
+```
+
+Usage ingest creates or refreshes shared Provider Account metadata. The desktop Team API can update shared account metadata immediately when sharing turns on or a shared label changes, using the same key without creating raw payloads or history rows.
 
 `metricSamples` upsert key:
 

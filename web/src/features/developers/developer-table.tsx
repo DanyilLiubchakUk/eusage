@@ -6,6 +6,10 @@ import type { DevelopersState } from "./developers"
 
 type ReadyDevelopersState = Extract<DevelopersState, { status: "ready" }>
 type DeveloperRow = ReadyDevelopersState["developers"][number]
+type DeveloperTableStatus =
+  | DeveloperRow["status"]
+  | NonNullable<DeveloperRow["token"]>["status"]
+  | DeveloperRow["devices"][number]["status"]
 type DeveloperTokenAction = "rotate" | "revoke" | "reenable"
 
 type DeveloperTableProps = {
@@ -290,7 +294,7 @@ function TokenActions({
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status: DeveloperTableStatus }) {
   return (
     <span
       className={cn(

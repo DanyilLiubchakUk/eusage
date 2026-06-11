@@ -7,6 +7,7 @@ import {
   publicTvSettings,
 } from "./dashboardSettings"
 import { displayDeviceName } from "./deviceNames"
+import type { DeveloperTokenStatus } from "./developerTokens"
 import { reportingTimeZoneOrDefault } from "./reportingTimeZone"
 
 type DashboardSourceOptions = {
@@ -34,6 +35,10 @@ export async function dashboardSourceRowsForTeam(
   const providers = await ctx.db
     .query("providers")
     .withIndex("by_teamId_status", (q) => q.eq("teamId", team._id))
+    .collect()
+  const providerAccounts = await ctx.db
+    .query("providerAccounts")
+    .withIndex("by_team_account_fingerprint", (q) => q.eq("teamId", team._id))
     .collect()
   const dashboardSettings =
     (await ctx.db
@@ -114,6 +119,12 @@ export async function dashboardSourceRowsForTeam(
   const filteredDevices = devices.filter(
     (device) => !options.tvSafeOnly || filteredDeveloperIds.has(device.developerId)
   )
+  const filteredProviderAccounts = providerAccounts.filter(
+    (account) =>
+      !options.tvSafeOnly ||
+      (filteredDeveloperIds.has(account.developerId) &&
+        filteredProviderIds.has(account.providerId))
+  )
 
   const developerNames = new Map(
     filteredDevelopers.map((developer) => [developer._id, developer.displayName])
@@ -178,6 +189,7 @@ export async function dashboardSourceRowsForTeam(
       developerName: developerNames.get(snapshot.developerId),
       deviceId: snapshot.deviceId,
       providerId: snapshot.providerId,
+      providerAccountFingerprint: snapshot.providerAccountFingerprint,
       periodStart: snapshot.periodStart,
       periodEnd: snapshot.periodEnd,
       periodKey: snapshot.periodKey,
@@ -192,6 +204,7 @@ export async function dashboardSourceRowsForTeam(
       providerId: sample.providerId,
       developerId: sample.developerId,
       deviceId: sample.deviceId,
+      providerAccountFingerprint: sample.providerAccountFingerprint,
       metricKey: sample.metricKey,
       value: sample.value,
       unit: sample.unit,
@@ -202,6 +215,17 @@ export async function dashboardSourceRowsForTeam(
       source: sample.source,
       capturedAt: sample.capturedAt,
       updatedAt: sample.updatedAt,
+    })),
+    providerAccounts: filteredProviderAccounts.map((account) => ({
+      id: account._id,
+      developerId: account.developerId,
+      providerId: account.providerId,
+      teamAccountFingerprint: account.teamAccountFingerprint,
+      label: account.label,
+      status: account.status,
+      firstSharedAt: account.firstSharedAt,
+      lastSharedAt: account.lastSharedAt,
+      updatedAt: account.updatedAt,
     })),
   }
 }
@@ -225,6 +249,7 @@ export function unavailableDashboardSource<const TStatus extends string>(
     tvSettings: defaultTvSettings(),
     snapshots: [],
     metricSamples: [],
+    providerAccounts: [],
   }
 }
 
@@ -240,7 +265,7 @@ function publicToken(
   token: {
     fingerprint: string
     label: string
-    status: string
+    status: DeveloperTokenStatus
     lastUsedAt?: number
   } | null
 ) {

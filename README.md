@@ -61,6 +61,8 @@ Official v1 path:
 - `POST /api/v1/device/check-in` requires `Authorization: Bearer ...`, hashes the token, records device status, and updates developer last seen time.
 - `POST /api/v1/device/disconnect` requires `Authorization: Bearer ...` and marks the device disconnected without deleting usage history.
 - `POST /api/v1/usage/batch` returns a small sync result: accepted count, rejected provider IDs, and server time.
+- `POST /api/v1/provider-account/update` requires the same bearer token and updates shared Provider Account label metadata without uploading usage history.
+- If immediate Provider Account metadata or current-data sync cannot complete, the desktop app keeps local sharing saved and shows a small wait/retry status.
 - Usage batch accepts valid provider payloads even when other provider payloads in the same batch are rejected.
 - If a provider payload has invalid or missing source facts, that provider is rejected only; other providers in the batch can still be accepted.
 - Rejected provider payload errors are stored in Convex `syncErrors` with `expiresAt`; a Convex cron deletes expired rows.
@@ -68,12 +70,12 @@ Official v1 path:
 - Admin dashboard and TV settings use Clerk-authenticated Convex functions directly instead of extra Vercel API wrappers.
 - Admin routes use a shared auth shell. Page data waits until Clerk auth is ready, so normal reloads show a quiet loading state instead of transient `Dashboard unavailable` or `not-authenticated` errors.
 - First app load can use a full-page skeleton; after the admin shell is known, keep nav visible and skeleton only page content.
-- Team sync runs after successful local provider probe results, using the existing auto-update/manual refresh flow.
-- Successful provider results are batched with a 30 second named debounce window before upload.
+- Team sync runs after successful shared provider account probe results, using the existing auto-update/manual refresh flow.
+- Successful shared provider account results are batched with a 30 second named debounce window before upload.
 - Retryable team upload failures keep the pending batch in memory and retry on the next refresh while the app stays open.
 - On quit, the desktop app tries to flush any pending team-sync batch with a short timeout.
 - Team sync failures show in a small team status area, not as provider probe failures.
-- Team sync uploads full successful plugin payloads plus desktop-extracted source facts so dashboards can use all collected data.
+- Team sync uploads full successful shared provider account payloads plus desktop-extracted source facts so dashboards can use all shared data.
 - Full payload uploads must be redacted first: plugins should not return secrets, and desktop runs a generic secret-field scrubber before upload.
 - Stored usage includes full payload plus normalized source facts. Usage snapshots and metric samples store semver string `summaryVersion` and per-provider `extractorVersion`. Raw payloads are retained for 90 days; normalized source facts and metric samples are retained for all-time reporting.
 - Desktop/provider code extracts normalized source facts before upload. The web/backend validates and stores those facts; it does not own normal provider extraction in v1.
@@ -275,11 +277,11 @@ Day one setup for a developer:
 3. Choose connect team.
 4. Paste the connection string from the admin.
 5. Confirm the team name shown by the app.
-6. eUsage starts syncing local usage to the team deployment.
+6. Choose which provider accounts to share. No provider account uploads until the developer selects accounts to share.
 
 The desktop app uses the app URL from the connection string to discover non-secret team config such as endpoint paths. After check-in, Admin shows the device status under the developer. The developer does not manually enter Convex URLs.
 
-Usage upload uses `POST /api/v1/usage/batch` with the same bearer token. The first supported upload schema is `1.0.0`. A valid mock provider upload stores the redacted raw payload for 90 days, upserts the latest usage snapshot for the provider/device/period/data identity, and upserts daily metric samples. If one provider payload is invalid, valid providers in the same batch still sync; rejected provider IDs are returned and short-lived sync errors are stored without raw payloads or secret values.
+Usage upload uses `POST /api/v1/usage/batch` with the same bearer token. The first supported upload schema is `1.0.0`. A valid shared provider account upload stores shared account metadata and the redacted raw payload for 90 days, upserts the latest usage snapshot for the provider/device/period/data identity, and upserts daily metric samples. Shared Provider Account share-on toggles enqueue the current in-memory provider snapshot when one exists, and share-on toggles plus label edits use `POST /api/v1/provider-account/update` so dashboards do not wait for the next usage upload to see the shared account row or label. If current data or metadata cannot sync immediately, local sharing stays saved and Team shows old/missing shared account data until retry or the next successful provider scan. If one provider payload is invalid, valid providers in the same batch still sync; rejected provider IDs are returned and short-lived sync errors are stored without raw payloads or secret values.
 
 ## Desktop Releases
 

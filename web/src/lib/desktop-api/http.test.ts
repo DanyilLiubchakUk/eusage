@@ -13,17 +13,20 @@ describe("desktop API HTTP helpers", () => {
     const response = buildTeamConfigResponse({
       teamName: "Acme Team",
       reportingTimeZone: "America/New_York",
+      teamFingerprint: "team-fingerprint",
     })
 
     expect(response).toMatchObject({
       teamName: "Acme Team",
       reportingTimeZone: "America/New_York",
+      teamFingerprint: "team-fingerprint",
       apiVersion: "v1",
       endpoints: {
         teamConfig: "/api/v1/team-config",
         deviceCheckIn: "/api/v1/device/check-in",
         usageBatch: "/api/v1/usage/batch",
         deviceDisconnect: "/api/v1/device/disconnect",
+        providerAccountUpdate: "/api/v1/provider-account/update",
       },
     })
     expect(JSON.stringify(response)).not.toContain("Convex")

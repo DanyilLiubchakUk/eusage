@@ -29,6 +29,9 @@ export type MetricRangeWindow = {
 }
 
 export type MetricSource = "providerReported" | "normalized" | "estimated"
+export type QuotaPressureStatus = "normal" | "warning" | "critical"
+export type ProviderAccountStatus = "shared"
+export const SHARED_PROVIDER_ACCOUNT_STATUS: ProviderAccountStatus = "shared"
 
 export type CursorSummary = {
   planUsedUsd?: number
@@ -115,6 +118,7 @@ export type UsageSnapshotSourceRow = {
   developerName?: string
   deviceId?: string
   providerId: string
+  providerAccountFingerprint?: string
   periodStart?: number
   periodEnd?: number
   periodKey: string
@@ -130,6 +134,7 @@ export type UsageMetricSampleSourceRow = {
   providerId: string
   developerId?: string
   deviceId?: string
+  providerAccountFingerprint?: string
   metricKey: string
   value: number
   unit: string
@@ -145,5 +150,17 @@ export type UsageMetricSampleSourceRow = {
   }
   source: MetricSource
   capturedAt: number
+  updatedAt: number
+}
+
+export type ProviderAccountSourceRow = {
+  id?: string
+  developerId: string
+  providerId: string
+  teamAccountFingerprint: string
+  label: string
+  status: ProviderAccountStatus
+  firstSharedAt: number
+  lastSharedAt: number
   updatedAt: number
 }

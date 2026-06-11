@@ -21,6 +21,7 @@ GET  /api/v1/team-config
 POST /api/v1/device/check-in
 POST /api/v1/usage/batch
 POST /api/v1/device/disconnect
+POST /api/v1/provider-account/update
 ```
 
 Desktop calls the team app URL only.
@@ -32,6 +33,8 @@ Desktop does not call Convex directly.
 The other desktop endpoints require `Authorization: Bearer ...`.
 
 `POST /api/v1/usage/batch` returns a small sync result with accepted count, rejected provider IDs, and server time.
+
+`POST /api/v1/provider-account/update` lets the desktop update shared Provider Account label metadata without sending usage history.
 
 Admin dashboard and TV use Clerk-authenticated Convex functions directly.
 

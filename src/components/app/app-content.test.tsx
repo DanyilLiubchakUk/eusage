@@ -30,7 +30,7 @@ vi.mock("@/pages/team", () => ({
 }))
 
 vi.mock("@/pages/provider-detail", () => ({
-  ProviderDetailPage: (props: { onRetry?: () => void }) => {
+  ProviderDetailPage: (props: { onRetry?: () => void; providerAccounts?: unknown[] }) => {
     providerDetailPageMock(props)
     return (
       <div data-testid="provider-detail-page">
@@ -41,8 +41,26 @@ vi.mock("@/pages/provider-detail", () => ({
 }))
 
 import { AppContent, type AppContentProps } from "@/components/app/app-content"
+import type { LocalProviderAccount } from "@/lib/provider-account-registry"
 import { useAppPreferencesStore } from "@/stores/app-preferences-store"
 import { useAppUiStore } from "@/stores/app-ui-store"
+
+function providerAccount(
+  overrides: Partial<LocalProviderAccount> = {}
+): LocalProviderAccount {
+  return {
+    providerId: "codex",
+    localAccountFingerprint: "fp-work",
+    label: "Work Codex",
+    visibility: "visible",
+    identityConfidence: "high",
+    confirmationState: "unconfirmed",
+    firstSeenAt: "2026-06-01T00:00:00.000Z",
+    lastSeenAt: "2026-06-02T00:00:00.000Z",
+    detectionState: "detected",
+    ...overrides,
+  }
+}
 
 function createProps(): AppContentProps {
   return {
@@ -80,6 +98,18 @@ function createProps(): AppContentProps {
     },
     onGlobalShortcutChange: vi.fn(),
     onStartOnLoginChange: vi.fn(),
+    onTeamConnected: vi.fn(),
+    providerAccountGroups: [],
+    providerAccountLabelSyncError: null,
+    providerAccountSharingSettings: { sharedLocalAccountFingerprints: [] },
+    providerAccountSharingSyncNotice: null,
+    onProviderAccountSharingChange: vi.fn(),
+    onProviderAccountSharingConfirm: vi.fn(),
+    onProviderAccountSharingRetry: vi.fn(),
+    onProviderAccountSharingReset: vi.fn(),
+    onProviderAccountRename: vi.fn(),
+    onProviderAccountVisibilityChange: vi.fn(),
+    onProviderAccountForget: vi.fn(),
   }
 }
 
@@ -107,14 +137,47 @@ describe("AppContent", () => {
 
     expect(screen.getByTestId("settings-page")).toBeInTheDocument()
     expect(settingsPageMock).toHaveBeenCalledTimes(1)
+    expect(settingsPageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerAccountGroups: [],
+        onProviderAccountRename: expect.any(Function),
+        onProviderAccountVisibilityChange: expect.any(Function),
+        onProviderAccountForget: expect.any(Function),
+      })
+    )
   })
 
   it("renders team page for team view", () => {
+    const props = createProps()
+    const visible = providerAccount()
+    props.providerAccountGroups = [
+      {
+        providerId: "codex",
+        providerName: "Codex",
+        visibleAccounts: [visible],
+        hiddenAccounts: [],
+        notDetectedAccounts: [],
+      },
+    ]
+    props.providerAccountSharingSettings = {
+      sharedLocalAccountFingerprints: ["fp-work"],
+    }
     useAppUiStore.getState().setActiveView("team")
-    render(<AppContent {...createProps()} />)
+    render(<AppContent {...props} />)
 
     expect(screen.getByTestId("team-page")).toBeInTheDocument()
     expect(teamPageMock).toHaveBeenCalledTimes(1)
+    expect(teamPageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerAccountGroups: props.providerAccountGroups,
+        providerAccountSharingSettings: props.providerAccountSharingSettings,
+        providerAccountSharingSyncNotice: null,
+        onProviderAccountSharingChange: props.onProviderAccountSharingChange,
+        onProviderAccountSharingConfirm: props.onProviderAccountSharingConfirm,
+        onProviderAccountSharingRetry: props.onProviderAccountSharingRetry,
+        onProviderAccountSharingReset: props.onProviderAccountSharingReset,
+      })
+    )
   })
 
   it("passes retry callback for provider detail view", () => {
@@ -126,5 +189,45 @@ describe("AppContent", () => {
 
     expect(providerDetailPageMock).toHaveBeenCalledTimes(1)
     expect(props.onRetryPlugin).toHaveBeenCalledWith("codex")
+  })
+
+  it("passes selected provider accounts to provider detail view", () => {
+    const props = createProps()
+    const visible = providerAccount()
+    const hidden = providerAccount({
+      localAccountFingerprint: "fp-hidden",
+      label: "Hidden Codex",
+      visibility: "hidden",
+    })
+    const notDetected = providerAccount({
+      localAccountFingerprint: "fp-old",
+      label: "Old Codex",
+      detectionState: "notDetected",
+    })
+    props.providerAccountGroups = [
+      {
+        providerId: "codex",
+        providerName: "Codex",
+        visibleAccounts: [visible],
+        hiddenAccounts: [hidden],
+        notDetectedAccounts: [notDetected],
+      },
+      {
+        providerId: "claude",
+        providerName: "Claude",
+        visibleAccounts: [providerAccount({ providerId: "claude" })],
+        hiddenAccounts: [],
+        notDetectedAccounts: [],
+      },
+    ]
+    useAppUiStore.getState().setActiveView("codex")
+
+    render(<AppContent {...props} />)
+
+    expect(providerDetailPageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerAccounts: [visible, hidden, notDetected],
+      })
+    )
   })
 })

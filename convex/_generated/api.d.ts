@@ -27,6 +27,7 @@ import type * as tvDisplayLinks from "../tvDisplayLinks.js";
 import type * as usageIngest from "../usageIngest.js";
 import type * as usageIngestBuckets from "../usageIngestBuckets.js";
 import type * as usageIngestCore from "../usageIngestCore.js";
+import type * as usageIngestProviderAccounts from "../usageIngestProviderAccounts.js";
 import type * as usageIngestRedaction from "../usageIngestRedaction.js";
 import type * as usageIngestTypes from "../usageIngestTypes.js";
 import type * as usageIngestValidation from "../usageIngestValidation.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   usageIngest: typeof usageIngest;
   usageIngestBuckets: typeof usageIngestBuckets;
   usageIngestCore: typeof usageIngestCore;
+  usageIngestProviderAccounts: typeof usageIngestProviderAccounts;
   usageIngestRedaction: typeof usageIngestRedaction;
   usageIngestTypes: typeof usageIngestTypes;
   usageIngestValidation: typeof usageIngestValidation;

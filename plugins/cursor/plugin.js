@@ -1,4 +1,6 @@
 (function () {
+  const PROVIDER_ID = "cursor"
+  const PROVIDER_NAME = "Cursor"
   const MACOS_STATE_DB =
     "~/Library/Application Support/Cursor/User/globalStorage/state.vscdb"
   const WINDOWS_STATE_DB_RELATIVE = "Cursor/User/globalStorage/state.vscdb"
@@ -143,6 +145,7 @@
     const sqliteAccessToken = sqliteState.accessToken
     const sqliteRefreshToken = sqliteState.refreshToken
     const sqliteMembershipTypeRaw = sqliteState.membershipTypeRaw
+    const sqliteCachedEmail = sqliteState.cachedEmail
     const sqliteMembershipType = typeof sqliteMembershipTypeRaw === "string"
       ? sqliteMembershipTypeRaw.trim().toLowerCase()
       : null
@@ -162,6 +165,7 @@
           accessToken: keychainAccessToken,
           refreshToken: keychainRefreshToken,
           source: "keychain",
+          cachedEmail: null,
         }
       }
 
@@ -171,6 +175,7 @@
         source: "sqlite",
         sourceDbPath: sqliteState.dbPath,
         sourcePath: sqliteState.dbLabel,
+        cachedEmail: sqliteCachedEmail,
       }
     }
 
@@ -181,6 +186,7 @@
         source: "keychain",
         sourceDbPath: null,
         sourcePath: null,
+        cachedEmail: null,
       }
     }
 
@@ -190,6 +196,7 @@
       source: null,
       sourceDbPath: null,
       sourcePath: null,
+      cachedEmail: null,
     }
   }
 
@@ -202,10 +209,12 @@
 
       if (access.value || refresh.value) {
         const membership = readStateValue(ctx, candidate.path, candidate.label, "cursorAuth/stripeMembershipType")
+        const cachedEmail = readStateValue(ctx, candidate.path, candidate.label, "cursorAuth/cachedEmail")
         return {
           accessToken: access.value,
           refreshToken: refresh.value,
           membershipTypeRaw: membership.value,
+          cachedEmail: cachedEmail.value,
           dbPath: candidate.path,
           dbLabel: candidate.label,
         }
@@ -222,6 +231,7 @@
       accessToken: null,
       refreshToken: null,
       membershipTypeRaw: null,
+      cachedEmail: null,
       dbPath: null,
       dbLabel: null,
     }
@@ -233,6 +243,32 @@
     if (!payload || typeof payload.sub !== "string") return null
     const subject = payload.sub.trim()
     return subject || null
+  }
+
+  function providerAccountDetections(ctx, authState, accessToken) {
+    const email = typeof authState.cachedEmail === "string"
+      ? authState.cachedEmail.trim()
+      : ""
+    if (email) {
+      return [{
+        providerId: PROVIDER_ID,
+        providerName: PROVIDER_NAME,
+        identityKind: "providerEmail",
+        identityValue: email,
+        identityConfidence: "high",
+        label: email,
+      }]
+    }
+
+    const subject = getTokenSubject(ctx, accessToken)
+    if (!subject) return []
+    return [{
+      providerId: PROVIDER_ID,
+      providerName: PROVIDER_NAME,
+      identityKind: "providerUserId",
+      identityValue: subject,
+      identityConfidence: "high",
+    }]
   }
 
   function persistAccessToken(ctx, source, sourceDbPath, sourcePath, accessToken) {
@@ -629,7 +665,7 @@
     }
   }
 
-  function buildRequestBasedResult(ctx, accessToken, planName, unavailableMessage) {
+  function buildRequestBasedResult(ctx, accessToken, planName, unavailableMessage, detections) {
     var requestUsage = fetchRequestBasedUsage(ctx, accessToken)
     var lines = []
 
@@ -670,6 +706,7 @@
     return {
       plan: plan,
       lines: lines,
+      providerAccountDetections: detections,
       sourceFacts: buildRequestSourceFacts(ctx, requestUsage, planName),
       rawPayload: {
         requestUsage: requestUsage,
@@ -678,30 +715,33 @@
     }
   }
 
-  function buildEnterpriseResult(ctx, accessToken, planName) {
+  function buildEnterpriseResult(ctx, accessToken, planName, detections) {
     return buildRequestBasedResult(
       ctx,
       accessToken,
       planName,
-      "Enterprise usage data unavailable. Try again later."
+      "Enterprise usage data unavailable. Try again later.",
+      detections
     )
   }
 
-  function buildTeamRequestBasedResult(ctx, accessToken, planName) {
+  function buildTeamRequestBasedResult(ctx, accessToken, planName, detections) {
     return buildRequestBasedResult(
       ctx,
       accessToken,
       planName,
-      "Team request-based usage data unavailable. Try again later."
+      "Team request-based usage data unavailable. Try again later.",
+      detections
     )
   }
 
-  function buildUnknownRequestBasedResult(ctx, accessToken, planName) {
+  function buildUnknownRequestBasedResult(ctx, accessToken, planName, detections) {
     return buildRequestBasedResult(
       ctx,
       accessToken,
       planName,
-      "Cursor request-based usage data unavailable. Try again later."
+      "Cursor request-based usage data unavailable. Try again later.",
+      detections
     )
   }
 
@@ -811,6 +851,7 @@
     const normalizedPlanName = typeof planName === "string"
       ? planName.toLowerCase()
       : ""
+    const detections = providerAccountDetections(ctx, authState, accessToken)
 
     const hasPlanUsage = !!usage.planUsage
     const hasPlanUsageLimit = hasPlanUsage &&
@@ -830,10 +871,10 @@
     if (needsRequestBasedFallback) {
       if (normalizedPlanName === "enterprise") {
         ctx.host.log.info("detected enterprise account, using REST usage API")
-        return buildEnterpriseResult(ctx, accessToken, planName)
+        return buildEnterpriseResult(ctx, accessToken, planName, detections)
       }
       ctx.host.log.info("detected team request-based account, using REST usage API")
-      return buildTeamRequestBasedResult(ctx, accessToken, planName)
+      return buildTeamRequestBasedResult(ctx, accessToken, planName, detections)
     }
 
     const needsFallbackWithoutPlanInfo = usage.enabled !== false &&
@@ -843,13 +884,13 @@
       planInfoUnavailable
     if (needsFallbackWithoutPlanInfo) {
       ctx.host.log.info("plan info unavailable with missing planUsage, attempting REST usage API fallback")
-      return buildUnknownRequestBasedResult(ctx, accessToken, planName)
+      return buildUnknownRequestBasedResult(ctx, accessToken, planName, detections)
     }
 
     if (usage.enabled !== false && planUsageLimitMissing && !hasTotalUsagePercent) {
       ctx.host.log.warn("planUsage.limit missing, attempting REST usage API fallback")
       try {
-        return buildUnknownRequestBasedResult(ctx, accessToken, planName)
+        return buildUnknownRequestBasedResult(ctx, accessToken, planName, detections)
       } catch (e) {
         ctx.host.log.warn("REST usage fallback unavailable: " + String(e))
       }
@@ -936,7 +977,7 @@
     if (isTeamAccount) {
       if (!hasPlanUsageLimit) {
         ctx.host.log.warn("team-inferred account missing planUsage.limit, attempting REST usage API fallback")
-        return buildUnknownRequestBasedResult(ctx, accessToken, planName)
+        return buildUnknownRequestBasedResult(ctx, accessToken, planName, detections)
       }
       lines.push(ctx.line.progress({
         label: "Total usage",
@@ -1001,6 +1042,7 @@
     return {
       plan: plan,
       lines: lines,
+      providerAccountDetections: detections,
       sourceFacts: buildCursorSourceFacts(ctx, usage, planName, {
         usedUsd: centsToUsd(hasValidGrantData ? grantUsedCents : 0),
         totalUsd: centsToUsd(combinedTotalCents),

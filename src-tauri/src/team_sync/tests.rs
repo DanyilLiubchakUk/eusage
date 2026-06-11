@@ -6,6 +6,8 @@ use serial_test::serial;
 use settings::{SETTINGS_FILE_NAME, load_connection};
 use std::sync::{Arc, Mutex};
 
+const LOCAL_ACCOUNT_FINGERPRINT: &str = "local-account-fingerprint";
+
 fn temp_dir(label: &str) -> PathBuf {
     std::env::temp_dir().join(format!(
         "openusage-team-sync-{}-{}",
@@ -31,6 +33,7 @@ fn write_connection(dir: &Path) {
             "teamConnection": {
                 "teamUrl": "https://team.example.com",
                 "teamName": "Acme Team",
+                "teamFingerprint": "team-fingerprint",
                 "tokenFingerprint": "abcd1234...wxyz7890",
                 "deviceId": "device-1",
                 "endpoints": {
@@ -43,6 +46,23 @@ fn write_connection(dir: &Path) {
                 "lastContactAt": null,
                 "deviceStatus": "connected",
                 "lastError": null
+            },
+            "providerAccountRegistry": {
+                "accounts": [{
+                    "providerId": "cursor",
+                    "localAccountFingerprint": LOCAL_ACCOUNT_FINGERPRINT,
+                    "label": "Cursor Work",
+                    "visibility": "visible",
+                    "identityConfidence": "high",
+                    "confirmationState": "unconfirmed",
+                    "firstSeenAt": "2026-06-01T12:00:00.000Z",
+                    "lastSeenAt": "2026-06-01T12:00:00.000Z",
+                    "detectionState": "detected"
+                }]
+            },
+            "providerAccountSharing": {
+                "teamFingerprint": "team-fingerprint",
+                "sharedLocalAccountFingerprints": [LOCAL_ACCOUNT_FINGERPRINT]
             }
         }))
         .unwrap(),
@@ -64,6 +84,7 @@ fn make_snapshot(provider_id: &str, used: f64) -> CachedPluginSnapshot {
             period_duration_ms: None,
             color: None,
         }],
+        provider_account_detections: Vec::new(),
         source_facts: None,
         raw_payload: None,
         fetched_at: "2026-06-01T12:00:00Z".to_string(),
@@ -87,18 +108,21 @@ fn repeated_updates_replace_same_pending_provider() {
     assert!(enqueue_provider_upload(
         dir.clone(),
         connection_key(&connection),
+        LOCAL_ACCOUNT_FINGERPRINT.to_string(),
         first
     ));
     assert!(!enqueue_provider_upload(
         dir,
         connection_key(&connection),
+        LOCAL_ACCOUNT_FINGERPRINT.to_string(),
         second
     ));
 
     let state = team_sync_state().lock().unwrap();
     assert_eq!(state.pending.len(), 1);
-    assert_eq!(state.pending["cursor"].upload.provider_id, "cursor");
-    assert_eq!(state.pending["cursor"].generation, 2);
+    let pending = state.pending.values().next().unwrap();
+    assert_eq!(pending.upload.provider_id, "cursor");
+    assert_eq!(pending.generation, 2);
 }
 
 #[test]
@@ -159,6 +183,7 @@ fn retryable_failure_keeps_pending_batch_in_memory() {
     enqueue_provider_upload(
         dir.clone(),
         connection_key(&connection),
+        LOCAL_ACCOUNT_FINGERPRINT.to_string(),
         build_provider_upload(&make_snapshot("cursor", 10.0)),
     );
 
@@ -180,6 +205,39 @@ fn retryable_failure_keeps_pending_batch_in_memory() {
 
 #[test]
 #[serial]
+fn unsharing_before_send_drops_pending_provider_upload() {
+    reset_state();
+    let dir = temp_dir("unshare");
+    write_connection(&dir);
+    let connection = load_connection(&dir).unwrap();
+    enqueue_provider_upload(
+        dir.clone(),
+        connection_key(&connection),
+        LOCAL_ACCOUNT_FINGERPRINT.to_string(),
+        build_provider_upload(&make_snapshot("cursor", 10.0)),
+    );
+
+    let mut settings = read_settings(&dir);
+    settings["providerAccountSharing"]["sharedLocalAccountFingerprints"] = json!([]);
+    std::fs::write(
+        dir.join(SETTINGS_FILE_NAME),
+        serde_json::to_string_pretty(&settings).unwrap(),
+    )
+    .unwrap();
+
+    let attempt = upload_pending_once_with(
+        Duration::from_millis(20),
+        || Ok(Some("eusage_dev_secret".to_string())),
+        |_connection, _token, _batch, _timeout| panic!("unshared account must not upload"),
+        || Ok(()),
+    );
+
+    assert_eq!(attempt, TeamSyncAttempt::Idle);
+    assert!(team_sync_state().lock().unwrap().pending.is_empty());
+}
+
+#[test]
+#[serial]
 fn partial_acceptance_response_clears_sent_providers() {
     reset_state();
     let dir = temp_dir("partial");
@@ -188,11 +246,13 @@ fn partial_acceptance_response_clears_sent_providers() {
     enqueue_provider_upload(
         dir.clone(),
         connection_key(&connection),
+        LOCAL_ACCOUNT_FINGERPRINT.to_string(),
         build_provider_upload(&make_snapshot("cursor", 10.0)),
     );
     enqueue_provider_upload(
         dir.clone(),
         connection_key(&connection),
+        LOCAL_ACCOUNT_FINGERPRINT.to_string(),
         build_provider_upload(&make_snapshot("broken", 10.0)),
     );
 
@@ -223,7 +283,7 @@ fn partial_acceptance_response_clears_sent_providers() {
 
 #[test]
 #[serial]
-fn invalid_token_clears_team_connection_and_pending_uploads() {
+fn invalid_token_clears_team_connection_sharing_and_pending_uploads() {
     reset_state();
     let dir = temp_dir("invalid");
     write_connection(&dir);
@@ -231,6 +291,7 @@ fn invalid_token_clears_team_connection_and_pending_uploads() {
     enqueue_provider_upload(
         dir.clone(),
         connection_key(&connection),
+        LOCAL_ACCOUNT_FINGERPRINT.to_string(),
         build_provider_upload(&make_snapshot("cursor", 10.0)),
     );
     let deleted = Arc::new(Mutex::new(false));
@@ -253,6 +314,15 @@ fn invalid_token_clears_team_connection_and_pending_uploads() {
     assert!(team_sync_state().lock().unwrap().pending.is_empty());
     let settings = read_settings(&dir);
     assert!(settings.get("teamConnection").is_none());
+    assert!(settings.get("providerAccountSharing").is_none());
+    assert_eq!(
+        settings["providerAccountRegistry"]["accounts"][0]["label"],
+        "Cursor Work"
+    );
+    assert_eq!(
+        settings["providerAccountRegistry"]["accounts"][0]["visibility"],
+        "visible"
+    );
     assert_eq!(settings["themeMode"], "system");
 }
 
@@ -266,6 +336,7 @@ fn quit_flush_uses_bounded_timeout() {
     enqueue_provider_upload(
         dir,
         connection_key(&connection),
+        LOCAL_ACCOUNT_FINGERPRINT.to_string(),
         build_provider_upload(&make_snapshot("cursor", 10.0)),
     );
 

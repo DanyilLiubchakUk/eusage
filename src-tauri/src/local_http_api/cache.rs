@@ -1,4 +1,6 @@
-use crate::plugin_engine::runtime::{MetricLine, PluginOutput, ProviderSourceFacts};
+use crate::plugin_engine::runtime::{
+    MetricLine, PluginOutput, ProviderAccountDetection, ProviderSourceFacts,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -27,6 +29,8 @@ pub struct CachedPluginSnapshot {
     pub display_name: String,
     pub plan: Option<String>,
     pub lines: Vec<MetricLine>,
+    #[serde(default, skip_serializing)]
+    pub provider_account_detections: Vec<ProviderAccountDetection>,
     pub source_facts: Option<ProviderSourceFacts>,
     pub raw_payload: Option<Value>,
     pub fetched_at: String,
@@ -239,6 +243,7 @@ pub fn cache_successful_output(output: &PluginOutput) {
         display_name: output.display_name.clone(),
         plan: output.plan.clone(),
         lines: output.lines.clone(),
+        provider_account_detections: output.provider_account_detections.clone(),
         source_facts: output.source_facts.clone(),
         raw_payload: output.raw_payload.clone(),
         fetched_at,
@@ -255,6 +260,19 @@ pub fn cache_successful_output(output: &PluginOutput) {
     };
 
     crate::team_sync::upload_snapshot(&app_data_dir, &snapshot);
+}
+
+pub(crate) fn cached_snapshot(provider_id: &str) -> Option<CachedPluginSnapshot> {
+    let provider_id = provider_id.trim();
+    if provider_id.is_empty() {
+        return None;
+    }
+    cache_state()
+        .lock()
+        .expect("cache state poisoned")
+        .snapshots
+        .get(provider_id)
+        .cloned()
 }
 
 pub fn flush_cache() {
@@ -347,6 +365,7 @@ mod tests {
             display_name: name.to_string(),
             plan: Some("Pro".to_string()),
             lines: vec![],
+            provider_account_detections: Vec::new(),
             source_facts: None,
             raw_payload: None,
             fetched_at: "2026-03-26T08:15:30Z".to_string(),
@@ -364,6 +383,7 @@ mod tests {
                 color: None,
                 subtitle: None,
             }],
+            provider_account_detections: Vec::new(),
             source_facts: None,
             raw_payload: None,
             icon_url: String::new(),
@@ -598,6 +618,7 @@ mod tests {
                 period_duration_ms: Some(14400000),
                 color: None,
             }],
+            provider_account_detections: Vec::new(),
             source_facts: None,
             raw_payload: None,
             fetched_at: "2026-03-26T08:00:00Z".to_string(),

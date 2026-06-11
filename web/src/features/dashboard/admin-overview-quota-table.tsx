@@ -28,9 +28,12 @@ export function QuotaPressureTable({ rows }: { rows: QuotaPressureRow[] }) {
           </TableRow>
         ) : (
           rows.map((row) => (
-            <TableRow key={`${row.providerId}:${row.developerName}:${row.label}`}>
+            <TableRow key={`${row.providerId}:${row.providerAccountLabel ?? ""}:${row.developerName}:${row.label}`}>
               <TableCell className="align-top">
                 <strong className="block">{row.providerName}</strong>
+                {row.providerAccountLabel ? (
+                  <span className="mt-1 block text-muted-foreground">{row.providerAccountLabel}</span>
+                ) : null}
                 <span className="mt-1 block text-muted-foreground">{row.status}</span>
               </TableCell>
               <TableCell className="align-top">{row.label}</TableCell>

@@ -154,6 +154,15 @@ describe("claude plugin", () => {
     const result = plugin.probe(ctx)
 
     expect(result.lines.find((line) => line.label === "Session")).toBeTruthy()
+    expect(result.providerAccountDetections).toEqual([
+      {
+        providerId: "claude",
+        providerName: "Claude",
+        identityKind: "credentialSource",
+        identityValue: "Claude Code-credentials",
+        identityConfidence: "medium",
+      },
+    ])
     expect(ctx.host.fs.readText).not.toHaveBeenCalled()
     expect(ctx.host.http.request).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -755,11 +764,21 @@ describe("claude plugin", () => {
           }),
         ])
       )
+      expect(result.providerAccountDetections).toEqual([
+        {
+          providerId: "claude",
+          providerName: "Claude",
+          identityKind: "localProfilePath",
+          identityValue: "~/.claude",
+          identityConfidence: "medium",
+        },
+      ])
       expect(result.rawPayload.auth.oauth.accessToken).toBe("[REDACTED]")
       expect(result.rawPayload.auth.oauth.refreshToken).toBe("[REDACTED]")
       expect(result.rawPayload.usage.debug_access_token).toBe("[REDACTED]")
       expect(JSON.stringify(result.rawPayload)).not.toContain(accessToken)
       expect(JSON.stringify(result.rawPayload)).not.toContain(refreshToken)
+      expect(JSON.stringify(result.rawPayload)).not.toContain("~/.claude")
     } finally {
       vi.useRealTimers()
     }

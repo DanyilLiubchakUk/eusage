@@ -83,11 +83,30 @@ export default defineSchema({
   })
     .index("by_teamId_providerId", ["teamId", "providerId"])
     .index("by_teamId_status", ["teamId", "status"]),
+  providerAccounts: defineTable({
+    teamId: v.id("teams"),
+    developerId: v.id("developers"),
+    providerId: v.string(),
+    teamAccountFingerprint: v.string(),
+    label: v.string(),
+    status: v.literal("shared"),
+    firstSharedAt: v.number(),
+    lastSharedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_team_developer_provider_account", [
+      "teamId",
+      "developerId",
+      "providerId",
+      "teamAccountFingerprint",
+    ])
+    .index("by_team_account_fingerprint", ["teamId", "teamAccountFingerprint"]),
   usageSnapshots: defineTable({
     teamId: v.id("teams"),
     developerId: v.id("developers"),
     deviceId: v.string(),
     providerId: v.string(),
+    providerAccountFingerprint: v.optional(v.string()),
     periodStart: v.optional(v.number()),
     periodEnd: v.optional(v.number()),
     periodKey: v.string(),
@@ -139,6 +158,7 @@ export default defineSchema({
   metricSamples: defineTable({
     teamId: v.id("teams"),
     providerId: v.string(),
+    providerAccountFingerprint: v.optional(v.string()),
     developerId: v.optional(v.id("developers")),
     deviceId: v.optional(v.string()),
     metricKey: v.string(),
@@ -175,6 +195,7 @@ export default defineSchema({
       "sampleDay",
       "periodStart",
       "periodEnd",
+      "providerAccountFingerprint",
     ])
     .index("by_sample_identity_device", [
       "teamId",
@@ -185,6 +206,7 @@ export default defineSchema({
       "sampleDay",
       "periodStart",
       "periodEnd",
+      "providerAccountFingerprint",
     ])
     .index("by_team_metric_day", ["teamId", "metricKey", "sampleDay"])
     .index("by_team_provider_metric_day", [

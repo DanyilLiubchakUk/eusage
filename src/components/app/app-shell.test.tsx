@@ -125,4 +125,17 @@ describe("AppShell", () => {
       maxHeight: "500px",
     })
   })
+
+  it("renders shell overlays inside the tray panel", () => {
+    render(
+      <AppShell
+        {...createProps()}
+        shellOverlay={<div data-testid="shell-overlay" />}
+      />
+    )
+
+    const overlay = screen.getByTestId("shell-overlay")
+
+    expect(overlay.parentElement).toHaveClass("relative", "rounded-xl")
+  })
 })

@@ -34,6 +34,7 @@ const connection: TeamConnectionSettings = {
   teamUrl: "https://team.example.com",
   teamName: "Acme Team",
   reportingTimeZone: "America/New_York",
+  teamFingerprint: "team-fingerprint",
   tokenFingerprint: "abcd1234...wxyz7890",
   deviceId: "device-1",
   deviceName: "Alex MacBook",
@@ -44,6 +45,7 @@ const connection: TeamConnectionSettings = {
     deviceCheckIn: "/api/v1/device/check-in",
     usageBatch: "/api/v1/usage/batch",
     deviceDisconnect: "/api/v1/device/disconnect",
+    providerAccountUpdate: "/api/v1/provider-account/update",
   },
   syncStatus: "connected",
   lastContactAt: "2026-06-01T12:00:00.000Z",
@@ -84,13 +86,24 @@ describe("team settings", () => {
       detectedDeviceName: undefined,
       deviceNameOverride: undefined,
       reportingTimeZone: undefined,
+      teamFingerprint: undefined,
+      endpoints: {
+        teamConfig: "/api/v1/team-config",
+        deviceCheckIn: "/api/v1/device/check-in",
+        usageBatch: "/api/v1/usage/batch",
+        deviceDisconnect: "/api/v1/device/disconnect",
+      },
     }
 
     expect(normalizeTeamConnectionSettings(legacy)).toMatchObject({
       reportingTimeZone: "UTC",
+      teamFingerprint: "",
       deviceName: "Desktop",
       detectedDeviceName: null,
       deviceNameOverride: null,
+      endpoints: {
+        providerAccountUpdate: "/api/v1/provider-account/update",
+      },
     })
   })
 

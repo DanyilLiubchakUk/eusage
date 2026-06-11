@@ -13,6 +13,7 @@ const endpoints = {
   deviceCheckIn: "/api/v1/device/check-in",
   usageBatch: "/api/v1/usage/batch",
   deviceDisconnect: "/api/v1/device/disconnect",
+  providerAccountUpdate: "/api/v1/provider-account/update",
 }
 
 function createDeps(seed?: {
@@ -28,6 +29,7 @@ function createDeps(seed?: {
       value: {
         teamName: "Acme Team",
         reportingTimeZone: "America/New_York",
+        teamFingerprint: "team-fingerprint",
         appVersion: "0.6.24",
         apiVersion: "v1",
         endpoints,
@@ -44,6 +46,7 @@ function createDeps(seed?: {
         },
         team: {
           reportingTimeZone: "America/New_York",
+          teamFingerprint: "team-fingerprint",
         },
       },
     })),
@@ -58,6 +61,7 @@ function createDeps(seed?: {
         },
         team: {
           reportingTimeZone: "America/New_York",
+          teamFingerprint: "team-fingerprint",
         },
       },
     })),
@@ -76,6 +80,7 @@ function createDeps(seed?: {
     clearTeamConnectionSettings: vi.fn(async () => {
       connection = null
     }),
+    clearProviderAccountSharingSettings: vi.fn(async () => undefined),
     createDeviceId: vi.fn(() => "device-1"),
     getDesktopPlatform: vi.fn(async () => "macos"),
     getDetectedDeviceName: vi.fn(async () => "Alex MacBook"),
@@ -117,10 +122,12 @@ describe("team connection actions", () => {
       })
     )
     expect(fake.token).toBe("eusage_dev_secret")
+    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
     expect(JSON.stringify(fake.connection)).not.toContain("eusage_dev_secret")
     expect(fake.connection).toMatchObject({
       teamName: "Acme Team",
       reportingTimeZone: "America/New_York",
+      teamFingerprint: "team-fingerprint",
       tokenFingerprint: "abcd1234...wxyz7890",
       deviceName: "Alex MacBook",
       detectedDeviceName: "Alex MacBook",
@@ -128,6 +135,52 @@ describe("team connection actions", () => {
       syncStatus: "connected",
       lastContactAt: "2026-06-01T12:00:00.000Z",
       deviceStatus: "connected",
+    })
+  })
+
+  it("clears Provider Account sharing when reconnecting to another team", async () => {
+    const fake = createDeps({
+      connection: connectedSettings(),
+      token: "eusage_dev_old",
+    })
+    fake.deps.fetchTeamConfig.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        teamName: "Beta Team",
+        reportingTimeZone: "America/New_York",
+        teamFingerprint: "team-b-fingerprint",
+        appVersion: "0.6.24",
+        apiVersion: "v1",
+        endpoints,
+      },
+    })
+    fake.deps.checkInTeamDevice.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        device: {
+          deviceName: "Alex MacBook",
+          status: "connected",
+          lastSeenAt: 1780340000000,
+          updatedAt: 1780340000000,
+        },
+        team: {
+          reportingTimeZone: "America/New_York",
+          teamFingerprint: "team-b-fingerprint",
+        },
+      },
+    })
+
+    const result = await connectTeam(
+      "eusage://connect?url=https://beta.example.com&token=eusage_dev_new",
+      fake.deps
+    )
+
+    expect(result.ok).toBe(true)
+    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
+    expect(fake.connection).toMatchObject({
+      teamName: "Beta Team",
+      teamFingerprint: "team-b-fingerprint",
+      deviceId: "device-1",
     })
   })
 
@@ -171,6 +224,7 @@ describe("team connection actions", () => {
       message: "Disconnected locally. Team deployment was not reachable.",
     })
     expect(fake.deps.disconnectTeamDevice).toHaveBeenCalled()
+    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
     expect(fake.token).toBeNull()
     expect(fake.connection).toBeNull()
   })
@@ -196,6 +250,7 @@ describe("team connection actions", () => {
     })
     expect(fake.token).toBeNull()
     expect(fake.connection).toBeNull()
+    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
   })
 
   it("saves a device name override and sends it on check-in", async () => {
@@ -288,6 +343,7 @@ describe("team connection actions", () => {
     })
     expect(fake.token).toBeNull()
     expect(fake.connection).toBeNull()
+    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
   })
 
   it("updates saved reporting timezone from device check-in metadata", async () => {
@@ -306,6 +362,7 @@ describe("team connection actions", () => {
         },
         team: {
           reportingTimeZone: "America/Los_Angeles",
+          teamFingerprint: "team-fingerprint",
         },
       },
     })
@@ -322,6 +379,7 @@ function connectedSettings(): TeamConnectionSettings {
     teamUrl: "https://team.example.com",
     teamName: "Acme Team",
     reportingTimeZone: "America/New_York",
+    teamFingerprint: "team-fingerprint",
     tokenFingerprint: "abcd1234...wxyz7890",
     deviceId: "device-1",
     deviceName: "Alex MacBook",

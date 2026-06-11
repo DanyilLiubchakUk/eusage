@@ -216,7 +216,47 @@ An AI tool or platform whose usage data eUsage can collect and show.
 
 - Use when: Talking about sources such as Codex, Cursor, Claude, or JetBrains AI Assistant.
 - Do not use for: A developer, team deployment, or hosting service.
-- Related terms: Desktop App, Dashboard.
+- Related terms: Desktop App, Dashboard, Provider Account.
+
+### Provider Account
+
+A developer's distinct login or subscription with one provider.
+
+- Use when: The same developer can switch between work and personal provider subscriptions.
+- Do not use for: The developer's team identity, a device, or a local provider credential.
+- Related terms: Developer, Provider, Provider Credential, Provider Account Label, Provider Account Sharing, Provider Account Usage.
+
+### Provider Account Label
+
+A developer-chosen name for a provider account.
+
+- Use when: A developer names an account so they can distinguish work and personal provider accounts.
+- Do not use for: The provider's own account identifier, a team developer name, or provider credentials.
+- Related terms: Provider Account, Provider Account Sharing, Provider Account Visibility.
+
+### Provider Account Fingerprint
+
+A privacy-safe identifier used to recognize one provider account.
+
+- Use when: eUsage needs to remember labels, visibility, sharing consent, or usage identity for a provider account.
+- Do not use for: A raw provider account id, email, local file path, credential source, or developer-facing label.
+- Related terms: Provider Account, Provider Account Label, Provider Account Sharing.
+
+### Provider Account Sharing
+
+Whether one provider account is allowed to upload usage to the team deployment.
+
+- Use when: A developer chooses which work or personal provider accounts may be shared with the team.
+- Do not use for: Local display, provider setup, dashboard visibility, or team connection.
+- Related terms: Provider Account, Provider Account Visibility, Team Deployment, Desktop App.
+
+### Provider Account Visibility
+
+Whether one provider account is shown in the desktop app.
+
+- Use when: A developer chooses which local provider accounts appear in desktop provider views.
+- Do not use for: Team upload consent, dashboard filters, TV visibility, or provider setup.
+- Related terms: Provider Account, Provider Account Sharing, Desktop App.
 
 ### Provider Credential
 

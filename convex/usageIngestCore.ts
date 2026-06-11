@@ -9,6 +9,7 @@ import {
   type UsageProviderInput,
 } from "./usageIngestTypes"
 import { normalizeBatch, normalizeProvider } from "./usageIngestValidation"
+import { upsertProviderAccount } from "./usageIngestProviderAccounts"
 
 export async function ingestUsageBatch(args: {
   input: UsageBatchInput
@@ -114,6 +115,7 @@ async function acceptProvider(args: {
     expiresAt: args.now + RAW_PAYLOAD_RETENTION_MS,
   })
 
+  await upsertProviderAccount(args)
   await upsertUsageSnapshot(args, rawPayload._id)
   await upsertMetricSamples(args)
 }
@@ -134,6 +136,9 @@ async function upsertUsageSnapshot(
     developerId: args.developerId,
     deviceId: args.deviceId,
     providerId: args.provider.providerId,
+    ...(args.provider.providerAccount
+      ? { providerAccountFingerprint: args.provider.providerAccount.teamAccountFingerprint }
+      : {}),
     periodStart: args.provider.periodStart,
     periodEnd: args.provider.periodEnd,
     periodKey: args.provider.periodKey,
@@ -166,6 +171,9 @@ async function upsertMetricSamples(args: {
     const sample = {
       teamId: args.teamId,
       providerId: args.provider.providerId,
+      ...(args.provider.providerAccount
+        ? { providerAccountFingerprint: args.provider.providerAccount.teamAccountFingerprint }
+        : {}),
       developerId: args.developerId,
       ...(isDeviceScopedUsageSample(args.provider.providerId, sampleInput)
         ? { deviceId: args.deviceId }

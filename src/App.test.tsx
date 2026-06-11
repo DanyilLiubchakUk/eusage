@@ -2,6 +2,21 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
+import type { PluginOutput } from "@/lib/plugin-types"
+
+type TestDragEndEvent = {
+  active: { id: string }
+  over: { id: string } | null
+}
+
+type TestProbeHandlers = {
+  onResult: (output: PluginOutput) => void
+  onBatchComplete: () => void
+}
+
+type TestTauriEvent = {
+  payload: unknown
+}
 
 const state = vi.hoisted(() => ({
   invokeMock: vi.fn(),
@@ -30,11 +45,16 @@ const state = vi.hoisted(() => ({
   saveStartOnLoginMock: vi.fn(),
   loadWindowsTrayGuidanceSeenMock: vi.fn(),
   saveWindowsTrayGuidanceSeenMock: vi.fn(),
+  loadProviderAccountRegistryMock: vi.fn(),
+  saveProviderAccountRegistryMock: vi.fn(),
+  loadProviderAccountSharingSettingsMock: vi.fn(),
+  saveProviderAccountSharingSettingsMock: vi.fn(),
+  clearProviderAccountSharingSettingsMock: vi.fn(),
   autostartEnableMock: vi.fn(),
   autostartDisableMock: vi.fn(),
   autostartIsEnabledMock: vi.fn(),
   renderTrayBarsIconMock: vi.fn(),
-  probeHandlers: null as null | { onResult: (output: any) => void; onBatchComplete: () => void },
+  probeHandlers: null as null | TestProbeHandlers,
   trayGetByIdMock: vi.fn(),
   traySetIconMock: vi.fn(),
   traySetIconAsTemplateMock: vi.fn(),
@@ -44,7 +64,7 @@ const state = vi.hoisted(() => ({
 }))
 
 const dndState = vi.hoisted(() => ({
-  latestOnDragEnd: null as null | ((event: any) => void),
+  latestOnDragEnd: null as null | ((event: TestDragEndEvent) => void),
 }))
 
 const updaterState = vi.hoisted(() => ({
@@ -53,10 +73,10 @@ const updaterState = vi.hoisted(() => ({
 }))
 
 const eventState = vi.hoisted(() => {
-  const handlers = new Map<string, (event: any) => void>()
+  const handlers = new Map<string, (event: TestTauriEvent) => void>()
   return {
     handlers,
-    listenMock: vi.fn(async (eventName: string, handler: (event: any) => void) => {
+    listenMock: vi.fn(async (eventName: string, handler: (event: TestTauriEvent) => void) => {
       handlers.set(eventName, handler)
       return () => { handlers.delete(eventName) }
     }),
@@ -75,19 +95,19 @@ const menuState = vi.hoisted(() => ({
 }))
 
 vi.mock("@dnd-kit/core", () => ({
-  DndContext: ({ children, onDragEnd }: { children: ReactNode; onDragEnd?: (event: any) => void }) => {
+  DndContext: ({ children, onDragEnd }: { children: ReactNode; onDragEnd?: (event: TestDragEndEvent) => void }) => {
     dndState.latestOnDragEnd = onDragEnd ?? null
     return <div>{children}</div>
   },
   closestCenter: vi.fn(),
   PointerSensor: class {},
   KeyboardSensor: class {},
-  useSensor: vi.fn((_sensor: any, options?: any) => ({ sensor: _sensor, options })),
-  useSensors: vi.fn((...sensors: any[]) => sensors),
+  useSensor: vi.fn((sensor: unknown, options?: unknown) => ({ sensor, options })),
+  useSensors: vi.fn((...sensors: unknown[]) => sensors),
 }))
 
 vi.mock("@dnd-kit/sortable", () => ({
-  arrayMove: (items: any[], from: number, to: number) => {
+  arrayMove: (items: unknown[], from: number, to: number) => {
     const next = [...items]
     const [moved] = next.splice(from, 1)
     next.splice(to, 0, moved)
@@ -211,7 +231,7 @@ vi.mock("@/lib/tray-bars-icon", async () => {
 })
 
 vi.mock("@/hooks/use-probe-events", () => ({
-  useProbeEvents: (handlers: { onResult: (output: any) => void; onBatchComplete: () => void }) => {
+  useProbeEvents: (handlers: TestProbeHandlers) => {
     state.probeHandlers = handlers
     return { startBatch: state.startBatchMock }
   },
@@ -244,6 +264,19 @@ vi.mock("@/lib/settings", async () => {
     saveWindowsTrayGuidanceSeen: state.saveWindowsTrayGuidanceSeenMock,
   }
 })
+
+vi.mock("@/lib/provider-account-registry-store", () => ({
+  loadProviderAccountRegistry: state.loadProviderAccountRegistryMock,
+  saveProviderAccountRegistry: state.saveProviderAccountRegistryMock,
+  getOrCreateProviderAccountLocalSalt: vi.fn(async () => "test-provider-account-salt"),
+  syncSavedProviderAccountRegistry: vi.fn(async () => ({ ok: true, value: { accounts: [] } })),
+}))
+
+vi.mock("@/lib/provider-account-sharing-store", () => ({
+  loadProviderAccountSharingSettings: state.loadProviderAccountSharingSettingsMock,
+  saveProviderAccountSharingSettings: state.saveProviderAccountSharingSettingsMock,
+  clearProviderAccountSharingSettings: state.clearProviderAccountSharingSettingsMock,
+}))
 
 import { App } from "@/App"
 import { useAppPluginStore } from "@/stores/app-plugin-store"
@@ -288,6 +321,11 @@ describe("App", () => {
     state.saveStartOnLoginMock.mockReset()
     state.loadWindowsTrayGuidanceSeenMock.mockReset()
     state.saveWindowsTrayGuidanceSeenMock.mockReset()
+    state.loadProviderAccountRegistryMock.mockReset()
+    state.saveProviderAccountRegistryMock.mockReset()
+    state.loadProviderAccountSharingSettingsMock.mockReset()
+    state.saveProviderAccountSharingSettingsMock.mockReset()
+    state.clearProviderAccountSharingSettingsMock.mockReset()
     state.autostartEnableMock.mockReset()
     state.autostartDisableMock.mockReset()
     state.autostartIsEnabledMock.mockReset()
@@ -330,6 +368,13 @@ describe("App", () => {
     state.saveStartOnLoginMock.mockResolvedValue(undefined)
     state.loadWindowsTrayGuidanceSeenMock.mockResolvedValue(false)
     state.saveWindowsTrayGuidanceSeenMock.mockResolvedValue(undefined)
+    state.loadProviderAccountRegistryMock.mockResolvedValue({ accounts: [] })
+    state.saveProviderAccountRegistryMock.mockResolvedValue(undefined)
+    state.loadProviderAccountSharingSettingsMock.mockResolvedValue({
+      sharedLocalAccountFingerprints: [],
+    })
+    state.saveProviderAccountSharingSettingsMock.mockResolvedValue(undefined)
+    state.clearProviderAccountSharingSettingsMock.mockResolvedValue(undefined)
     state.autostartEnableMock.mockResolvedValue(undefined)
     state.autostartDisableMock.mockResolvedValue(undefined)
     state.autostartIsEnabledMock.mockResolvedValue(false)

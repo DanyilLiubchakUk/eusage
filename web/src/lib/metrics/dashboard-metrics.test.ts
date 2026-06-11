@@ -458,6 +458,45 @@ describe("dashboard metrics", () => {
     ])
   })
 
+  it("keeps shared account identity on quota detail rows", () => {
+    const range = resolveMetricDateRange({ preset: "last7" }, now)
+
+    const quota = calculateQuotaPressure({
+      snapshots: [
+        snapshot({
+          developerId: "alex",
+          developerName: "Alex",
+          providerId: "claude",
+          dataIdentity: "provider-account:team-claude-work:claude:daily:2026-06-01",
+          providerAccountFingerprint: "team-claude-work",
+          quotaPercent: 64,
+          provider: { claude: { sessionUsedPercent: 64 } },
+        }),
+        snapshot({
+          developerId: "alex",
+          developerName: "Alex",
+          providerId: "claude",
+          dataIdentity: "provider-account:team-claude-side:claude:daily:2026-06-01",
+          providerAccountFingerprint: "team-claude-side",
+          quotaPercent: 32,
+          provider: { claude: { sessionUsedPercent: 32 } },
+        }),
+      ],
+      metricSamples: [],
+      window: range.current,
+      visibleDeveloperIds: ["alex"],
+      visibleProviderIds: ["claude"],
+    })
+
+    expect(
+      quota.details.map((detail) => `${detail.providerAccountFingerprint}:${detail.label}:${detail.percent}`)
+    ).toEqual([
+      "team-claude-work:Session:64",
+      "team-claude-side:Session:32",
+    ])
+    expect(quota.teamAveragePercent).toBe(64)
+  })
+
   it("resolves provider, developer, and inactive visibility before metrics", () => {
     const visible = resolveVisibleMetricSource({
       developers: [
@@ -545,6 +584,7 @@ function snapshot(
     developerName: overrides.developerName,
     deviceId: overrides.deviceId ?? "device-1",
     providerId: overrides.providerId ?? "mock",
+    providerAccountFingerprint: overrides.providerAccountFingerprint,
     periodStart: overrides.periodStart,
     periodEnd: overrides.periodEnd,
     periodKey: overrides.periodKey ?? "2026-06-01",

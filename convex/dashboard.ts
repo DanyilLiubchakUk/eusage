@@ -224,6 +224,7 @@ export const clearTeamData = mutation({
       developerTokens: 0,
       devices: 0,
       metricSamples: 0,
+      providerAccounts: 0,
       providers: 0,
       rawPayloads: 0,
       syncErrors: 0,
@@ -234,6 +235,7 @@ export const clearTeamData = mutation({
     deleted.usageSnapshots = await deleteTeamRows(ctx, "usageSnapshots", ownerState.team._id)
     deleted.rawPayloads = await deleteTeamRows(ctx, "rawPayloads", ownerState.team._id)
     deleted.syncErrors = await deleteTeamRows(ctx, "syncErrors", ownerState.team._id)
+    deleted.providerAccounts = await deleteTeamRows(ctx, "providerAccounts", ownerState.team._id)
     deleted.devices = await deleteTeamRows(ctx, "devices", ownerState.team._id)
     deleted.developerTokens = await deleteTeamRows(ctx, "developerTokens", ownerState.team._id)
     deleted.providers = await deleteTeamRows(ctx, "providers", ownerState.team._id)
@@ -289,6 +291,7 @@ async function deleteTeamRows<
     | "developerTokens"
     | "devices"
     | "metricSamples"
+    | "providerAccounts"
     | "providers"
     | "rawPayloads"
     | "syncErrors"

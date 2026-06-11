@@ -1,0 +1,60 @@
+import { LazyStore } from "@tauri-apps/plugin-store"
+import {
+  normalizeProviderAccountRegistry,
+  syncProviderAccountRegistry,
+  type ProviderAccountRegistry,
+  type ProviderAccountRegistryResult,
+  type SyncProviderAccountRegistryInput,
+} from "@/lib/provider-account-registry"
+
+const SETTINGS_STORE_PATH = "settings.json"
+const PROVIDER_ACCOUNT_REGISTRY_KEY = "providerAccountRegistry"
+const PROVIDER_ACCOUNT_LOCAL_SALT_KEY = "providerAccountLocalSalt"
+
+const store = new LazyStore(SETTINGS_STORE_PATH)
+
+export async function loadProviderAccountRegistry(): Promise<ProviderAccountRegistry> {
+  return normalizeProviderAccountRegistry(
+    await store.get<unknown>(PROVIDER_ACCOUNT_REGISTRY_KEY)
+  ) ?? { accounts: [] }
+}
+
+export async function saveProviderAccountRegistry(
+  registry: ProviderAccountRegistry
+): Promise<void> {
+  await store.set(PROVIDER_ACCOUNT_REGISTRY_KEY, registry)
+  await store.save()
+}
+
+export async function getOrCreateProviderAccountLocalSalt(): Promise<string> {
+  const stored = await store.get<unknown>(PROVIDER_ACCOUNT_LOCAL_SALT_KEY)
+  if (typeof stored === "string" && stored.trim()) return stored.trim()
+
+  const salt = createProviderAccountLocalSalt()
+  await store.set(PROVIDER_ACCOUNT_LOCAL_SALT_KEY, salt)
+  await store.save()
+  return salt
+}
+
+export async function syncSavedProviderAccountRegistry(
+  input: Omit<SyncProviderAccountRegistryInput, "registry">
+): Promise<ProviderAccountRegistryResult<ProviderAccountRegistry>> {
+  const result = await syncProviderAccountRegistry({
+    ...input,
+    registry: await loadProviderAccountRegistry(),
+  })
+  if (result.ok) await saveProviderAccountRegistry(result.value)
+  return result
+}
+
+function createProviderAccountLocalSalt(): string {
+  const webCrypto = globalThis.crypto
+  if (webCrypto?.randomUUID) {
+    return webCrypto.randomUUID()
+  }
+  if (webCrypto?.getRandomValues) {
+    const bytes = webCrypto.getRandomValues(new Uint8Array(32))
+    return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("")
+  }
+  throw new Error("Provider account local salt requires Web Crypto.")
+}

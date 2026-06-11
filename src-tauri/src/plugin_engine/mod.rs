@@ -1,5 +1,6 @@
 pub mod host_api;
 pub mod manifest;
+pub mod provider_account;
 pub mod runtime;
 
 use manifest::LoadedPlugin;

@@ -1,5 +1,6 @@
 import type { DesktopApiError } from "./desktopApiCore"
 import { normalizeMetricSampleBucket } from "./usageIngestBuckets"
+import { normalizeProviderAccount } from "./usageIngestProviderAccounts"
 import { findUnredactedSecretPath } from "./usageIngestRedaction"
 import {
   SUPPORTED_UPLOAD_SCHEMA_VERSION,
@@ -99,6 +100,9 @@ export function normalizeProvider(input: unknown) {
   const common = normalizeProviderCommon(input, providerId)
   if (!common.ok) return common
 
+  const providerAccount = normalizeProviderAccount(input, providerId)
+  if (!providerAccount.ok) return providerAccount
+
   const summary = isRecord(input.summary) ? (input.summary as UsageSummary) : null
   if (!summary || !hasSummarySourceFacts(summary)) {
     return rejectProvider(
@@ -126,6 +130,7 @@ export function normalizeProvider(input: unknown) {
     ok: true as const,
     provider: {
       providerId,
+      ...(providerAccount.value ? { providerAccount: providerAccount.value } : {}),
       payload,
       ...common.fields,
       summary,

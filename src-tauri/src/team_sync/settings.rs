@@ -4,12 +4,14 @@ use std::path::Path;
 
 pub(super) const SETTINGS_FILE_NAME: &str = "settings.json";
 const TEAM_CONNECTION_KEY: &str = "teamConnection";
+const PROVIDER_ACCOUNT_SHARING_KEY: &str = "providerAccountSharing";
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct TeamConnectionSettings {
     pub team_url: String,
     pub team_name: String,
+    pub team_fingerprint: String,
     pub token_fingerprint: String,
     pub device_id: String,
     pub endpoints: TeamApiEndpoints,
@@ -19,6 +21,8 @@ pub(super) struct TeamConnectionSettings {
 #[serde(rename_all = "camelCase")]
 pub(super) struct TeamApiEndpoints {
     pub usage_batch: String,
+    #[serde(default = "default_provider_account_update_endpoint")]
+    pub provider_account_update: String,
 }
 
 pub(super) fn load_connection(app_data_dir: &Path) -> Option<TeamConnectionSettings> {
@@ -30,9 +34,14 @@ pub(super) fn load_connection(app_data_dir: &Path) -> Option<TeamConnectionSetti
 pub(super) fn valid_connection(connection: &TeamConnectionSettings) -> bool {
     !connection.team_url.trim().is_empty()
         && !connection.team_name.trim().is_empty()
+        && !connection.team_fingerprint.trim().is_empty()
         && !connection.token_fingerprint.trim().is_empty()
         && !connection.device_id.trim().is_empty()
         && connection.endpoints.usage_batch.starts_with('/')
+        && connection
+            .endpoints
+            .provider_account_update
+            .starts_with('/')
 }
 
 pub(super) fn connection_key(connection: &TeamConnectionSettings) -> String {
@@ -48,6 +57,21 @@ pub(super) fn usage_batch_endpoint(connection: &TeamConnectionSettings) -> Strin
         connection.team_url.trim_end_matches('/'),
         connection.endpoints.usage_batch.trim_start_matches('/')
     )
+}
+
+pub(super) fn provider_account_update_endpoint(connection: &TeamConnectionSettings) -> String {
+    format!(
+        "{}/{}",
+        connection.team_url.trim_end_matches('/'),
+        connection
+            .endpoints
+            .provider_account_update
+            .trim_start_matches('/')
+    )
+}
+
+fn default_provider_account_update_endpoint() -> String {
+    "/api/v1/provider-account/update".to_string()
 }
 
 pub(super) fn mark_connection_success(app_data_dir: &Path, server_time: &str) {
@@ -84,6 +108,7 @@ pub(super) fn clear_team_connection(app_data_dir: &Path) {
         return;
     };
     object.remove(TEAM_CONNECTION_KEY);
+    object.remove(PROVIDER_ACCOUNT_SHARING_KEY);
     if let Err(error) = write_settings_value(&path, &settings) {
         log::warn!("team sync settings cleanup failed: {}", error);
     }
@@ -130,16 +155,22 @@ mod tests {
         let connection = TeamConnectionSettings {
             team_url: "https://team.example.com/".to_string(),
             team_name: "Acme Team".to_string(),
+            team_fingerprint: "team-fingerprint".to_string(),
             token_fingerprint: "hash".to_string(),
             device_id: "device-1".to_string(),
             endpoints: TeamApiEndpoints {
                 usage_batch: "/api/v1/usage/batch".to_string(),
+                provider_account_update: "/api/v1/provider-account/update".to_string(),
             },
         };
 
         assert_eq!(
             usage_batch_endpoint(&connection),
             "https://team.example.com/api/v1/usage/batch"
+        );
+        assert_eq!(
+            provider_account_update_endpoint(&connection),
+            "https://team.example.com/api/v1/provider-account/update"
         );
     }
 }

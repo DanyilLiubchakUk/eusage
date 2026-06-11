@@ -5,6 +5,7 @@ import type { PluginSettings } from "@/lib/settings"
 export type SettingsPluginState = {
   id: string
   name: string
+  iconUrl: string
   enabled: boolean
 }
 
@@ -25,6 +26,7 @@ export function useSettingsPluginList({ pluginSettings, pluginsMeta }: UseSettin
         return {
           id,
           name: meta.name,
+          iconUrl: meta.iconUrl,
           enabled: !pluginSettings.disabled.includes(id),
         }
       })

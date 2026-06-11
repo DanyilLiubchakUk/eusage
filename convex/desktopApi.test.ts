@@ -6,10 +6,12 @@ import {
   disconnectDevice,
   getDeviceStatus,
   getPublicTeamConfig,
+  updateProviderAccountMetadata,
   type DesktopApiStore,
   type DeviceRecord,
   type NewDeviceRecord,
 } from "./desktopApi"
+import type { ProviderAccountRecord, NewProviderAccountRecord } from "./usageIngest"
 import {
   hashDeveloperToken,
   type DeveloperRecord,
@@ -21,6 +23,7 @@ async function createStore(seed?: {
   token?: Partial<DeveloperTokenRecord>
   developer?: Partial<DeveloperRecord>
   devices?: DeviceRecord[]
+  providerAccounts?: ProviderAccountRecord[]
 }) {
   const rawToken = "eusage_dev_secret_raw_token"
   const tokenHash = await hashDeveloperToken(rawToken)
@@ -55,6 +58,9 @@ async function createStore(seed?: {
     },
   ]
   const devices: DeviceRecord[] = seed?.devices ? [...seed.devices] : []
+  const providerAccounts: ProviderAccountRecord[] = seed?.providerAccounts
+    ? [...seed.providerAccounts]
+    : []
 
   const store: DesktopApiStore = {
     getTeam: async () => team,
@@ -94,11 +100,45 @@ async function createStore(seed?: {
 
   return {
     store,
+    providerAccountStore: {
+      ...store,
+      getProviderAccount: async (
+        account: Pick<
+          ProviderAccountRecord,
+          "teamId" | "developerId" | "providerId" | "teamAccountFingerprint"
+        >
+      ) =>
+        providerAccounts.find(
+          (row) =>
+            row.teamId === account.teamId &&
+            row.developerId === account.developerId &&
+            row.providerId === account.providerId &&
+            row.teamAccountFingerprint === account.teamAccountFingerprint
+        ) ?? null,
+      createProviderAccount: async (account: NewProviderAccountRecord) => {
+        const created = {
+          _id: `provider-account-${providerAccounts.length + 1}`,
+          ...account,
+        }
+        providerAccounts.push(created)
+        return created
+      },
+      updateProviderAccount: async (
+        accountId: string,
+        patch: Partial<NewProviderAccountRecord>
+      ) => {
+        const account = providerAccounts.find((row) => row._id === accountId)
+        if (!account) throw new Error("Missing provider account in fake store.")
+        Object.assign(account, patch)
+        return account
+      },
+    },
     rawToken,
     tokenHash,
     developers,
     tokens,
     devices,
+    providerAccounts,
   }
 }
 
@@ -111,8 +151,11 @@ describe("desktop API", () => {
       team: {
         name: "Acme Team",
         reportingTimeZone: "America/New_York",
+        teamFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
       },
     })
+    const result = await getPublicTeamConfig({ store: fake.store })
+    expect(JSON.stringify(result)).not.toContain("team-1")
   })
 
   it("rejects missing bearer auth before device writes", async () => {
@@ -298,6 +341,105 @@ describe("desktop API", () => {
       lastSeenAt: 1780340000000,
       updatedAt: 1780347200000,
     })
+  })
+
+  it("creates shared Provider Account metadata from a desktop update", async () => {
+    const fake = await createStore()
+
+    const result = await updateProviderAccountMetadata({
+      input: {
+        tokenHash: fake.tokenHash,
+        providerId: "cursor",
+        providerAccountFingerprint: "team-account-fingerprint",
+        providerAccountLabel: "Cursor Work",
+        status: "shared",
+      },
+      now: 1780340000000,
+      store: fake.providerAccountStore,
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      providerId: "cursor",
+      serverTime: "2026-06-01T18:53:20.000Z",
+    })
+    expect(fake.providerAccounts).toEqual([
+      expect.objectContaining({
+        teamId: "team-1",
+        developerId: "developer-1",
+        providerId: "cursor",
+        teamAccountFingerprint: "team-account-fingerprint",
+        label: "Cursor Work",
+        status: "shared",
+        firstSharedAt: 1780340000000,
+        lastSharedAt: 1780340000000,
+        updatedAt: 1780340000000,
+      }),
+    ])
+    expect(fake.developers[0].lastSeenAt).toBe(1780340000000)
+    expect(fake.tokens[0].lastUsedAt).toBe(1780340000000)
+  })
+
+  it("updates shared Provider Account label without changing share times", async () => {
+    const fake = await createStore({
+      providerAccounts: [
+        {
+          _id: "provider-account-1",
+          teamId: "team-1",
+          developerId: "developer-1",
+          providerId: "cursor",
+          teamAccountFingerprint: "team-account-fingerprint",
+          label: "Cursor Work",
+          status: "shared",
+          firstSharedAt: 1780330000000,
+          lastSharedAt: 1780335000000,
+          updatedAt: 1780335000000,
+        },
+      ],
+    })
+
+    await updateProviderAccountMetadata({
+      input: {
+        tokenHash: fake.tokenHash,
+        providerId: "cursor",
+        providerAccountFingerprint: "team-account-fingerprint",
+        providerAccountLabel: "Cursor Team",
+        status: "shared",
+      },
+      now: 1780340000000,
+      store: fake.providerAccountStore,
+    })
+
+    expect(fake.providerAccounts).toEqual([
+      expect.objectContaining({
+        label: "Cursor Team",
+        firstSharedAt: 1780330000000,
+        lastSharedAt: 1780335000000,
+        updatedAt: 1780340000000,
+      }),
+    ])
+  })
+
+  it("rejects incomplete Provider Account metadata updates", async () => {
+    const fake = await createStore()
+
+    const result = await updateProviderAccountMetadata({
+      input: {
+        tokenHash: fake.tokenHash,
+        providerId: "cursor",
+        providerAccountFingerprint: "",
+        providerAccountLabel: "Cursor Work",
+        status: "shared",
+      },
+      now: 1780340000000,
+      store: fake.providerAccountStore,
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: "invalid-body",
+    })
+    expect(fake.providerAccounts).toHaveLength(0)
   })
 
   it("derives stale status after 72 hours without check-in", () => {

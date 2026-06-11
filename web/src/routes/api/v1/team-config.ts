@@ -20,6 +20,7 @@ export const Route = createFileRoute("/api/v1/team-config")({
           buildTeamConfigResponse({
             teamName: result.team.name,
             reportingTimeZone: result.team.reportingTimeZone,
+            teamFingerprint: result.team.teamFingerprint,
           })
         )
       },

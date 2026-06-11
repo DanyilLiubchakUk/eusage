@@ -6,8 +6,10 @@ import { ingestUsageBatch } from "./usageIngestCore"
 import {
   type MetricSampleRecord,
   type NewMetricSampleRecord,
+  type NewProviderAccountRecord,
   type NewRawPayloadRecord,
   type NewUsageSnapshotRecord,
+  type ProviderAccountRecord,
   type RawPayloadRecord,
   type UsageIngestStore,
   type UsageSnapshotRecord,
@@ -23,10 +25,13 @@ export {
   type MetricSampleRecord,
   type MetricSource,
   type NewMetricSampleRecord,
+  type NewProviderAccountRecord,
   type NewRawPayloadRecord,
   type NewSyncErrorRecord,
   type NewUsageSnapshotRecord,
+  type ProviderAccountRecord,
   type RawPayloadRecord,
+  type ProviderAccountStatus,
   type SyncErrorRecord,
   type UsageBatchResult,
   type UsageIngestStore,
@@ -136,6 +141,7 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
                 .eq("sampleDay", sample.sampleDay)
                 .eq("periodStart", sample.periodStart)
                 .eq("periodEnd", sample.periodEnd)
+                .eq("providerAccountFingerprint", sample.providerAccountFingerprint)
             )
             .first()) as MetricSampleRecord | null)
         : ((await ctx.db
@@ -149,6 +155,7 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
                 .eq("sampleDay", sample.sampleDay)
                 .eq("periodStart", sample.periodStart)
                 .eq("periodEnd", sample.periodEnd)
+                .eq("providerAccountFingerprint", sample.providerAccountFingerprint)
             )
             .first()) as MetricSampleRecord | null)),
     createMetricSample: async (sample) => {
@@ -166,6 +173,32 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
       if (!updated) throw new Error("Updated metric sample row was not readable.")
       return updated as MetricSampleRecord
     },
+    getProviderAccount: async (account) =>
+      (await ctx.db
+        .query("providerAccounts")
+        .withIndex("by_team_developer_provider_account", (q) =>
+          q
+            .eq("teamId", account.teamId as Id<"teams">)
+            .eq("developerId", account.developerId as Id<"developers">)
+            .eq("providerId", account.providerId)
+            .eq("teamAccountFingerprint", account.teamAccountFingerprint)
+        )
+        .first()) as ProviderAccountRecord | null,
+    createProviderAccount: async (account) => {
+      const id = await ctx.db.insert("providerAccounts", providerAccountInsertFields(account))
+      const created = await ctx.db.get(id)
+      if (!created) throw new Error("Created provider account row was not readable.")
+      return created as ProviderAccountRecord
+    },
+    updateProviderAccount: async (accountId, patch) => {
+      await ctx.db.patch(
+        accountId as Id<"providerAccounts">,
+        providerAccountPatchFields(patch)
+      )
+      const updated = await ctx.db.get(accountId as Id<"providerAccounts">)
+      if (!updated) throw new Error("Updated provider account row was not readable.")
+      return updated as ProviderAccountRecord
+    },
     createSyncError: async (error) => {
       const { teamId, developerId, ...rest } = error
       const id = await ctx.db.insert("syncErrors", {
@@ -177,6 +210,38 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
       if (!created) throw new Error("Created sync error row was not readable.")
       return created
     },
+  }
+}
+
+function providerAccountInsertFields(account: NewProviderAccountRecord) {
+  return {
+    teamId: account.teamId as Id<"teams">,
+    developerId: account.developerId as Id<"developers">,
+    providerId: account.providerId,
+    teamAccountFingerprint: account.teamAccountFingerprint,
+    label: account.label,
+    status: account.status,
+    firstSharedAt: account.firstSharedAt,
+    lastSharedAt: account.lastSharedAt,
+    updatedAt: account.updatedAt,
+  }
+}
+
+function providerAccountPatchFields(account: Partial<NewProviderAccountRecord>) {
+  return {
+    ...(account.teamId !== undefined ? { teamId: account.teamId as Id<"teams"> } : {}),
+    ...(account.developerId !== undefined
+      ? { developerId: account.developerId as Id<"developers"> }
+      : {}),
+    ...(account.providerId !== undefined ? { providerId: account.providerId } : {}),
+    ...(account.teamAccountFingerprint !== undefined
+      ? { teamAccountFingerprint: account.teamAccountFingerprint }
+      : {}),
+    ...(account.label !== undefined ? { label: account.label } : {}),
+    ...(account.status !== undefined ? { status: account.status } : {}),
+    ...(account.firstSharedAt !== undefined ? { firstSharedAt: account.firstSharedAt } : {}),
+    ...(account.lastSharedAt !== undefined ? { lastSharedAt: account.lastSharedAt } : {}),
+    ...(account.updatedAt !== undefined ? { updatedAt: account.updatedAt } : {}),
   }
 }
 
@@ -194,6 +259,9 @@ function usageSnapshotFields(snapshot: NewUsageSnapshotRecord) {
     developerId: snapshot.developerId as Id<"developers">,
     deviceId: snapshot.deviceId,
     providerId: snapshot.providerId,
+    ...(snapshot.providerAccountFingerprint !== undefined
+      ? { providerAccountFingerprint: snapshot.providerAccountFingerprint }
+      : {}),
     ...(snapshot.periodStart !== undefined ? { periodStart: snapshot.periodStart } : {}),
     ...(snapshot.periodEnd !== undefined ? { periodEnd: snapshot.periodEnd } : {}),
     periodKey: snapshot.periodKey,
@@ -214,6 +282,9 @@ function metricSampleFields(sample: NewMetricSampleRecord) {
   return {
     teamId: sample.teamId as Id<"teams">,
     providerId: sample.providerId,
+    ...(sample.providerAccountFingerprint !== undefined
+      ? { providerAccountFingerprint: sample.providerAccountFingerprint }
+      : {}),
     ...(sample.developerId
       ? { developerId: sample.developerId as Id<"developers"> }
       : {}),

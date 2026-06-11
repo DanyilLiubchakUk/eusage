@@ -1304,7 +1304,13 @@ describe("cursor plugin", () => {
     const periodStart = Date.UTC(2026, 1, 2)
     const periodEnd = Date.UTC(2026, 2, 4)
     ctx.nowIso = "2026-06-01T12:00:00.000Z"
-    ctx.host.sqlite.query.mockReturnValue(JSON.stringify([{ value: accessToken }]))
+    ctx.host.sqlite.query.mockImplementation((db, sql) => {
+      const text = String(sql)
+      if (text.includes("cursorAuth/accessToken")) return JSON.stringify([{ value: accessToken }])
+      if (text.includes("cursorAuth/refreshToken")) return JSON.stringify([{ value: "refresh-token" }])
+      if (text.includes("cursorAuth/cachedEmail")) return JSON.stringify([{ value: "work@example.com" }])
+      return JSON.stringify([])
+    })
     ctx.host.http.request.mockImplementation((opts) => {
       const url = String(opts.url)
       if (url.includes("GetCurrentPeriodUsage")) {
@@ -1396,8 +1402,61 @@ describe("cursor plugin", () => {
       pooledRemainingUsd: 380,
       limitType: "team",
     })
+    expect(result.providerAccountDetections).toEqual([
+      {
+        providerId: "cursor",
+        providerName: "Cursor",
+        identityKind: "providerEmail",
+        identityValue: "work@example.com",
+        identityConfidence: "high",
+        label: "work@example.com",
+      },
+    ])
     expect(result.rawPayload.usage.planUsage.totalSpend).toBe(1200)
     expect(JSON.stringify(result.rawPayload)).not.toContain(accessToken)
+    expect(JSON.stringify(result.rawPayload)).not.toContain("work@example.com")
+  })
+
+  it("uses Cursor JWT subject when cached email is unavailable", async () => {
+    const ctx = makeCtx()
+    const accessToken = makeJwt({ sub: "google-oauth2|user_xyz789", exp: 9999999999 })
+    ctx.host.sqlite.query.mockImplementation((db, sql) => {
+      const text = String(sql)
+      if (text.includes("cursorAuth/accessToken")) return JSON.stringify([{ value: accessToken }])
+      if (text.includes("cursorAuth/refreshToken")) return JSON.stringify([{ value: "refresh-token" }])
+      return JSON.stringify([])
+    })
+    ctx.host.http.request.mockImplementation((opts) => {
+      const url = String(opts.url)
+      if (url.includes("GetCurrentPeriodUsage")) {
+        return {
+          status: 200,
+          bodyText: JSON.stringify({
+            enabled: true,
+            billingCycleStart: String(Date.UTC(2026, 1, 2)),
+            billingCycleEnd: String(Date.UTC(2026, 2, 4)),
+            planUsage: { totalSpend: 1200, limit: 2400 },
+          }),
+        }
+      }
+      if (url.includes("GetPlanInfo")) {
+        return { status: 200, bodyText: JSON.stringify({ planInfo: { planName: "Pro" } }) }
+      }
+      return { status: 200, bodyText: "{}" }
+    })
+
+    const plugin = await loadPlugin()
+    const result = plugin.probe(ctx)
+
+    expect(result.providerAccountDetections).toEqual([
+      {
+        providerId: "cursor",
+        providerName: "Cursor",
+        identityKind: "providerUserId",
+        identityValue: "google-oauth2|user_xyz789",
+        identityConfidence: "high",
+      },
+    ])
   })
 
   it("marks missing Cursor on-demand limits without faking zero budget", async () => {
