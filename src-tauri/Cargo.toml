@@ -1,6 +1,6 @@
 [package]
 name = "eusage"
-version = "0.6.27"
+version = "0.6.28"
 description = "eUsage is an open source AI subscription usage tracker for teams"
 authors = ["eUsage contributors"]
 edition = "2024"

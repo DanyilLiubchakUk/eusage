@@ -1,5 +1,82 @@
 # Changelog
 
+## v0.6.28
+
+### New Features
+- Add provider account fingerprinting, local registry, detections, settings, and detail UI by @DanyilLiubchak
+- Add Team provider account sharing UI, share prompts, metadata sync, current data upload, and team fingerprint support by @DanyilLiubchak
+- Add shared account labels in provider status and admin quota rows by @DanyilLiubchak
+- Add local dashboard seed data, TV dashboard chart data, and redesigned TV dashboard slides by @DanyilLiubchak
+- Add provider account update API and dashboard identity preservation for shared accounts by @DanyilLiubchak
+
+### Bug Fixes
+- Preserve stable device id across disconnect and reconnect by @DanyilLiubchak
+- Scope provider account sharing to the active team and clear it when tokens are invalid by @DanyilLiubchak
+- Compile provider account metadata inserts by @DanyilLiubchak
+- Validate admin, team, date range, and timezone controls by @DanyilLiubchak
+- Update PoolShapeFigure stop color and related test by @DanyilLiubchak
+
+### Refactor
+- Add Tailwind web UI foundation and restyle admin overview and TV dashboard surfaces by @DanyilLiubchak
+- Split provider metric lines, quota pressure details, provider account services, and typed provider account statuses by @DanyilLiubchak
+- Compose reporting timezone input action and tighten admin utility panels by @DanyilLiubchak
+
+### Chores
+- Document provider account concepts, retry clarity, update endpoint, no-backfill sharing, and shared fingerprints by @DanyilLiubchak
+- Add tests for provider account privacy, sharing, registry, team sync, ingest, desktop API, admin dashboard, setup forms, and dashboard seed rows by @DanyilLiubchak
+- Merge Provider Account sharing and visibility ([#27](https://github.com/DanyilLiubchakUk/eusage/pull/27)) by @DanyilLiubchakUk
+
+---
+
+### Changelog
+
+**Full Changelog**: [v0.6.27...v0.6.28](https://github.com/DanyilLiubchakUk/eusage/compare/v0.6.27...v0.6.28)
+
+- [ba75068](https://github.com/DanyilLiubchakUk/eusage/commit/ba75068a8126f94fb43d857d514e46823f68f1ff) fix: preserve device id across reconnect by @DanyilLiubchak
+- [d901c2b](https://github.com/DanyilLiubchakUk/eusage/commit/d901c2bcc34a83263a4f296b2b0169f5636da6bc) Merge pull request #27 from DanyilLiubchakUk/dl/feat/multiple-accounts by @DanyilLiubchakUk
+- [e07db5f](https://github.com/DanyilLiubchakUk/eusage/commit/e07db5ff1f263e6b0ca837e7e52abd9a08832ec6) refactor: replace string status with typed status in provider accounts and dashboard components by @DanyilLiubchak
+- [1b60146](https://github.com/DanyilLiubchakUk/eusage/commit/1b601461d8b6806af910e244439870fe873203cd) fix: scope provider account sharing to team by @DanyilLiubchak
+- [7ab3241](https://github.com/DanyilLiubchakUk/eusage/commit/7ab3241591b8ea698d6579f46304a0959f9ca50f) fix: clear provider account sharing on invalid token by @DanyilLiubchak
+- [606a436](https://github.com/DanyilLiubchakUk/eusage/commit/606a436427cebbb435de6cd06a996a15c7e5caee) test: prove provider account label privacy by @DanyilLiubchak
+- [5fb79bf](https://github.com/DanyilLiubchakUk/eusage/commit/5fb79bf25b2e3d14b38a84a660e91d878ef0ce64) feat: label shared accounts in provider status by @DanyilLiubchak
+- [6caa90d](https://github.com/DanyilLiubchakUk/eusage/commit/6caa90d2285a26c712ab6924f1d5ab87c3f25209) feat: show shared account labels in admin quota rows by @DanyilLiubchak
+- [76ce9b1](https://github.com/DanyilLiubchakUk/eusage/commit/76ce9b12f4f49793a19dcd4718bc9a8aa1e750d9) feat: preserve provider account dashboard identity by @DanyilLiubchak
+- [187033f](https://github.com/DanyilLiubchakUk/eusage/commit/187033ffae9f60fec282794b15baa6199c684244) docs: describe provider account retry clarity by @DanyilLiubchak
+- [ed4b178](https://github.com/DanyilLiubchakUk/eusage/commit/ed4b178f13223fdef17a3cebd2fde35d343c29d9) feat: clarify provider account share sync by @DanyilLiubchak
+- [b04035c](https://github.com/DanyilLiubchakUk/eusage/commit/b04035c8818992a4d36393da34d4b5d47beb81d7) feat: confirm weak provider accounts before sharing by @DanyilLiubchak
+- [46c3f85](https://github.com/DanyilLiubchakUk/eusage/commit/46c3f859b3c37147999b89ec39494aa62e0fb38e) feat: prompt for account sharing after team connect by @DanyilLiubchak
+- [2bcf9ab](https://github.com/DanyilLiubchakUk/eusage/commit/2bcf9ab07920e82d523738ad3b1ba2455b48578e) feat: upload current data when sharing account by @DanyilLiubchak
+- [0307475](https://github.com/DanyilLiubchakUk/eusage/commit/030747550613b2eda7cb294df041a1266945f27d) fix: compile provider account metadata inserts by @DanyilLiubchak
+- [b1f1a63](https://github.com/DanyilLiubchakUk/eusage/commit/b1f1a630b53449d136278be9c5b0569cd4d10298) feat: sync provider account metadata on share by @DanyilLiubchak
+- [77f64aa](https://github.com/DanyilLiubchakUk/eusage/commit/77f64aa83b6b5164163977ca258edc2e7d475aa8) docs: describe provider account update endpoint by @DanyilLiubchak
+- [c020553](https://github.com/DanyilLiubchakUk/eusage/commit/c02055370a34e933db95a31555a429d0bb5676ec) feat: update shared provider account labels by @DanyilLiubchak
+- [4b762ac](https://github.com/DanyilLiubchakUk/eusage/commit/4b762ac94014b6ded7f993abbf5eacc52bbc2e3c) feat: store shared provider account metadata by @DanyilLiubchak
+- [19ac3ef](https://github.com/DanyilLiubchakUk/eusage/commit/19ac3efd8f980babb42211c68c76a52b6580537f) feat: gate uploads by provider account sharing by @DanyilLiubchak
+- [f3677b9](https://github.com/DanyilLiubchakUk/eusage/commit/f3677b9304c78b3a433a402f27b598e57f46d553) feat: expose team fingerprint to desktop by @DanyilLiubchak
+- [4b5bac9](https://github.com/DanyilLiubchakUk/eusage/commit/4b5bac9f83258078d870b251ec87761869c5567e) feat: add team provider account sharing UI by @DanyilLiubchak
+- [296a867](https://github.com/DanyilLiubchakUk/eusage/commit/296a86750dd0b1cf775bc54f847bc79eda8b04e2) feat: add provider account sharing state by @DanyilLiubchak
+- [132ec55](https://github.com/DanyilLiubchakUk/eusage/commit/132ec554c1bea41b531e2a888e660a1b1a8dd188) feat: show provider account detail sections by @DanyilLiubchak
+- [2f3d257](https://github.com/DanyilLiubchakUk/eusage/commit/2f3d257107f12a71b6b35b47123cf288ebdd31cd) feat: add provider account settings UI by @DanyilLiubchak
+- [95daf1d](https://github.com/DanyilLiubchakUk/eusage/commit/95daf1d3807c144a82a38cded14a8a14749208ca) feat: add provider account settings state by @DanyilLiubchak
+- [21aec17](https://github.com/DanyilLiubchakUk/eusage/commit/21aec17f1328114e4ccb60fdd3b259f007cf493c) feat: sync provider account registry from probes by @DanyilLiubchak
+- [a1a7c31](https://github.com/DanyilLiubchakUk/eusage/commit/a1a7c31899cbbe269459120fddc57c03825ab45a) feat: add provider account detections by @DanyilLiubchak
+- [d4e968b](https://github.com/DanyilLiubchakUk/eusage/commit/d4e968bab6edd75525e8235eb74a0613328cb43f) feat: add provider account registry by @DanyilLiubchak
+- [14e7964](https://github.com/DanyilLiubchakUk/eusage/commit/14e7964b44517991af7cacdd174e9e0e388ecf23) feat: add provider account fingerprint helper by @DanyilLiubchak
+- [5b87700](https://github.com/DanyilLiubchakUk/eusage/commit/5b87700c683ed58f607e57be02693aeceafe5557) feat: expand context documentation with new provider account concepts and usage guidelines by @DanyilLiubchak
+- [de9ebb3](https://github.com/DanyilLiubchakUk/eusage/commit/de9ebb3df6990f716c89f48c7fcdd906ea184fe7) fix: update stop color in PoolShapeFigure and adjust related test by @DanyilLiubchak
+- [ee705b3](https://github.com/DanyilLiubchakUk/eusage/commit/ee705b34b6b4f77ba84a7e15aa5184c56c0415f4) feat: redraw tv dashboard slides by @DanyilLiubchak
+- [3e25976](https://github.com/DanyilLiubchakUk/eusage/commit/3e259766aa5e64ff6576414cd30f3f361dd94898) feat: add tv dashboard chart data by @DanyilLiubchak
+- [12c44dd](https://github.com/DanyilLiubchakUk/eusage/commit/12c44dd4acdd496a091530f0eeffbffc2f91355b) test: vary dashboard seed history by @DanyilLiubchak
+- [a244a11](https://github.com/DanyilLiubchakUk/eusage/commit/a244a11ad623f14000a55955f8d08b3f1540fd15) style: compact admin utility panels by @DanyilLiubchak
+- [d7c2845](https://github.com/DanyilLiubchakUk/eusage/commit/d7c2845207208bfb2666810ad1a01c8b369ee62e) refactor: compose reporting timezone input action by @DanyilLiubchak
+- [a11c511](https://github.com/DanyilLiubchakUk/eusage/commit/a11c511a42f23c7558d5b0fca7f81e5545276d20) style: tighten admin overview summary controls by @DanyilLiubchak
+- [cecddf0](https://github.com/DanyilLiubchakUk/eusage/commit/cecddf070463b7ca8c0d0b775b3c6b0b7d037e11) refactor: restyle tv dashboard with tailwind ui by @DanyilLiubchak
+- [ee18457](https://github.com/DanyilLiubchakUk/eusage/commit/ee18457a93c4e51075ec2778c4f5273d8083a056) feat: restyle admin overview and wire local mock seed by @DanyilLiubchak
+- [3e2c5c7](https://github.com/DanyilLiubchakUk/eusage/commit/3e2c5c7e609eb9ed5ab14cde78ecb5227d35f6df) fix: validate admin date range and timezone controls by @DanyilLiubchak
+- [427980c](https://github.com/DanyilLiubchakUk/eusage/commit/427980c2bd5216e9bbfb30fa7dbbb1561e8638e7) feat: add local dashboard seed data by @DanyilLiubchak
+- [24c68be](https://github.com/DanyilLiubchakUk/eusage/commit/24c68be081ebef1f04bdd60668d998d81b58291d) fix: validate admin and team forms by @DanyilLiubchak
+- [7b4f68b](https://github.com/DanyilLiubchakUk/eusage/commit/7b4f68b49ab3fbedfeb3ce809908ebed5e9eb302) refactor: add tailwind web ui foundation by @DanyilLiubchak
+
 ## v0.6.27
 
 ### New Features
