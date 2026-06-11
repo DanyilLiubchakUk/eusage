@@ -70,6 +70,17 @@ export function getShareableProviderAccountGroups(
     .filter((group) => group.accounts.length > 0)
 }
 
+export function providerAccountNeedsSharingConfirmation(
+  account: LocalProviderAccount,
+  providerName: string
+): boolean {
+  if (account.confirmationState === "confirmed") return false
+  return (
+    account.identityConfidence !== "high" ||
+    hasFallbackProviderAccountLabel(account.label, providerName)
+  )
+}
+
 function sortAccounts(accounts: LocalProviderAccount[]): LocalProviderAccount[] {
   return [...accounts].sort((a, b) => (
     a.firstSeenAt.localeCompare(b.firstSeenAt) ||
@@ -89,4 +100,16 @@ function compareGroups(
   if (aIndex !== undefined) return -1
   if (bIndex !== undefined) return 1
   return a.providerName.localeCompare(b.providerName) || a.providerId.localeCompare(b.providerId)
+}
+
+function hasFallbackProviderAccountLabel(label: string, providerName: string): boolean {
+  const trimmedLabel = label.trim()
+  const trimmedProviderName = providerName.trim()
+  if (!trimmedLabel || !trimmedProviderName) return false
+  return new RegExp(`^${escapeRegExp(trimmedProviderName)} account [1-9]\\d*$`)
+    .test(trimmedLabel)
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }

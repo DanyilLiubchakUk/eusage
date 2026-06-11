@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { buildProviderAccountSettingsGroups } from "@/lib/provider-account-settings"
+import {
+  buildProviderAccountSettingsGroups,
+  providerAccountNeedsSharingConfirmation,
+} from "@/lib/provider-account-settings"
 import type { LocalProviderAccount } from "@/lib/provider-account-registry"
 
 function account(
@@ -54,5 +57,42 @@ describe("provider account settings groups", () => {
     expect(groups[0].notDetectedAccounts.map((row) => row.label)).toEqual(["Old Codex"])
     expect(groups[1].visibleAccounts.map((row) => row.label)).toEqual(["Work Claude"])
     expect(groups[1].hiddenAccounts.map((row) => row.label)).toEqual(["Hidden Claude"])
+  })
+
+  it("requires sharing confirmation for lower-confidence or fallback-label accounts", () => {
+    expect(
+      providerAccountNeedsSharingConfirmation(
+        account({ label: "Work Claude", identityConfidence: "high" }),
+        "Claude"
+      )
+    ).toBe(false)
+    expect(
+      providerAccountNeedsSharingConfirmation(
+        account({ label: "Work Claude", identityConfidence: "medium" }),
+        "Claude"
+      )
+    ).toBe(true)
+    expect(
+      providerAccountNeedsSharingConfirmation(
+        account({ label: "Work Claude", identityConfidence: "low" }),
+        "Claude"
+      )
+    ).toBe(true)
+    expect(
+      providerAccountNeedsSharingConfirmation(
+        account({ label: "Claude account 1", identityConfidence: "high" }),
+        "Claude"
+      )
+    ).toBe(true)
+    expect(
+      providerAccountNeedsSharingConfirmation(
+        account({
+          label: "Claude account 1",
+          identityConfidence: "medium",
+          confirmationState: "confirmed",
+        }),
+        "Claude"
+      )
+    ).toBe(false)
   })
 })

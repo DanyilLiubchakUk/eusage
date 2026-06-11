@@ -91,6 +91,7 @@ function App() {
     reloadProviderAccountRegistry,
     handleProviderAccountRename,
     handleProviderAccountVisibilityChange,
+    handleProviderAccountSharingConfirmation,
     handleProviderAccountForget,
   } = useProviderAccountSettings()
 
@@ -213,6 +214,11 @@ function App() {
   const [showProviderAccountSharingPrompt, setShowProviderAccountSharingPrompt] =
     useState(false)
 
+  const handleProviderAccountSharingConfirm = useCallback((localAccountFingerprint: string) => {
+    handleProviderAccountSharingConfirmation(localAccountFingerprint)
+    handleProviderAccountSharingChange(localAccountFingerprint, true)
+  }, [handleProviderAccountSharingChange, handleProviderAccountSharingConfirmation])
+
   const handleTeamConnected = useCallback(() => {
     setShowProviderAccountSharingPrompt(true)
     handleForceRefreshAll()
@@ -290,6 +296,7 @@ function App() {
             onShareSelected={(localAccountFingerprint) =>
               handleProviderAccountSharingChange(localAccountFingerprint, true)
             }
+            onConfirmShareSelected={handleProviderAccountSharingConfirm}
           />
         ) : null
       }
@@ -313,6 +320,7 @@ function App() {
         providerAccountSharingSettings,
         providerAccountSharingSyncError,
         onProviderAccountSharingChange: handleProviderAccountSharingChange,
+        onProviderAccountSharingConfirm: handleProviderAccountSharingConfirm,
         onProviderAccountSharingReset: resetProviderAccountSharing,
         onProviderAccountRename: handleProviderAccountRename,
         onProviderAccountVisibilityChange: handleProviderAccountVisibilityChange,

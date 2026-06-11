@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import type { LocalProviderAccount } from "@/lib/provider-account-registry"
 import {
   getShareableProviderAccountGroups,
+  providerAccountNeedsSharingConfirmation,
   type ProviderAccountSettingsGroup,
   type ShareableProviderAccountGroup,
 } from "@/lib/provider-account-settings"
@@ -15,12 +16,14 @@ type ProviderAccountSharingPromptProps = {
   groups: ProviderAccountSettingsGroup[]
   onClose: () => void
   onShareSelected: (localAccountFingerprint: string) => void
+  onConfirmShareSelected: (localAccountFingerprint: string) => void
 }
 
 export function ProviderAccountSharingPrompt({
   groups,
   onClose,
   onShareSelected,
+  onConfirmShareSelected,
 }: ProviderAccountSharingPromptProps) {
   const shareableGroups = useMemo(
     () => getShareableProviderAccountGroups(groups),
@@ -35,7 +38,15 @@ export function ProviderAccountSharingPrompt({
   const [selectedFingerprints, setSelectedFingerprints] = useState<Set<string>>(
     () => new Set()
   )
+  const [confirmSharing, setConfirmSharing] = useState(false)
   const selectedCount = selectedFingerprints.size
+  const selectedAccounts = useMemo(
+    () => getSelectedProviderAccounts(shareableGroups, selectedFingerprints),
+    [selectedFingerprints, shareableGroups]
+  )
+  const hasAccountsNeedingConfirmation = selectedAccounts.some((row) =>
+    providerAccountNeedsSharingConfirmation(row.account, row.providerName)
+  )
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -55,6 +66,7 @@ export function ProviderAccountSharingPrompt({
       )
       return next.size === current.size ? current : next
     })
+    setConfirmSharing(false)
   }, [shareableFingerprints])
 
   const handleBackdropClick = (event: MouseEvent<HTMLDivElement>) => {
@@ -62,6 +74,7 @@ export function ProviderAccountSharingPrompt({
   }
 
   const toggleAccount = (account: LocalProviderAccount, checked: boolean) => {
+    setConfirmSharing(false)
     setSelectedFingerprints((current) => {
       const next = new Set(current)
       if (checked) {
@@ -74,8 +87,17 @@ export function ProviderAccountSharingPrompt({
   }
 
   const shareSelected = () => {
-    for (const fingerprint of selectedFingerprints) {
-      onShareSelected(fingerprint)
+    if (hasAccountsNeedingConfirmation && !confirmSharing) {
+      setConfirmSharing(true)
+      return
+    }
+
+    for (const { account, providerName } of selectedAccounts) {
+      if (providerAccountNeedsSharingConfirmation(account, providerName)) {
+        onConfirmShareSelected(account.localAccountFingerprint)
+      } else {
+        onShareSelected(account.localAccountFingerprint)
+      }
     }
     onClose()
   }
@@ -134,22 +156,43 @@ export function ProviderAccountSharingPrompt({
         )}
 
         <div className="flex items-center justify-between gap-2 border-t px-4 py-3">
-          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-            Skip for now
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            disabled={selectedCount === 0}
-            onClick={shareSelected}
-          >
+          <div className="min-w-0">
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+              Skip for now
+            </Button>
+            {confirmSharing ? (
+              <p className="mt-1 truncate text-xs text-amber-700 dark:text-amber-300">
+                Confirm selected accounts before sharing.
+              </p>
+            ) : null}
+          </div>
+          <Button type="button" size="sm" disabled={selectedCount === 0} onClick={shareSelected}>
             <CheckCircle2 className="size-4" />
-            Share selected
+            {confirmSharing ? "Confirm and share" : "Share selected"}
           </Button>
         </div>
       </section>
     </div>
   )
+}
+
+function getSelectedProviderAccounts(
+  groups: ShareableProviderAccountGroup[],
+  selectedFingerprints: Set<string>
+): Array<{ account: LocalProviderAccount; providerName: string }> {
+  const accounts = new Map<string, { account: LocalProviderAccount; providerName: string }>()
+  for (const group of groups) {
+    for (const account of group.accounts) {
+      accounts.set(account.localAccountFingerprint, {
+        account,
+        providerName: group.providerName,
+      })
+    }
+  }
+  return [...selectedFingerprints].flatMap((fingerprint) => {
+    const selected = accounts.get(fingerprint)
+    return selected ? [selected] : []
+  })
 }
 
 function ProviderAccountSharingPromptGroup({

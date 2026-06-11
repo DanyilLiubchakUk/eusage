@@ -104,6 +104,7 @@ function createProps(): AppContentProps {
     providerAccountSharingSettings: { sharedLocalAccountFingerprints: [] },
     providerAccountSharingSyncError: null,
     onProviderAccountSharingChange: vi.fn(),
+    onProviderAccountSharingConfirm: vi.fn(),
     onProviderAccountSharingReset: vi.fn(),
     onProviderAccountRename: vi.fn(),
     onProviderAccountVisibilityChange: vi.fn(),
@@ -171,6 +172,7 @@ describe("AppContent", () => {
         providerAccountSharingSettings: props.providerAccountSharingSettings,
         providerAccountSharingSyncError: null,
         onProviderAccountSharingChange: props.onProviderAccountSharingChange,
+        onProviderAccountSharingConfirm: props.onProviderAccountSharingConfirm,
         onProviderAccountSharingReset: props.onProviderAccountSharingReset,
       })
     )

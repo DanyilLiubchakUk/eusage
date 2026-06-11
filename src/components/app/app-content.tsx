@@ -47,6 +47,7 @@ export type AppContentActionProps = {
   providerAccountSharingSettings: ProviderAccountSharingSettings
   providerAccountSharingSyncError: string | null
   onProviderAccountSharingChange: (localAccountFingerprint: string, shared: boolean) => void
+  onProviderAccountSharingConfirm: (localAccountFingerprint: string) => void
   onProviderAccountSharingReset: () => Promise<void> | void
   onProviderAccountRename: (localAccountFingerprint: string, label: string) => void
   onProviderAccountVisibilityChange: (localAccountFingerprint: string, visible: boolean) => void
@@ -78,6 +79,7 @@ export function AppContent({
   providerAccountSharingSettings,
   providerAccountSharingSyncError,
   onProviderAccountSharingChange,
+  onProviderAccountSharingConfirm,
   onProviderAccountSharingReset,
   onProviderAccountRename,
   onProviderAccountVisibilityChange,
@@ -167,6 +169,7 @@ export function AppContent({
         providerAccountSharingSettings={providerAccountSharingSettings}
         providerAccountSharingSyncError={providerAccountSharingSyncError}
         onProviderAccountSharingChange={onProviderAccountSharingChange}
+        onProviderAccountSharingConfirm={onProviderAccountSharingConfirm}
         onProviderAccountSharingReset={onProviderAccountSharingReset}
         onConnected={onTeamConnected}
       />

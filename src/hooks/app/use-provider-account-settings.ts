@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   forgetProviderAccount,
+  updateProviderAccountConfirmationState,
   updateProviderAccountLabel,
   updateProviderAccountVisibility,
   type LocalProviderAccount,
@@ -124,6 +125,20 @@ export function useProviderAccountSettings() {
     )
   }, [applyRegistryUpdate])
 
+  const handleProviderAccountSharingConfirmation = useCallback((
+    localAccountFingerprint: string
+  ) => {
+    applyRegistryUpdate(
+      (registry) =>
+        updateProviderAccountConfirmationState(
+          registry,
+          localAccountFingerprint,
+          "confirmed"
+        ),
+      "Failed to confirm provider account sharing:"
+    )
+  }, [applyRegistryUpdate])
+
   const handleProviderAccountForget = useCallback((localAccountFingerprint: string) => {
     applyRegistryUpdate(
       (registry) => forgetProviderAccount(registry, localAccountFingerprint),
@@ -137,6 +152,7 @@ export function useProviderAccountSettings() {
     reloadProviderAccountRegistry,
     handleProviderAccountRename,
     handleProviderAccountVisibilityChange,
+    handleProviderAccountSharingConfirmation,
     handleProviderAccountForget,
   }
 }

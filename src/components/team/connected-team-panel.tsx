@@ -31,6 +31,7 @@ type ConnectedTeamPanelProps = {
   onCheckIn: () => void
   onUpdateDeviceName: (deviceNameOverride: string | null) => Promise<unknown>
   onProviderAccountSharingChange: (localAccountFingerprint: string, shared: boolean) => void
+  onProviderAccountSharingConfirm: (localAccountFingerprint: string) => void
   onDisconnect: () => void
   onCancelDisconnect: () => void
 }
@@ -46,6 +47,7 @@ export function ConnectedTeamPanel({
   onCheckIn,
   onUpdateDeviceName,
   onProviderAccountSharingChange,
+  onProviderAccountSharingConfirm,
   onDisconnect,
   onCancelDisconnect,
 }: ConnectedTeamPanelProps) {
@@ -83,6 +85,7 @@ export function ConnectedTeamPanel({
         sharingSettings={providerAccountSharingSettings}
         syncError={providerAccountSharingSyncError}
         onSharingChange={onProviderAccountSharingChange}
+        onSharingConfirm={onProviderAccountSharingConfirm}
       />
 
       <div className="flex items-center justify-between gap-2 mb-2">

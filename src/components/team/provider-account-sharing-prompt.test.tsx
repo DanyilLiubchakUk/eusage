@@ -8,10 +8,12 @@ import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settin
 describe("ProviderAccountSharingPrompt", () => {
   const onClose = vi.fn()
   const onShareSelected = vi.fn()
+  const onConfirmShareSelected = vi.fn()
 
   beforeEach(() => {
     onClose.mockClear()
     onShareSelected.mockClear()
+    onConfirmShareSelected.mockClear()
   })
 
   it("starts all Provider Accounts unchecked", () => {
@@ -82,6 +84,37 @@ describe("ProviderAccountSharingPrompt", () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it("requires confirmation before sharing lower-confidence Provider Accounts", async () => {
+    renderPrompt({
+      groups: [
+        providerGroup({
+          visibleAccounts: [
+            providerAccount({
+              label: "Work Codex",
+              localAccountFingerprint: "fp-work",
+              identityConfidence: "medium",
+            }),
+          ],
+        }),
+      ],
+    })
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Share Work Codex" }))
+    await userEvent.click(screen.getByRole("button", { name: "Share selected" }))
+
+    expect(screen.getByText("Confirm selected accounts before sharing."))
+      .toBeInTheDocument()
+    expect(onShareSelected).not.toHaveBeenCalled()
+    expect(onConfirmShareSelected).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole("button", { name: "Confirm and share" }))
+
+    expect(onConfirmShareSelected).toHaveBeenCalledWith("fp-work")
+    expect(onShareSelected).not.toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it("shows empty state when no Provider Accounts are visible", () => {
     renderPrompt({
       groups: [
@@ -106,6 +139,7 @@ describe("ProviderAccountSharingPrompt", () => {
         groups={overrides.groups ?? [providerGroup()]}
         onClose={onClose}
         onShareSelected={onShareSelected}
+        onConfirmShareSelected={onConfirmShareSelected}
       />
     )
   }

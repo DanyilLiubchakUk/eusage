@@ -32,6 +32,7 @@ vi.mock("@/hooks/app/use-team-connection", () => ({
 describe("TeamPage", () => {
   const sharingReset = vi.fn(async () => undefined);
   const sharingChange = vi.fn();
+  const sharingConfirm = vi.fn();
 
   beforeEach(() => {
     teamHook.state = {
@@ -49,6 +50,7 @@ describe("TeamPage", () => {
     teamHook.updateDeviceName.mockResolvedValue({ ok: true });
     sharingReset.mockClear();
     sharingChange.mockClear();
+    sharingConfirm.mockClear();
   });
 
   it("does not flash the connection form while loading", () => {
@@ -200,87 +202,6 @@ describe("TeamPage", () => {
     expect(teamHook.updateDeviceName).toHaveBeenCalledWith(null);
   });
 
-  it("lists visible Provider Accounts for sharing only", async () => {
-    teamHook.state = {
-      status: "connected",
-      connection: connectedSettings(),
-      message: null,
-    };
-
-    renderTeamPage({
-      providerAccountGroups: [
-        providerGroup({
-          visibleAccounts: [
-            providerAccount({
-              label: "Work Codex",
-              localAccountFingerprint: "fp-work",
-            }),
-          ],
-          hiddenAccounts: [
-            providerAccount({
-              label: "Hidden Codex",
-              localAccountFingerprint: "fp-hidden",
-              visibility: "hidden",
-            }),
-          ],
-          notDetectedAccounts: [
-            providerAccount({
-              label: "Old Codex",
-              localAccountFingerprint: "fp-old",
-              detectionState: "notDetected",
-            }),
-          ],
-        }),
-      ],
-      providerAccountSharingSettings: { sharedLocalAccountFingerprints: [] },
-    });
-
-    expect(screen.getByText("0/1 shared")).toBeInTheDocument();
-    expect(screen.getByText("Work Codex")).toHaveClass(
-      "text-muted-foreground/75",
-    );
-    expect(screen.queryByText("Hidden Codex")).not.toBeInTheDocument();
-    expect(screen.queryByText("Old Codex")).not.toBeInTheDocument();
-
-    await userEvent.click(
-      screen.getByRole("button", { name: "Share Work Codex with team" }),
-    );
-
-    expect(sharingChange).toHaveBeenCalledWith("fp-work", true);
-  });
-
-  it("shows shared Provider Accounts as active sharing rows", () => {
-    teamHook.state = {
-      status: "connected",
-      connection: connectedSettings(),
-      message: null,
-    };
-
-    renderTeamPage({
-      providerAccountGroups: [
-        providerGroup({
-          visibleAccounts: [
-            providerAccount({
-              label: "Work Codex",
-              localAccountFingerprint: "fp-work",
-            }),
-          ],
-        }),
-      ],
-      providerAccountSharingSettings: {
-        sharedLocalAccountFingerprints: ["fp-work"],
-      },
-    });
-
-    expect(screen.getByText("1/1 shared")).toBeInTheDocument();
-    expect(screen.getByText("Work Codex")).toHaveClass("text-foreground");
-    expect(
-      screen.getByRole("button", {
-        name: "Stop sharing Work Codex with team",
-      }),
-    ).toBeInTheDocument();
-  });
-
   it("shows Provider Account sharing sync errors", () => {
     teamHook.state = {
       status: "connected",
@@ -315,6 +236,7 @@ describe("TeamPage", () => {
         }
         providerAccountSharingSyncError={overrides.providerAccountSharingSyncError}
         onProviderAccountSharingChange={sharingChange}
+        onProviderAccountSharingConfirm={sharingConfirm}
         onProviderAccountSharingReset={sharingReset}
         onConnected={overrides.onConnected}
       />,

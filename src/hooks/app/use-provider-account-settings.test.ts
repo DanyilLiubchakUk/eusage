@@ -90,6 +90,21 @@ describe("useProviderAccountSettings", () => {
     })
 
     act(() => {
+      result.current.handleProviderAccountSharingConfirmation("fp-work")
+    })
+    expect(store.saveProviderAccountRegistry).toHaveBeenLastCalledWith({
+      accounts: [
+        expect.objectContaining({
+          localAccountFingerprint: "fp-work",
+          label: "Main Claude",
+          visibility: "hidden",
+          confirmationState: "confirmed",
+        }),
+        expect.objectContaining({ label: "Old Claude" }),
+      ],
+    })
+
+    act(() => {
       result.current.handleProviderAccountForget("fp-old")
     })
     expect(store.saveProviderAccountRegistry).toHaveBeenLastCalledWith({

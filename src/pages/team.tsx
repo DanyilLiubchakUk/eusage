@@ -19,6 +19,7 @@ type TeamPageProps = {
   providerAccountSharingSettings: ProviderAccountSharingSettings
   providerAccountSharingSyncError?: string | null
   onProviderAccountSharingChange: (localAccountFingerprint: string, shared: boolean) => void
+  onProviderAccountSharingConfirm: (localAccountFingerprint: string) => void
   onProviderAccountSharingReset: () => Promise<void> | void
   onConnected?: () => void
 }
@@ -29,6 +30,7 @@ export function TeamPage({
   providerAccountSharingSettings,
   providerAccountSharingSyncError = null,
   onProviderAccountSharingChange,
+  onProviderAccountSharingConfirm,
   onProviderAccountSharingReset,
   onConnected,
 }: TeamPageProps) {
@@ -90,6 +92,7 @@ export function TeamPage({
           onCheckIn={checkIn}
           onUpdateDeviceName={updateDeviceName}
           onProviderAccountSharingChange={onProviderAccountSharingChange}
+          onProviderAccountSharingConfirm={onProviderAccountSharingConfirm}
           onDisconnect={handleDisconnect}
           onCancelDisconnect={() => setConfirmDisconnect(false)}
         />
