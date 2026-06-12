@@ -114,10 +114,16 @@ pub struct ProviderMetricBucket {
     pub end_ms: i64,
 }
 
-pub fn run_probe(plugin: &LoadedPlugin, app_data_dir: &PathBuf, app_version: &str) -> PluginOutput {
+pub fn run_probe(
+    plugin: &LoadedPlugin,
+    app_data_dir: &PathBuf,
+    resource_dir: &PathBuf,
+    app_version: &str,
+) -> PluginOutput {
     run_probe_with_timeout(
         plugin,
         app_data_dir,
+        resource_dir,
         app_version,
         Duration::from_secs(PROBE_TIMEOUT_SECS),
     )
@@ -126,6 +132,7 @@ pub fn run_probe(plugin: &LoadedPlugin, app_data_dir: &PathBuf, app_version: &st
 fn run_probe_with_timeout(
     plugin: &LoadedPlugin,
     app_data_dir: &PathBuf,
+    resource_dir: &PathBuf,
     app_version: &str,
     timeout: Duration,
 ) -> PluginOutput {
@@ -152,12 +159,14 @@ fn run_probe_with_timeout(
     let entry_script = plugin.entry_script.clone();
     let icon_url = plugin.icon_data_url.clone();
     let app_data = app_data_dir.clone();
+    let resources = resource_dir.clone();
 
     ctx.with(|ctx| {
         if host_api::inject_host_api_with_deadline(
             &ctx,
             &plugin_id,
             &app_data,
+            &resources,
             app_version,
             deadline,
         )
@@ -857,7 +866,8 @@ mod tests {
             };
             "#,
         );
-        let output = run_probe(&plugin, &temp_app_dir("sync"), "0.0.0");
+        let app_data = temp_app_dir("sync");
+        let output = run_probe(&plugin, &app_data, &app_data, "0.0.0");
         assert_eq!(error_text(output), "boom");
     }
 
@@ -872,7 +882,8 @@ mod tests {
             };
             "#,
         );
-        let output = run_probe(&plugin, &temp_app_dir("async"), "0.0.0");
+        let app_data = temp_app_dir("async");
+        let output = run_probe(&plugin, &app_data, &app_data, "0.0.0");
         assert_eq!(error_text(output), "boom");
     }
 
@@ -891,6 +902,7 @@ mod tests {
         let output = run_probe_with_timeout(
             &plugin,
             &temp_app_dir("timeout"),
+            &temp_app_dir("timeout-resources"),
             "0.0.0",
             Duration::from_millis(5),
         );
@@ -988,7 +1000,8 @@ mod tests {
             "#,
         );
 
-        let output = run_probe(&plugin, &temp_app_dir("source-facts"), "0.0.0");
+        let app_data = temp_app_dir("source-facts");
+        let output = run_probe(&plugin, &app_data, &app_data, "0.0.0");
         let facts = output.source_facts.expect("source facts");
 
         assert_eq!(facts.summary_version, "1.0.0");

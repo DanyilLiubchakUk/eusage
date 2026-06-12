@@ -51,6 +51,7 @@ fn handle_global_shortcut(
 pub struct AppState {
     pub plugins: Vec<plugin_engine::manifest::LoadedPlugin>,
     pub app_data_dir: PathBuf,
+    pub resource_dir: PathBuf,
     pub app_version: String,
 }
 
@@ -226,11 +227,12 @@ async fn start_probe_batch(
         })
         .unwrap_or_else(|| Uuid::new_v4().to_string());
 
-    let (plugins, app_data_dir, app_version) = {
+    let (plugins, app_data_dir, resource_dir, app_version) = {
         let locked = state.lock().map_err(|e| e.to_string())?;
         (
             locked.plugins.clone(),
             locked.app_data_dir.clone(),
+            locked.resource_dir.clone(),
             locked.app_version.clone(),
         )
     };
@@ -300,6 +302,7 @@ async fn start_probe_batch(
         let bid = batch_id.clone();
         let completion_bid = batch_id.clone();
         let data_dir = app_data_dir.clone();
+        let resources = resource_dir.clone();
         let version = app_version.clone();
         let counter = Arc::clone(&remaining);
         let queue = Arc::clone(&probe_queue);
@@ -319,7 +322,7 @@ async fn start_probe_batch(
 
                 let plugin_id = plugin.manifest.id.clone();
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    plugin_engine::runtime::run_probe(&plugin, &data_dir, &version)
+                    plugin_engine::runtime::run_probe(&plugin, &data_dir, &resources, &version)
                 }));
 
                 match result {
@@ -569,6 +572,7 @@ pub fn run() {
             app.manage(Mutex::new(AppState {
                 plugins,
                 app_data_dir: app_data_dir.clone(),
+                resource_dir: resource_dir.clone(),
                 app_version: app.package_info().version.to_string(),
             }));
 

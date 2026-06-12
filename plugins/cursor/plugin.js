@@ -17,6 +17,7 @@
   const CLIENT_ID = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB"
   const REFRESH_BUFFER_MS = 5 * 60 * 1000 // refresh 5 minutes before expiration
   const LOGIN_HINT = "Sign in via Cursor app or run `agent login`."
+  const SQLITE_HELPER_ERROR = "eUsage SQLite helper missing. Update or reinstall eUsage."
   const SUMMARY_VERSION = "1.0.0"
   const CURSOR_EXTRACTOR_VERSION = "1.0.0"
 
@@ -87,7 +88,11 @@
         return { ok: true, value: rows[0].value }
       }
     } catch (e) {
-      ctx.host.log.warn("sqlite read failed for " + key + " at " + dbLabel + ": " + String(e))
+      const message = String(e)
+      ctx.host.log.warn("sqlite read failed for " + key + " at " + dbLabel + ": " + message)
+      if (message.indexOf(SQLITE_HELPER_ERROR) >= 0) {
+        throw SQLITE_HELPER_ERROR
+      }
       return { ok: false, value: null }
     }
     return { ok: true, value: null }

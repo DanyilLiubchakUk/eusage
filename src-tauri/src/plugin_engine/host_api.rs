@@ -37,6 +37,8 @@ const WHITELISTED_ENV_VARS: [&str; 19] = [
     "ANTIGRAVITY_GOOGLE_CLIENT_SECRET",
 ];
 const MIN_BLOCKING_TIMEOUT: Duration = Duration::from_millis(1);
+const SQLITE_HELPER_MISSING_MESSAGE: &str =
+    "eUsage SQLite helper missing. Update or reinstall eUsage.";
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ProbeDeadline {
@@ -585,6 +587,7 @@ pub(crate) fn inject_host_api<'js>(
         ctx,
         plugin_id,
         app_data_dir,
+        app_data_dir,
         app_version,
         ProbeDeadline::none(),
     )
@@ -594,6 +597,7 @@ pub(crate) fn inject_host_api_with_deadline<'js>(
     ctx: &Ctx<'js>,
     plugin_id: &str,
     app_data_dir: &PathBuf,
+    resource_dir: &PathBuf,
     app_version: &str,
     deadline: ProbeDeadline,
 ) -> rquickjs::Result<()> {
@@ -631,7 +635,7 @@ pub(crate) fn inject_host_api_with_deadline<'js>(
     inject_env(ctx, &host, plugin_id)?;
     inject_http(ctx, &host, plugin_id, deadline)?;
     inject_keychain(ctx, &host, plugin_id)?;
-    inject_sqlite(ctx, &host)?;
+    inject_sqlite(ctx, &host, resource_dir)?;
     inject_ls(ctx, &host, plugin_id)?;
     inject_time_zone(ctx, &host)?;
     inject_ccusage(ctx, &host, plugin_id, deadline)?;
@@ -2842,8 +2846,13 @@ fn inject_keychain<'js>(
     Ok(())
 }
 
-fn inject_sqlite<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> {
+fn inject_sqlite<'js>(
+    ctx: &Ctx<'js>,
+    host: &Object<'js>,
+    resource_dir: &PathBuf,
+) -> rquickjs::Result<()> {
     let sqlite_obj = Object::new(ctx.clone())?;
+    let query_resource_dir = resource_dir.clone();
 
     sqlite_obj.set(
         "query",
@@ -2857,51 +2866,13 @@ fn inject_sqlite<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()
                     ));
                 }
                 let expanded = expand_path(&db_path);
-
-                // Prefer a normal read-only open so WAL contents are visible (common for app state DBs).
-                // Fall back to immutable=1 to bypass WAL/SHM lock issues after macOS sleep.
-                let primary = std::process::Command::new("sqlite3")
-                    .args(["-readonly", "-json", &expanded, &sql])
-                    .output()
-                    .map_err(|e| {
-                        Exception::throw_message(&ctx_inner, &format!("sqlite3 exec failed: {}", e))
-                    })?;
-
-                if primary.status.success() {
-                    return Ok(String::from_utf8_lossy(&primary.stdout).to_string());
-                }
-
-                // Percent-encode special chars for valid URI (% must be first!)
-                let encoded = expanded
-                    .replace('%', "%25")
-                    .replace(' ', "%20")
-                    .replace('#', "%23")
-                    .replace('?', "%3F");
-                let uri_path = format!("file:{}?immutable=1", encoded);
-                let fallback = std::process::Command::new("sqlite3")
-                    .args(["-readonly", "-json", &uri_path, &sql])
-                    .output()
-                    .map_err(|e| {
-                        Exception::throw_message(&ctx_inner, &format!("sqlite3 exec failed: {}", e))
-                    })?;
-
-                if !fallback.status.success() {
-                    let stderr_primary = String::from_utf8_lossy(&primary.stderr);
-                    let stderr_fallback = String::from_utf8_lossy(&fallback.stderr);
-                    return Err(Exception::throw_message(
-                        &ctx_inner,
-                        &format!(
-                            "sqlite3 error: {} (fallback: {})",
-                            stderr_primary.trim(),
-                            stderr_fallback.trim()
-                        ),
-                    ));
-                }
-
-                Ok(String::from_utf8_lossy(&fallback.stdout).to_string())
+                run_sqlite_query(&query_resource_dir, &expanded, &sql)
+                    .map_err(|e| Exception::throw_message(&ctx_inner, &e))
             },
         )?,
     )?;
+
+    let exec_resource_dir = resource_dir.clone();
 
     sqlite_obj.set(
         "exec",
@@ -2915,28 +2886,155 @@ fn inject_sqlite<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()
                     ));
                 }
                 let expanded = expand_path(&db_path);
-                let output = std::process::Command::new("sqlite3")
-                    .args([&expanded, &sql])
-                    .output()
-                    .map_err(|e| {
-                        Exception::throw_message(&ctx_inner, &format!("sqlite3 exec failed: {}", e))
-                    })?;
-
-                if !output.status.success() {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(Exception::throw_message(
-                        &ctx_inner,
-                        &format!("sqlite3 error: {}", stderr.trim()),
-                    ));
-                }
-
-                Ok(())
+                run_sqlite_exec(&exec_resource_dir, &expanded, &sql)
+                    .map_err(|e| Exception::throw_message(&ctx_inner, &e))
             },
         )?,
     )?;
 
     host.set("sqlite", sqlite_obj)?;
     Ok(())
+}
+
+#[derive(Debug)]
+enum SqliteRunError {
+    Spawn,
+    Command(String),
+}
+
+fn run_sqlite_query(resource_dir: &Path, db_path: &str, sql: &str) -> Result<String, String> {
+    let primary_args = sqlite_query_args(db_path, sql);
+    let immutable_path = sqlite_immutable_uri(db_path);
+    let fallback_args = sqlite_query_args(&immutable_path, sql);
+    let mut errors = Vec::new();
+
+    for program in sqlite_program_candidates(resource_dir) {
+        match run_sqlite_query_with_program(&program, &primary_args, &fallback_args) {
+            Ok(output) => return Ok(output),
+            Err(error) => errors.push(error),
+        }
+    }
+
+    Err(sqlite_error_message(&errors))
+}
+
+fn run_sqlite_exec(resource_dir: &Path, db_path: &str, sql: &str) -> Result<(), String> {
+    let args = vec![OsString::from(db_path), OsString::from(sql)];
+    let mut errors = Vec::new();
+
+    for program in sqlite_program_candidates(resource_dir) {
+        match std::process::Command::new(&program).args(&args).output() {
+            Ok(output) if output.status.success() => return Ok(()),
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                errors.push(SqliteRunError::Command(format!(
+                    "sqlite3 error: {}",
+                    stderr.trim()
+                )));
+            }
+            Err(_) => errors.push(SqliteRunError::Spawn),
+        }
+    }
+
+    Err(sqlite_error_message(&errors))
+}
+
+fn run_sqlite_query_with_program(
+    program: &OsStr,
+    primary_args: &[OsString],
+    fallback_args: &[OsString],
+) -> Result<String, SqliteRunError> {
+    let primary = std::process::Command::new(program)
+        .args(primary_args)
+        .output()
+        .map_err(|_| SqliteRunError::Spawn)?;
+
+    if primary.status.success() {
+        return Ok(String::from_utf8_lossy(&primary.stdout).to_string());
+    }
+
+    let fallback = std::process::Command::new(program)
+        .args(fallback_args)
+        .output()
+        .map_err(|_| SqliteRunError::Spawn)?;
+
+    if fallback.status.success() {
+        return Ok(String::from_utf8_lossy(&fallback.stdout).to_string());
+    }
+
+    let stderr_primary = String::from_utf8_lossy(&primary.stderr);
+    let stderr_fallback = String::from_utf8_lossy(&fallback.stderr);
+    Err(SqliteRunError::Command(format!(
+        "sqlite3 error: {} (fallback: {})",
+        stderr_primary.trim(),
+        stderr_fallback.trim()
+    )))
+}
+
+fn sqlite_query_args(db_path: &str, sql: &str) -> Vec<OsString> {
+    vec![
+        OsString::from("-readonly"),
+        OsString::from("-json"),
+        OsString::from(db_path),
+        OsString::from(sql),
+    ]
+}
+
+fn sqlite_immutable_uri(path: &str) -> String {
+    let encoded = path
+        .replace('%', "%25")
+        .replace(' ', "%20")
+        .replace('#', "%23")
+        .replace('?', "%3F");
+    format!("file:{}?immutable=1", encoded)
+}
+
+fn sqlite_error_message(errors: &[SqliteRunError]) -> String {
+    if errors.is_empty()
+        || errors
+            .iter()
+            .all(|error| matches!(error, SqliteRunError::Spawn))
+    {
+        return SQLITE_HELPER_MISSING_MESSAGE.to_string();
+    }
+
+    errors
+        .iter()
+        .find_map(|error| match error {
+            SqliteRunError::Command(message) => Some(message.clone()),
+            SqliteRunError::Spawn => None,
+        })
+        .unwrap_or_else(|| SQLITE_HELPER_MISSING_MESSAGE.to_string())
+}
+
+fn sqlite_program_candidates(resource_dir: &Path) -> Vec<OsString> {
+    sqlite_program_candidates_for_platform(resource_dir, std::env::consts::OS)
+}
+
+fn sqlite_program_candidates_for_platform(resource_dir: &Path, platform: &str) -> Vec<OsString> {
+    let mut candidates = Vec::new();
+    if platform == "windows" {
+        if let Some(path) = bundled_windows_sqlite_path(resource_dir) {
+            candidates.push(path.into_os_string());
+        }
+    }
+    candidates.push(OsString::from("sqlite3"));
+    candidates
+}
+
+fn bundled_windows_sqlite_path(resource_dir: &Path) -> Option<PathBuf> {
+    let candidates = [
+        resource_dir
+            .join("resources")
+            .join("bin")
+            .join("windows-x64")
+            .join("sqlite3.exe"),
+        resource_dir
+            .join("bin")
+            .join("windows-x64")
+            .join("sqlite3.exe"),
+    ];
+    candidates.into_iter().find(|path| path.exists())
 }
 
 fn iso_now() -> String {
@@ -2966,6 +3064,14 @@ fn expand_path(path: &str) -> String {
 mod tests {
     use super::*;
     use rquickjs::{Context, Function, Object, Runtime};
+
+    fn temp_host_api_dir(label: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        std::env::temp_dir().join(format!("openusage-host-api-{}-{}", label, nanos))
+    }
 
     fn encrypt_aes_256_gcm_envelope_for_test(key: &[u8], plaintext: &str) -> String {
         let iv = [7_u8; 16];
@@ -3394,6 +3500,75 @@ mod tests {
         let expected = home.join(".claude-custom").to_string_lossy().to_string();
 
         assert_eq!(expand_path("~/.claude-custom"), expected);
+    }
+
+    #[test]
+    fn sqlite_program_candidates_prefer_nested_windows_resource() {
+        let dir = temp_host_api_dir("sqlite-nested-resource");
+        let bundled = dir
+            .join("resources")
+            .join("bin")
+            .join("windows-x64")
+            .join("sqlite3.exe");
+        std::fs::create_dir_all(bundled.parent().expect("parent")).expect("create bin dir");
+        std::fs::write(&bundled, "").expect("write fake sqlite");
+
+        let candidates = sqlite_program_candidates_for_platform(&dir, "windows");
+
+        assert_eq!(PathBuf::from(candidates[0].clone()), bundled);
+        assert_eq!(candidates[1], OsString::from("sqlite3"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sqlite_program_candidates_use_flat_windows_resource_when_packaged_flat() {
+        let dir = temp_host_api_dir("sqlite-flat-resource");
+        let bundled = dir.join("bin").join("windows-x64").join("sqlite3.exe");
+        std::fs::create_dir_all(bundled.parent().expect("parent")).expect("create bin dir");
+        std::fs::write(&bundled, "").expect("write fake sqlite");
+
+        let candidates = sqlite_program_candidates_for_platform(&dir, "windows");
+
+        assert_eq!(PathBuf::from(candidates[0].clone()), bundled);
+        assert_eq!(candidates[1], OsString::from("sqlite3"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sqlite_program_candidates_keep_non_windows_on_path() {
+        let dir = temp_host_api_dir("sqlite-macos-path");
+        let bundled = dir
+            .join("resources")
+            .join("bin")
+            .join("windows-x64")
+            .join("sqlite3.exe");
+        std::fs::create_dir_all(bundled.parent().expect("parent")).expect("create bin dir");
+        std::fs::write(&bundled, "").expect("write fake sqlite");
+
+        let candidates = sqlite_program_candidates_for_platform(&dir, "macos");
+
+        assert_eq!(candidates, vec![OsString::from("sqlite3")]);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sqlite_error_message_uses_helper_missing_for_spawn_only_failures() {
+        let message = sqlite_error_message(&[SqliteRunError::Spawn]);
+
+        assert_eq!(message, SQLITE_HELPER_MISSING_MESSAGE);
+    }
+
+    #[test]
+    fn sqlite_error_message_preserves_sqlite_command_errors() {
+        let message = sqlite_error_message(&[
+            SqliteRunError::Spawn,
+            SqliteRunError::Command("sqlite3 error: no such table: ItemTable".to_string()),
+        ]);
+
+        assert_eq!(message, "sqlite3 error: no such table: ItemTable");
     }
 
     #[test]

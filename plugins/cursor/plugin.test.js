@@ -295,6 +295,18 @@ describe("cursor plugin", () => {
     expect(ctx.host.log.warn).toHaveBeenCalled()
   })
 
+  it("throws eUsage helper error when sqlite helper is missing", async () => {
+    const ctx = makeCtx()
+    ctx.host.sqlite.query.mockImplementation(() => {
+      throw new Error("eUsage SQLite helper missing. Update or reinstall eUsage.")
+    })
+    const plugin = await loadPlugin()
+    expect(() => plugin.probe(ctx)).toThrow(
+      "eUsage SQLite helper missing. Update or reinstall eUsage."
+    )
+    expect(ctx.host.log.warn).toHaveBeenCalled()
+  })
+
   it("throws on disabled usage", async () => {
     const ctx = makeCtx()
     ctx.host.sqlite.query.mockReturnValue(JSON.stringify([{ value: "token" }]))
