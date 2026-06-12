@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.6.29
+
+### Bug Fixes
+- Major Windows fix: bundle SQLite so computers without system `sqlite3` can read provider usage by @DanyilLiubchak
+
+---
+
+### Changelog
+
+**Full Changelog**: [v0.6.28...v0.6.29](https://github.com/DanyilLiubchakUk/eusage/compare/v0.6.28...v0.6.29)
+
+- [23cffed](https://github.com/DanyilLiubchakUk/eusage/commit/23cffed10794dd57b3335053a708d94684ed6ff7) fix: bundle sqlite for windows provider reads by @DanyilLiubchak
+
 ## v0.6.28
 
 ### New Features
