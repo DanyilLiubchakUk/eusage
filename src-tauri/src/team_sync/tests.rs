@@ -85,6 +85,7 @@ fn make_snapshot(provider_id: &str, used: f64) -> CachedPluginSnapshot {
             color: None,
         }],
         provider_account_detections: Vec::new(),
+        provider_account_outputs: Vec::new(),
         source_facts: None,
         raw_payload: None,
         fetched_at: "2026-06-01T12:00:00Z".to_string(),

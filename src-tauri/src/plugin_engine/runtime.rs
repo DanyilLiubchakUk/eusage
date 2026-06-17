@@ -71,9 +71,19 @@ pub struct PluginOutput {
     pub plan: Option<String>,
     pub lines: Vec<MetricLine>,
     pub provider_account_detections: Vec<ProviderAccountDetection>,
+    pub provider_account_outputs: Vec<ProviderAccountOutput>,
     pub source_facts: Option<ProviderSourceFacts>,
     pub raw_payload: Option<JsonValue>,
     pub icon_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderAccountOutput {
+    pub provider_account_detections: Vec<ProviderAccountDetection>,
+    pub lines: Vec<MetricLine>,
+    pub source_facts: ProviderSourceFacts,
+    pub raw_payload: Option<JsonValue>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -284,11 +294,65 @@ fn run_probe_with_timeout(
             provider_account_detections: provider_account::parse_provider_account_detections(
                 parse_optional_json_property(&result, "providerAccountDetections"),
             ),
+            provider_account_outputs: parse_provider_account_outputs(&result),
             source_facts: parse_source_facts(&result),
             raw_payload: parse_optional_json_property(&result, "rawPayload"),
             icon_url,
         }
     })
+}
+
+fn parse_provider_account_outputs(result: &Object<'_>) -> Vec<ProviderAccountOutput> {
+    let Some(value) = parse_optional_json_property(result, "providerAccountOutputs") else {
+        return Vec::new();
+    };
+    let outputs = match serde_json::from_value::<Vec<ProviderAccountOutput>>(value) {
+        Ok(outputs) => outputs,
+        Err(error) => {
+            log::warn!("plugin providerAccountOutputs ignored: {}", error);
+            return Vec::new();
+        }
+    };
+
+    outputs
+        .into_iter()
+        .filter_map(normalize_provider_account_output)
+        .collect()
+}
+
+fn normalize_provider_account_output(
+    mut output: ProviderAccountOutput,
+) -> Option<ProviderAccountOutput> {
+    output.provider_account_detections =
+        provider_account::normalize_provider_account_detections(output.provider_account_detections);
+
+    if output.provider_account_detections.len() != 1 {
+        log::warn!(
+            "plugin providerAccountOutputs entry ignored: expected exactly one providerAccountDetection"
+        );
+        return None;
+    }
+
+    if output.lines.is_empty() {
+        log::warn!("plugin providerAccountOutputs entry ignored: no lines returned");
+        return None;
+    }
+
+    if output
+        .source_facts
+        .data_identity
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or_default()
+        .is_empty()
+    {
+        log::warn!(
+            "plugin providerAccountOutputs entry ignored: sourceFacts.dataIdentity is required"
+        );
+        return None;
+    }
+
+    Some(output)
 }
 
 fn parse_source_facts(result: &Object<'_>) -> Option<ProviderSourceFacts> {
@@ -773,6 +837,7 @@ fn error_output(plugin: &LoadedPlugin, message: String) -> PluginOutput {
         plan: None,
         lines: vec![error_line(message)],
         provider_account_detections: Vec::new(),
+        provider_account_outputs: Vec::new(),
         source_facts: None,
         raw_payload: None,
         icon_url: plugin.icon_data_url.clone(),
@@ -1032,5 +1097,183 @@ mod tests {
             output.raw_payload.unwrap()["usage"]["planUsage"]["apiPercentUsed"],
             17.0
         );
+    }
+
+    #[test]
+    fn run_probe_preserves_account_bound_child_outputs() {
+        let plugin = test_plugin(
+            r#"
+            globalThis.__openusage_plugin = {
+                probe() {
+                    const sourceFacts = (fingerprint, totalTokens) => ({
+                        periodStart: 1770000000000,
+                        periodEnd: 1770086400000,
+                        periodKey: "codex:2026-06-01",
+                        dataIdentity: "eport:codex:" + fingerprint + ":daily:2026-06-01",
+                        summary: {
+                            provider: {
+                                codex: {
+                                    totalTokens
+                                }
+                            }
+                        },
+                        summaryVersion: "1.0.0",
+                        extractorVersion: { codex: "1.0.0" },
+                        metricFamilies: ["localConsumedUsage"],
+                        metricSamples: [{
+                            metricKey: "codex.tokens.total",
+                            value: totalTokens,
+                            unit: "tokens",
+                            sampleDay: "2026-06-01",
+                            source: "calculated",
+                            periodStart: 1770000000000,
+                            periodEnd: 1770086400000,
+                            bucket: {
+                                kind: "reportingDay",
+                                day: "2026-06-01",
+                                reportingTimeZone: "UTC",
+                                startMs: 1770000000000,
+                                endMs: 1770086400000
+                            }
+                        }]
+                    });
+
+                    return {
+                        lines: [{
+                            type: "text",
+                            label: "Status",
+                            value: "2 ePort accounts"
+                        }],
+                        providerAccountOutputs: [
+                            {
+                                providerAccountDetections: [{
+                                    providerId: "codex",
+                                    providerName: "Codex",
+                                    identityKind: "providerAccountId",
+                                    identityValue: " acct-work ",
+                                    identityConfidence: "high",
+                                    label: " Work Codex "
+                                }],
+                                lines: [{
+                                    type: "text",
+                                    label: "Tokens",
+                                    value: "1000"
+                                }],
+                                sourceFacts: sourceFacts("acct-work", 1000),
+                                rawPayload: {
+                                    partition: "work"
+                                }
+                            },
+                            {
+                                providerAccountDetections: [{
+                                    providerId: "codex",
+                                    providerName: "Codex",
+                                    identityKind: "providerAccountId",
+                                    identityValue: "acct-side",
+                                    identityConfidence: "high",
+                                    label: "Side Codex"
+                                }],
+                                lines: [{
+                                    type: "text",
+                                    label: "Tokens",
+                                    value: "2500"
+                                }],
+                                sourceFacts: sourceFacts("acct-side", 2500),
+                                rawPayload: {
+                                    partition: "side"
+                                }
+                            }
+                        ]
+                    };
+                }
+            };
+            "#,
+        );
+
+        let app_data = temp_app_dir("account-bound-output");
+        let output = run_probe(&plugin, &app_data, &app_data, "0.0.0");
+
+        assert_eq!(output.provider_account_outputs.len(), 2);
+        assert_eq!(
+            output.provider_account_outputs[0].provider_account_detections,
+            vec![ProviderAccountDetection {
+                provider_id: "codex".to_string(),
+                provider_name: "Codex".to_string(),
+                identity_kind: provider_account::ProviderAccountIdentityKind::ProviderAccountId,
+                identity_value: "acct-work".to_string(),
+                identity_confidence: provider_account::ProviderAccountIdentityConfidence::High,
+                label: Some("Work Codex".to_string()),
+            }]
+        );
+        assert_eq!(
+            output.provider_account_outputs[0]
+                .source_facts
+                .data_identity
+                .as_deref(),
+            Some("eport:codex:acct-work:daily:2026-06-01")
+        );
+        assert_eq!(
+            output.provider_account_outputs[0].source_facts.summary["provider"]["codex"]["totalTokens"],
+            1000.0
+        );
+        assert_eq!(
+            output.provider_account_outputs[1].source_facts.summary["provider"]["codex"]["totalTokens"],
+            2500.0
+        );
+        assert_eq!(
+            output.provider_account_outputs[1]
+                .raw_payload
+                .as_ref()
+                .unwrap()["partition"],
+            "side"
+        );
+    }
+
+    #[test]
+    fn run_probe_ignores_account_bound_outputs_without_single_detection() {
+        let plugin = test_plugin(
+            r#"
+            globalThis.__openusage_plugin = {
+                probe() {
+                    const sourceFacts = {
+                        dataIdentity: "eport:codex:fallback:daily:2026-06-01",
+                        summary: {},
+                        summaryVersion: "1.0.0",
+                        extractorVersion: { codex: "1.0.0" },
+                        metricFamilies: [],
+                        metricSamples: []
+                    };
+                    return {
+                        lines: [{ type: "text", label: "Status", value: "ready" }],
+                        providerAccountOutputs: [{
+                            providerAccountDetections: [
+                                {
+                                    providerId: "codex",
+                                    providerName: "Codex",
+                                    identityKind: "providerAccountId",
+                                    identityValue: "acct-work",
+                                    identityConfidence: "high"
+                                },
+                                {
+                                    providerId: "codex",
+                                    providerName: "Codex",
+                                    identityKind: "providerAccountId",
+                                    identityValue: "acct-side",
+                                    identityConfidence: "high"
+                                }
+                            ],
+                            lines: [{ type: "text", label: "Tokens", value: "1000" }],
+                            sourceFacts
+                        }]
+                    };
+                }
+            };
+            "#,
+        );
+
+        let app_data = temp_app_dir("account-bound-invalid");
+        let output = run_probe(&plugin, &app_data, &app_data, "0.0.0");
+
+        assert!(output.provider_account_outputs.is_empty());
     }
 }

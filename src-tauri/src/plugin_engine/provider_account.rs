@@ -45,6 +45,12 @@ pub fn parse_provider_account_detections(
         }
     };
 
+    normalize_provider_account_detections(detections)
+}
+
+pub(super) fn normalize_provider_account_detections(
+    detections: Vec<ProviderAccountDetection>,
+) -> Vec<ProviderAccountDetection> {
     detections
         .into_iter()
         .filter_map(normalize_provider_account_detection)

@@ -1,8 +1,8 @@
 use super::cache::{cache_state, enabled_snapshots_ordered};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 const BIND_ADDR: &str = "127.0.0.1:6736";
@@ -224,7 +224,7 @@ fn response_service_unavailable() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::super::cache::{cache_state, CachedPluginSnapshot};
+    use super::super::cache::{CachedPluginSnapshot, cache_state};
     use super::*;
     use serial_test::serial;
 
@@ -235,6 +235,7 @@ mod tests {
             plan: Some("Pro".to_string()),
             lines: vec![],
             provider_account_detections: Vec::new(),
+            provider_account_outputs: Vec::new(),
             source_facts: None,
             raw_payload: None,
             fetched_at: "2026-03-26T08:15:30Z".to_string(),

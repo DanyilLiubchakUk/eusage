@@ -1,5 +1,5 @@
 use crate::plugin_engine::runtime::{
-    MetricLine, PluginOutput, ProviderAccountDetection, ProviderSourceFacts,
+    MetricLine, PluginOutput, ProviderAccountDetection, ProviderAccountOutput, ProviderSourceFacts,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -31,6 +31,8 @@ pub struct CachedPluginSnapshot {
     pub lines: Vec<MetricLine>,
     #[serde(default, skip_serializing)]
     pub provider_account_detections: Vec<ProviderAccountDetection>,
+    #[serde(default)]
+    pub provider_account_outputs: Vec<ProviderAccountOutput>,
     pub source_facts: Option<ProviderSourceFacts>,
     pub raw_payload: Option<Value>,
     pub fetched_at: String,
@@ -244,6 +246,7 @@ pub fn cache_successful_output(output: &PluginOutput) {
         plan: output.plan.clone(),
         lines: output.lines.clone(),
         provider_account_detections: output.provider_account_detections.clone(),
+        provider_account_outputs: output.provider_account_outputs.clone(),
         source_facts: output.source_facts.clone(),
         raw_payload: output.raw_payload.clone(),
         fetched_at,
@@ -366,6 +369,7 @@ mod tests {
             plan: Some("Pro".to_string()),
             lines: vec![],
             provider_account_detections: Vec::new(),
+            provider_account_outputs: Vec::new(),
             source_facts: None,
             raw_payload: None,
             fetched_at: "2026-03-26T08:15:30Z".to_string(),
@@ -384,6 +388,7 @@ mod tests {
                 subtitle: None,
             }],
             provider_account_detections: Vec::new(),
+            provider_account_outputs: Vec::new(),
             source_facts: None,
             raw_payload: None,
             icon_url: String::new(),
@@ -619,6 +624,7 @@ mod tests {
                 color: None,
             }],
             provider_account_detections: Vec::new(),
+            provider_account_outputs: Vec::new(),
             source_facts: None,
             raw_payload: None,
             fetched_at: "2026-03-26T08:00:00Z".to_string(),

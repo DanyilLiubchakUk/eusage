@@ -139,7 +139,13 @@ globalThis.__openusage_plugin = {
 `probe(ctx)` must return (or resolve to):
 
 ```javascript
-{ lines: MetricLine[], providerAccountDetections?: ProviderAccountDetection[] }
+{
+  lines: MetricLine[],
+  providerAccountDetections?: ProviderAccountDetection[],
+  providerAccountOutputs?: ProviderAccountOutput[],
+  sourceFacts?: ProviderSourceFacts,
+  rawPayload?: unknown
+}
 ```
 
 ### Line Types
@@ -175,6 +181,38 @@ type MetricLine =
 - `resetsAt`: optional ISO timestamp (UI shows "Resets in ..." automatically)
 - `periodDurationMs`: optional period length in milliseconds (enables pace indicator when combined with `resetsAt`)
 
+### Source Facts
+
+```typescript
+type ProviderSourceFacts = {
+  periodStart?: number
+  periodEnd?: number
+  periodKey?: string
+  dataIdentity?: string
+  summary: unknown
+  summaryVersion: string
+  extractorVersion: Record<string, string>
+  metricFamilies: string[]
+  metricSamples: Array<{
+    metricKey: string
+    value: number
+    unit: string
+    sampleDay: string
+    source: string
+    periodStart?: number
+    periodEnd?: number
+    bucket?: {
+      kind: string
+      day: string
+      reportingTimeZone: string
+      startMs: number
+      endMs: number
+    }
+    coverage?: unknown
+  }>
+}
+```
+
 ### Provider Account Detections
 
 Supported providers may return local-only Provider Account identity candidates:
@@ -196,6 +234,40 @@ type ProviderAccountDetection = {
 ```
 
 These records are used by desktop local registry code before upload sharing exists. Do not put them inside `sourceFacts`, `rawPayload`, or team upload payloads.
+
+### Account-Bound Provider Outputs
+
+Provider plugins that can produce multiple account-specific local usage totals in one refresh may return child outputs:
+
+```typescript
+type ProviderAccountOutput = {
+  providerAccountDetections: [ProviderAccountDetection]
+  lines: MetricLine[]
+  sourceFacts: ProviderSourceFacts
+  rawPayload?: unknown
+}
+
+type PluginOutput = {
+  providerId: string
+  displayName: string
+  plan?: string
+  lines: MetricLine[]
+  providerAccountDetections?: ProviderAccountDetection[]
+  providerAccountOutputs?: ProviderAccountOutput[]
+  sourceFacts?: ProviderSourceFacts
+  rawPayload?: unknown
+}
+```
+
+Rules:
+
+- `providerAccountOutputs` is additive. Existing provider-level `lines`, `sourceFacts`, `rawPayload`, and `providerAccountDetections` keep their current behavior.
+- Each `ProviderAccountOutput` must include exactly one `providerAccountDetections` item. A child output with zero or multiple detections is invalid because ownership would be ambiguous.
+- Each child output must include its own `lines` and `sourceFacts`.
+- Account-bound `sourceFacts.dataIdentity` is required and must be stable for the provider account, period, and source data. ePort calculated usage uses `eport:<provider>:<providerAccountFingerprint>:daily:<YYYY-MM-DD>`.
+- If a partition cannot map to exactly one Provider Account, the plugin must emit a fallback Provider Account or an explicit error output. It must not silently merge that partition into another account's child output.
+- Local display should render account-bound child `lines` under the matching visible Provider Account when child outputs exist, and fall back to provider-level `lines` when they do not.
+- Team upload should upload each account-bound child output separately after normal Provider Account visibility and sharing gates pass.
 
 ### Text Line
 

@@ -26,6 +26,45 @@ export type MetricLine =
   | { type: "badge"; label: string; text: string; color?: string; subtitle?: string }
   | { type: "barChart"; label: string; points: BarChartPoint[]; note?: string; color?: string }
 
+export type ProviderMetricBucket = {
+  kind: string
+  day: string
+  reportingTimeZone: string
+  startMs: number
+  endMs: number
+}
+
+export type ProviderMetricSample = {
+  metricKey: string
+  value: number
+  unit: string
+  sampleDay: string
+  source: string
+  periodStart?: number
+  periodEnd?: number
+  bucket?: ProviderMetricBucket
+  coverage?: unknown
+}
+
+export type ProviderSourceFacts = {
+  periodStart?: number
+  periodEnd?: number
+  periodKey?: string
+  dataIdentity?: string
+  summary: unknown
+  summaryVersion: string
+  extractorVersion: Record<string, string>
+  metricFamilies: string[]
+  metricSamples: ProviderMetricSample[]
+}
+
+export type ProviderAccountOutput = {
+  providerAccountDetections: [ProviderAccountDetectionCandidate]
+  lines: MetricLine[]
+  sourceFacts: ProviderSourceFacts
+  rawPayload?: unknown
+}
+
 export type ManifestLine = {
   type: "text" | "progress" | "badge" | "barChart"
   label: string
@@ -43,6 +82,9 @@ export type PluginOutput = {
   plan?: string
   lines: MetricLine[]
   providerAccountDetections?: ProviderAccountDetectionCandidate[]
+  providerAccountOutputs?: ProviderAccountOutput[]
+  sourceFacts?: ProviderSourceFacts
+  rawPayload?: unknown
   iconUrl: string
 }
 
