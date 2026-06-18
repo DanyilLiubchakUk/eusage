@@ -2,6 +2,8 @@
   const PROVIDER_ID = "claude"
   const PROVIDER_NAME = "Claude"
   const DEFAULT_CLAUDE_HOME = "~/.claude"
+  const EPORT_ACCOUNTS_DIR = "eport-accounts"
+  const EPORT_SYNTHETIC_PROJECT_DIR = "eport-cursor-proxy"
   const CRED_FILE_NAME = ".credentials.json"
   const KEYCHAIN_SERVICE_PREFIX = "Claude Code"
   const PROD_BASE_API_URL = "https://api.anthropic.com"
@@ -29,6 +31,10 @@
   let rateLimitedUntilMs = 0  // epoch ms; 0 = not rate-limited
   let lastUsageFetchMs = 0    // epoch ms of the most-recent API attempt
   let cachedUsageData = null  // last successful API response body (parsed JSON)
+
+  function joinPath(base, leaf) {
+    return base.replace(/[\\/]+$/, "") + "/" + leaf
+  }
 
   function utf8DecodeBytes(bytes) {
     // Prefer native TextDecoder when available (QuickJS may not expose it).
@@ -602,6 +608,27 @@
     return { status: "ok", data: result.data }
   }
 
+  function discoverEportAccountPartitions(ctx) {
+    if (!ctx.host.fs || typeof ctx.host.fs.exists !== "function" || typeof ctx.host.fs.listDir !== "function") {
+      return []
+    }
+
+    const root = joinPath(getClaudeHomePath(ctx), EPORT_ACCOUNTS_DIR)
+    try {
+      if (!ctx.host.fs.exists(root)) return []
+      return ctx.host.fs.listDir(root)
+        .map((name) => String(name || "").trim())
+        .filter(Boolean)
+        .map((fingerprint) => ({
+          providerAccountFingerprint: fingerprint,
+          homePath: joinPath(root, fingerprint),
+        }))
+    } catch (e) {
+      ctx.host.log.warn("ePort Claude account partition discovery failed: " + String(e))
+      return []
+    }
+  }
+
   function fmtTokens(n) {
     const abs = Math.abs(n)
     const sign = n < 0 ? "-" : ""
@@ -914,14 +941,15 @@
     )
   }
 
-  function addTokenUsageSamples(ctx, samples, usageDay, sampleSourceDay, reportingTimeZone) {
+  function addTokenUsageSamples(ctx, samples, usageDay, sampleSourceDay, reportingTimeZone, source) {
     if (!usageDay || typeof usageDay !== "object") return
     const bucket = reportingDayBucket(ctx, sampleSourceDay, reportingTimeZone)
-    addMetricSample(samples, "claude.tokens.total", usageDay.totalTokens, "tokens", sampleSourceDay, "providerReported", null, bucket)
-    addMetricSample(samples, "claude.tokens.input", usageDay.inputTokens, "tokens", sampleSourceDay, "providerReported", null, bucket)
-    addMetricSample(samples, "claude.tokens.output", usageDay.outputTokens, "tokens", sampleSourceDay, "providerReported", null, bucket)
-    addMetricSample(samples, "claude.tokens.cacheCreation", usageDay.cacheCreationTokens, "tokens", sampleSourceDay, "providerReported", null, bucket)
-    addMetricSample(samples, "claude.tokens.cacheRead", usageDay.cacheReadTokens, "tokens", sampleSourceDay, "providerReported", null, bucket)
+    const sampleSource = source || "providerReported"
+    addMetricSample(samples, "claude.tokens.total", usageDay.totalTokens, "tokens", sampleSourceDay, sampleSource, null, bucket)
+    addMetricSample(samples, "claude.tokens.input", usageDay.inputTokens, "tokens", sampleSourceDay, sampleSource, null, bucket)
+    addMetricSample(samples, "claude.tokens.output", usageDay.outputTokens, "tokens", sampleSourceDay, sampleSource, null, bucket)
+    addMetricSample(samples, "claude.tokens.cacheCreation", usageDay.cacheCreationTokens, "tokens", sampleSourceDay, sampleSource, null, bucket)
+    addMetricSample(samples, "claude.tokens.cacheRead", usageDay.cacheReadTokens, "tokens", sampleSourceDay, sampleSource, null, bucket)
     addMetricSample(samples, "claude.cost.estimated", usageCostUsd(usageDay), "usd", sampleSourceDay, "estimated", null, bucket)
   }
 
@@ -1084,6 +1112,148 @@
         oauth: creds && creds.oauth ? creds.oauth : null,
       }),
     }
+  }
+
+  function buildEportPartitionSourceFacts(ctx, partition, tokenUsageResult, reportingTimeZone) {
+    const day = sampleDay(ctx, reportingTimeZone)
+    const claude = {
+      eportAccountFingerprint: partition.providerAccountFingerprint,
+      eportPartitionStatus: tokenUsageResult.status,
+      eportProjectFolder: EPORT_SYNTHETIC_PROJECT_DIR,
+    }
+    const summary = { provider: { claude } }
+    const samples = []
+
+    if (tokenUsageResult.status === "ok") {
+      let todayEntry = null
+      for (let i = 0; i < tokenUsageResult.data.daily.length; i++) {
+        const usageDay = tokenUsageResult.data.daily[i]
+        const usageDayKey = dayKeyFromUsageDate(usageDay.date)
+        if (usageDayKey) addTokenUsageSamples(ctx, samples, usageDay, usageDayKey, reportingTimeZone, "calculated")
+        if (usageDayKey === day) todayEntry = usageDay
+      }
+
+      const todayTokens = Number(todayEntry && todayEntry.totalTokens) || 0
+      const todayCost = usageCostUsd(todayEntry) || 0
+      summary.tokensTotal = todayTokens
+      summary.estimatedCostUsd = todayCost
+      claude.todayTokens = todayTokens
+      claude.todayEstimatedCostUsd = todayCost
+    }
+
+    return {
+      periodStart: dayStartMs(ctx, day, reportingTimeZone),
+      periodEnd: dayEndMs(ctx, day, reportingTimeZone),
+      periodKey: "claude:" + day,
+      dataIdentity: "eport:claude:" + partition.providerAccountFingerprint + ":daily:" + day,
+      summary,
+      summaryVersion: SUMMARY_VERSION,
+      extractorVersion: extractorVersion(),
+      metricFamilies: metricFamilies(summary, samples),
+      metricSamples: samples,
+    }
+  }
+
+  function eportPartitionDetection(partition) {
+    return {
+      providerId: PROVIDER_ID,
+      providerName: PROVIDER_NAME,
+      identityKind: "providerAccountId",
+      identityValue: partition.providerAccountFingerprint,
+      identityConfidence: "high",
+    }
+  }
+
+  function eportPartitionRawPayload(partition, tokenUsageResult) {
+    return {
+      eportPartition: {
+        providerAccountFingerprint: partition.providerAccountFingerprint,
+        projectFolder: EPORT_SYNTHETIC_PROJECT_DIR,
+      },
+      tokenUsage: tokenUsageResult.status === "ok"
+        ? { status: "ok", daily: redactPayloadValue(tokenUsageResult.data.daily) }
+        : { status: tokenUsageResult.status },
+    }
+  }
+
+  function appendTokenUsageLines(lines, ctx, tokenUsage, timeZone) {
+    const todayKey = ctx.util.formatReportingDay
+      ? ctx.util.formatReportingDay(Date.now(), timeZone)
+      : dayKeyFromDate(new Date())
+    const yesterdayKey = addReportingDays(todayKey, -1)
+
+    let todayEntry = null
+    let yesterdayEntry = null
+    for (let i = 0; i < tokenUsage.daily.length; i++) {
+      const usageDayKey = dayKeyFromUsageDate(tokenUsage.daily[i].date)
+      if (usageDayKey === todayKey) {
+        todayEntry = tokenUsage.daily[i]
+        continue
+      }
+      if (usageDayKey === yesterdayKey) {
+        yesterdayEntry = tokenUsage.daily[i]
+      }
+    }
+
+    pushDayUsageLine(lines, ctx, "Today", todayEntry)
+    pushDayUsageLine(lines, ctx, "Yesterday", yesterdayEntry)
+
+    let totalTokens = 0
+    let totalCostNanos = 0
+    let hasCost = false
+    for (let i = 0; i < tokenUsage.daily.length; i++) {
+      const day = tokenUsage.daily[i]
+      const dayTokens = Number(day.totalTokens)
+      if (Number.isFinite(dayTokens)) {
+        totalTokens += dayTokens
+      }
+      const dayCost = usageCostUsd(day)
+      if (dayCost != null) {
+        totalCostNanos += Math.round(dayCost * 1e9)
+        hasCost = true
+      }
+    }
+    if (totalTokens > 0) {
+      lines.push(ctx.line.text({
+        label: "Last 30 Days",
+        value: costAndTokensLabel({ tokens: totalTokens, costUSD: hasCost ? totalCostNanos / 1e9 : null })
+      }))
+    }
+
+    pushUsageChartLine(lines, ctx, tokenUsage.daily)
+    pushModelUsageLines(lines, ctx, tokenUsage.daily)
+  }
+
+  function buildEportProviderAccountOutput(ctx, partition, tokenUsageResult, timeZone) {
+    const lines = []
+    if (tokenUsageResult.status === "ok") {
+      appendTokenUsageLines(lines, ctx, tokenUsageResult.data, timeZone)
+    } else {
+      lines.push(ctx.line.badge({
+        label: "Status",
+        text: "Usage unavailable",
+        color: "#a3a3a3",
+        subtitle: "ePort account partition could not be read.",
+      }))
+    }
+
+    return {
+      providerAccountDetections: [eportPartitionDetection(partition)],
+      lines,
+      sourceFacts: buildEportPartitionSourceFacts(ctx, partition, tokenUsageResult, timeZone),
+      rawPayload: eportPartitionRawPayload(partition, tokenUsageResult),
+    }
+  }
+
+  function queryEportProviderAccountOutputs(ctx, timeZone) {
+    const partitions = discoverEportAccountPartitions(ctx)
+    const outputs = []
+    for (let i = 0; i < partitions.length; i++) {
+      const partition = partitions[i]
+      const tokenUsageResult = queryTokenUsage(ctx, partition.homePath, timeZone)
+      outputs.push(buildEportProviderAccountOutput(ctx, partition, tokenUsageResult, timeZone))
+    }
+    return outputs
   }
 
   function redactPayloadValue(value) {
@@ -1348,53 +1518,9 @@
 
     const timeZone = reportingTimeZone(ctx)
     const usageResult = queryTokenUsage(ctx, homePath, timeZone)
+    const providerAccountOutputs = queryEportProviderAccountOutputs(ctx, timeZone)
     if (usageResult.status === "ok") {
-      const usage = usageResult.data
-      const todayKey = ctx.util.formatReportingDay
-        ? ctx.util.formatReportingDay(Date.now(), timeZone)
-        : dayKeyFromDate(new Date())
-      const yesterdayKey = addReportingDays(todayKey, -1)
-
-      let todayEntry = null
-      let yesterdayEntry = null
-      for (let i = 0; i < usage.daily.length; i++) {
-        const usageDayKey = dayKeyFromUsageDate(usage.daily[i].date)
-        if (usageDayKey === todayKey) {
-          todayEntry = usage.daily[i]
-          continue
-        }
-        if (usageDayKey === yesterdayKey) {
-          yesterdayEntry = usage.daily[i]
-        }
-      }
-
-      pushDayUsageLine(lines, ctx, "Today", todayEntry)
-      pushDayUsageLine(lines, ctx, "Yesterday", yesterdayEntry)
-
-      let totalTokens = 0
-      let totalCostNanos = 0
-      let hasCost = false
-      for (let i = 0; i < usage.daily.length; i++) {
-        const day = usage.daily[i]
-        const dayTokens = Number(day.totalTokens)
-        if (Number.isFinite(dayTokens)) {
-          totalTokens += dayTokens
-        }
-        const dayCost = usageCostUsd(day)
-        if (dayCost != null) {
-          totalCostNanos += Math.round(dayCost * 1e9)
-          hasCost = true
-        }
-      }
-      if (totalTokens > 0) {
-        lines.push(ctx.line.text({
-          label: "Last 30 Days",
-          value: costAndTokensLabel({ tokens: totalTokens, costUSD: hasCost ? totalCostNanos / 1e9 : null })
-        }))
-      }
-
-      pushUsageChartLine(lines, ctx, usage.daily)
-      pushModelUsageLines(lines, ctx, usage.daily)
+      appendTokenUsageLines(lines, ctx, usageResult.data, timeZone)
     }
 
     if (rateLimited) {
@@ -1413,13 +1539,17 @@
       lines.push(ctx.line.badge({ label: "Status", text: "No usage data", color: "#a3a3a3" }))
     }
 
-    return {
+    const output = {
       plan: plan,
       lines: lines,
       providerAccountDetections: providerAccountDetections(ctx, creds),
       sourceFacts: buildClaudeSourceFacts(ctx, data, usageResult, plan, creds),
       rawPayload: buildClaudeRawPayload(data, usageResult, creds),
     }
+    if (providerAccountOutputs.length > 0) {
+      output.providerAccountOutputs = providerAccountOutputs
+    }
+    return output
   }
 
   // _resetState is a testing hook — resets module-scope rate-limit state between tests.

@@ -2067,6 +2067,233 @@ describe("claude plugin", () => {
       }
     })
 
+    it("does not emit account-bound outputs for native-only Claude usage", async () => {
+      const todayKey = localDayKey(new Date())
+      const ctx = makeProbeCtx({
+        ccusageResult: okUsage([
+          { date: todayKey, totalTokens: 50, totalCost: 0.05 },
+        ]),
+      })
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+
+      expect(result.providerAccountOutputs).toBeUndefined()
+      expect(ctx.host.ccusage.query).toHaveBeenCalledTimes(1)
+      expect(ctx.host.ccusage.query.mock.calls[0][0].homePath).toBeUndefined()
+      expect(result.providerAccountDetections).toEqual([
+        expect.objectContaining({
+          identityKind: "localProfilePath",
+          identityValue: "~/.claude",
+        }),
+      ])
+      expect(result.lines.find((line) => line.label === "Today").value).toContain("50 tokens")
+    })
+
+    it("emits account-bound child output for one ePort Claude partition", async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+      try {
+        const ctx = makeProbeCtx()
+        ctx.nowIso = "2026-06-01T12:00:00.000Z"
+        ctx.host.fs.writeText("~/.claude/eport-accounts/acct-work/projects/eport-cursor-proxy/2026/06/01.jsonl", "{}\n")
+        ctx.host.ccusage.query.mockImplementation((opts) => {
+          if (opts.homePath === "~/.claude/eport-accounts/acct-work") {
+            return okUsage([
+              {
+                date: "2026-06-01",
+                inputTokens: 40,
+                outputTokens: 60,
+                cacheCreationTokens: 4,
+                cacheReadTokens: 6,
+                totalTokens: 100,
+                totalCost: 0.1,
+              },
+            ])
+          }
+          return okUsage([{ date: "2026-06-01", totalTokens: 25, totalCost: 0.02 }])
+        })
+
+        const plugin = await loadPlugin()
+        const result = plugin.probe(ctx)
+        const output = result.providerAccountOutputs[0]
+
+        expect(ctx.host.ccusage.query.mock.calls.map((call) => call[0].homePath)).toEqual([
+          undefined,
+          "~/.claude/eport-accounts/acct-work",
+        ])
+        expect(result.providerAccountOutputs).toHaveLength(1)
+        expect(output.providerAccountDetections).toEqual([
+          {
+            providerId: "claude",
+            providerName: "Claude",
+            identityKind: "providerAccountId",
+            identityValue: "acct-work",
+            identityConfidence: "high",
+          },
+        ])
+        expect(output.lines.find((line) => line.label === "Today").value).toContain("100 tokens")
+        expect(output.sourceFacts.dataIdentity).toBe("eport:claude:acct-work:daily:2026-06-01")
+        expect(output.sourceFacts.summary.provider.claude.eportProjectFolder).toBe("eport-cursor-proxy")
+        expect(output.sourceFacts.metricSamples).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              metricKey: "claude.tokens.total",
+              value: 100,
+              source: "calculated",
+            }),
+          ])
+        )
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it("emits account-bound child outputs for multiple ePort Claude partitions", async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+      try {
+        const ctx = makeProbeCtx()
+        ctx.nowIso = "2026-06-01T12:00:00.000Z"
+        ctx.host.fs.writeText("~/.claude/eport-accounts/acct-work/projects/eport-cursor-proxy/2026/06/01.jsonl", "{}\n")
+        ctx.host.fs.writeText("~/.claude/eport-accounts/acct-side/projects/eport-cursor-proxy/2026/06/01.jsonl", "{}\n")
+        ctx.host.ccusage.query.mockImplementation((opts) => {
+          if (opts.homePath === "~/.claude/eport-accounts/acct-work") {
+            return okUsage([{ date: "2026-06-01", totalTokens: 100, totalCost: 0.1 }])
+          }
+          if (opts.homePath === "~/.claude/eport-accounts/acct-side") {
+            return okUsage([{ date: "2026-06-01", totalTokens: 250, totalCost: 0.25 }])
+          }
+          return okUsage([{ date: "2026-06-01", totalTokens: 25, totalCost: 0.02 }])
+        })
+
+        const plugin = await loadPlugin()
+        const result = plugin.probe(ctx)
+
+        expect(ctx.host.ccusage.query).toHaveBeenCalledTimes(3)
+        expect(ctx.host.ccusage.query.mock.calls.map((call) => call[0].homePath)).toEqual([
+          undefined,
+          "~/.claude/eport-accounts/acct-side",
+          "~/.claude/eport-accounts/acct-work",
+        ])
+        expect(result.lines.find((line) => line.label === "Today").value).toContain("25 tokens")
+
+        const outputsByAccount = new Map(
+          result.providerAccountOutputs.map((output) => [
+            output.providerAccountDetections[0].identityValue,
+            output,
+          ])
+        )
+        expect(outputsByAccount.size).toBe(2)
+        expect(outputsByAccount.get("acct-work").lines.find((line) => line.label === "Today").value)
+          .toContain("100 tokens")
+        expect(outputsByAccount.get("acct-side").lines.find((line) => line.label === "Today").value)
+          .toContain("250 tokens")
+        expect(outputsByAccount.get("acct-work").sourceFacts.dataIdentity)
+          .toBe("eport:claude:acct-work:daily:2026-06-01")
+        expect(outputsByAccount.get("acct-side").sourceFacts.dataIdentity)
+          .toBe("eport:claude:acct-side:daily:2026-06-01")
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it("emits an account-bound empty state for an empty ePort Claude partition", async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+      try {
+        const ctx = makeProbeCtx()
+        ctx.nowIso = "2026-06-01T12:00:00.000Z"
+        ctx.host.fs.writeText("~/.claude/eport-accounts/acct-empty/projects/eport-cursor-proxy/.keep", "")
+        ctx.host.ccusage.query.mockImplementation((opts) => {
+          if (opts.homePath === "~/.claude/eport-accounts/acct-empty") return okUsage([])
+          return okUsage([])
+        })
+
+        const plugin = await loadPlugin()
+        const result = plugin.probe(ctx)
+        const output = result.providerAccountOutputs[0]
+
+        expect(result.providerAccountOutputs).toHaveLength(1)
+        expect(output.providerAccountDetections[0].identityValue).toBe("acct-empty")
+        expect(output.lines.find((line) => line.label === "Today").value).toContain("0 tokens")
+        expect(output.lines.find((line) => line.label === "Yesterday").value).toContain("0 tokens")
+        expect(output.sourceFacts.dataIdentity).toBe("eport:claude:acct-empty:daily:2026-06-01")
+        expect(output.sourceFacts.summary.tokensTotal).toBe(0)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it("surfaces unreadable ePort Claude partitions as account-bound error output", async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+      try {
+        const ctx = makeProbeCtx()
+        ctx.nowIso = "2026-06-01T12:00:00.000Z"
+        ctx.host.fs.writeText("~/.claude/eport-accounts/acct-bad/projects/eport-cursor-proxy/2026/06/01.jsonl", "{}\n")
+        ctx.host.ccusage.query.mockImplementation((opts) => {
+          if (opts.homePath === "~/.claude/eport-accounts/acct-bad") return { status: "runner_failed" }
+          return okUsage([])
+        })
+
+        const plugin = await loadPlugin()
+        const result = plugin.probe(ctx)
+        const output = result.providerAccountOutputs[0]
+
+        expect(output.providerAccountDetections[0].identityValue).toBe("acct-bad")
+        expect(output.lines).toEqual([
+          expect.objectContaining({
+            type: "badge",
+            label: "Status",
+            text: "Usage unavailable",
+          }),
+        ])
+        expect(output.sourceFacts.dataIdentity).toBe("eport:claude:acct-bad:daily:2026-06-01")
+        expect(output.sourceFacts.summary.provider.claude.eportPartitionStatus).toBe("runner_failed")
+        expect(output.rawPayload.tokenUsage.status).toBe("runner_failed")
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it("discovers ePort Claude partitions under CLAUDE_CONFIG_DIR", async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+      try {
+        const ctx = makeProbeCtx()
+        ctx.nowIso = "2026-06-01T12:00:00.000Z"
+        const configDir = "/tmp/claude-home"
+        ctx.host.env.get.mockImplementation((name) => (name === "CLAUDE_CONFIG_DIR" ? configDir : null))
+        ctx.host.fs.writeText("/tmp/claude-home/eport-accounts/acct-env/projects/eport-cursor-proxy/2026/06/01.jsonl", "{}\n")
+        ctx.host.ccusage.query.mockImplementation((opts) => {
+          if (opts.homePath === "/tmp/claude-home/eport-accounts/acct-env") {
+            return okUsage([{ date: "2026-06-01", totalTokens: 75, totalCost: 0.07 }])
+          }
+          return okUsage([{ date: "2026-06-01", totalTokens: 5, totalCost: 0.01 }])
+        })
+
+        const plugin = await loadPlugin()
+        const result = plugin.probe(ctx)
+
+        expect(ctx.host.ccusage.query.mock.calls.map((call) => call[0].homePath)).toEqual([
+          "/tmp/claude-home",
+          "/tmp/claude-home/eport-accounts/acct-env",
+        ])
+        expect(result.providerAccountOutputs).toHaveLength(1)
+        expect(result.providerAccountOutputs[0].providerAccountDetections[0].identityValue).toBe("acct-env")
+        expect(result.providerAccountOutputs[0].lines.find((line) => line.label === "Today").value)
+          .toContain("75 tokens")
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it("groups Claude token usage by the team reporting timezone at day boundary", async () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date("2026-02-20T04:30:00.000Z"))
