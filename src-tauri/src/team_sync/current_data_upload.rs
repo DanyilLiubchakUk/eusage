@@ -1,5 +1,8 @@
-use super::payload::build_provider_upload;
-use super::provider_accounts::shared_provider_account_for_label_update;
+use super::payload::{build_provider_account_output_upload, build_provider_upload};
+use super::provider_accounts::{
+    shared_provider_account_for_account_output_label_update,
+    shared_provider_account_for_label_update,
+};
 use super::settings::{connection_key, load_connection, valid_connection};
 use crate::local_http_api::cache::CachedPluginSnapshot;
 use serde::Serialize;
@@ -82,6 +85,44 @@ where
             should_start_worker: false,
         });
     };
+
+    let mut account_bound_queued = false;
+    let mut should_start_worker = false;
+    for account_output in &snapshot.provider_account_outputs {
+        let shared_account = match shared_provider_account_for_account_output_label_update(
+            app_data_dir,
+            &connection.team_fingerprint,
+            &snapshot.provider_id,
+            account_output,
+            local_account_fingerprint,
+            label,
+        ) {
+            Ok(account) => account,
+            Err(error) => {
+                log::debug!("current Provider Account upload skipped: {}", error);
+                continue;
+            }
+        };
+        let provider = build_provider_account_output_upload(&snapshot, account_output)
+            .attach_provider_account(
+                &shared_account.team_account_fingerprint,
+                &shared_account.label,
+            );
+        should_start_worker |= super::enqueue_provider_upload(
+            app_data_dir.to_path_buf(),
+            connection_key(&connection),
+            shared_account.local_account_fingerprint,
+            provider,
+        );
+        account_bound_queued = true;
+    }
+    if account_bound_queued {
+        return Ok(CurrentSharedProviderAccountEnqueue {
+            current_data_queued: true,
+            should_start_worker,
+        });
+    }
+
     let shared_account = match shared_provider_account_for_label_update(
         app_data_dir,
         &connection.team_fingerprint,

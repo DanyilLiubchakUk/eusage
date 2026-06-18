@@ -1,7 +1,9 @@
 use crate::local_http_api::cache::CachedPluginSnapshot;
-use crate::plugin_engine::runtime::{MetricLine, ProgressFormat, ProviderMetricSample};
+use crate::plugin_engine::runtime::{
+    MetricLine, ProgressFormat, ProviderAccountOutput, ProviderMetricSample,
+};
 use serde::Serialize;
-use serde_json::{Map, Value, json};
+use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 
 const GENERIC_PAYLOAD_VERSION: &str = "1.0.0";
@@ -122,6 +124,23 @@ pub(super) fn build_provider_upload(snapshot: &CachedPluginSnapshot) -> TeamUsag
         metric_families,
         metric_samples,
     }
+}
+
+pub(super) fn build_provider_account_output_upload(
+    snapshot: &CachedPluginSnapshot,
+    account_output: &ProviderAccountOutput,
+) -> TeamUsageProvider {
+    build_provider_upload(&CachedPluginSnapshot {
+        provider_id: snapshot.provider_id.clone(),
+        display_name: snapshot.display_name.clone(),
+        plan: snapshot.plan.clone(),
+        lines: account_output.lines.clone(),
+        provider_account_detections: account_output.provider_account_detections.clone(),
+        provider_account_outputs: Vec::new(),
+        source_facts: Some(account_output.source_facts.clone()),
+        raw_payload: account_output.raw_payload.clone(),
+        fetched_at: snapshot.fetched_at.clone(),
+    })
 }
 
 impl TeamUsageProvider {

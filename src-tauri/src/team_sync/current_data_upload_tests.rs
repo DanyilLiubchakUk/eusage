@@ -3,10 +3,14 @@ use crate::local_http_api::cache::CachedPluginSnapshot;
 use crate::plugin_engine::provider_account::{
     ProviderAccountIdentityConfidence, ProviderAccountIdentityKind,
 };
-use crate::plugin_engine::runtime::{MetricLine, ProgressFormat, ProviderAccountDetection};
+use crate::plugin_engine::runtime::{
+    MetricLine, ProgressFormat, ProviderAccountDetection, ProviderAccountOutput,
+    ProviderMetricSample, ProviderSourceFacts,
+};
 use serde_json::json;
 use serial_test::serial;
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::path::Path;
 
 fn reset_state() {
@@ -55,6 +59,77 @@ fn snapshot() -> CachedPluginSnapshot {
         source_facts: None,
         raw_payload: None,
         fetched_at: "2026-06-01T12:00:00Z".to_string(),
+    }
+}
+
+fn account_bound_snapshot() -> CachedPluginSnapshot {
+    let mut snapshot = snapshot();
+    snapshot.provider_account_detections = Vec::new();
+    snapshot.provider_account_outputs = vec![ProviderAccountOutput {
+        provider_account_detections: vec![detection()],
+        lines: vec![MetricLine::Progress {
+            label: "Today".to_string(),
+            used: 123.0,
+            limit: 123.0,
+            format: ProgressFormat::Count {
+                suffix: "tokens".to_string(),
+            },
+            resets_at: None,
+            period_duration_ms: None,
+            color: None,
+        }],
+        source_facts: account_bound_source_facts(),
+        raw_payload: Some(json!({
+            "eportPartition": { "providerAccountFingerprint": "acct-work" },
+            "accessToken": "secret-token",
+        })),
+    }];
+    snapshot
+}
+
+fn account_bound_source_facts() -> ProviderSourceFacts {
+    let mut extractor_version = BTreeMap::new();
+    extractor_version.insert("cursor".to_string(), "1.0.0".to_string());
+
+    ProviderSourceFacts {
+        period_start: Some(DateParse::millis("2026-06-01T00:00:00.000Z")),
+        period_end: Some(DateParse::millis("2026-06-02T00:00:00.000Z")),
+        period_key: Some("cursor:2026-06-01".to_string()),
+        data_identity: Some("eport:cursor:acct-work:daily:2026-06-01".to_string()),
+        summary: json!({
+            "tokensTotal": 123.0,
+            "provider": {
+                "cursor": {
+                    "todayTokens": 123.0,
+                    "eportAccountFingerprint": "acct-work",
+                },
+            },
+        }),
+        summary_version: "1.0.0".to_string(),
+        extractor_version,
+        metric_families: vec!["tokens".to_string()],
+        metric_samples: vec![ProviderMetricSample {
+            metric_key: "cursor.tokens.total".to_string(),
+            value: 123.0,
+            unit: "tokens".to_string(),
+            sample_day: "2026-06-01".to_string(),
+            source: "calculated".to_string(),
+            period_start: Some(DateParse::millis("2026-06-01T00:00:00.000Z")),
+            period_end: Some(DateParse::millis("2026-06-02T00:00:00.000Z")),
+            bucket: None,
+            coverage: None,
+        }],
+    }
+}
+
+struct DateParse;
+
+impl DateParse {
+    fn millis(value: &str) -> i64 {
+        time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339)
+            .unwrap()
+            .unix_timestamp_nanos()
+            .div_euclid(1_000_000) as i64
     }
 }
 
@@ -166,12 +241,49 @@ fn queues_current_cached_provider_data_for_shared_account() {
         upload["providerAccountFingerprint"].as_str().unwrap().len(),
         64
     );
-    assert!(
-        upload["dataIdentity"]
-            .as_str()
-            .unwrap()
-            .starts_with("provider-account:")
+    assert!(upload["dataIdentity"]
+        .as_str()
+        .unwrap()
+        .starts_with("provider-account:"));
+}
+
+#[test]
+#[serial]
+fn queues_current_cached_account_bound_data_for_shared_account() {
+    reset_state();
+    let dir = temp_dir("shared-account-bound");
+    let local_fingerprint = write_settings(&dir, true);
+
+    let enqueue = enqueue_current_shared_provider_account_data_with(
+        &dir,
+        "cursor",
+        &local_fingerprint,
+        "Cursor Work",
+        |_| Some(account_bound_snapshot()),
+    )
+    .unwrap();
+
+    assert_eq!(
+        enqueue,
+        CurrentSharedProviderAccountEnqueue {
+            current_data_queued: true,
+            should_start_worker: true,
+        }
     );
+    let state = super::super::team_sync_state().lock().unwrap();
+    assert_eq!(state.pending.len(), 1);
+    let pending = state.pending.values().next().unwrap();
+    assert_eq!(pending.local_account_fingerprint, local_fingerprint);
+    let upload = serde_json::to_value(&pending.upload).unwrap();
+    assert_eq!(upload["providerAccountLabel"], "Cursor Work");
+    assert_eq!(upload["summary"]["tokensTotal"], 123.0);
+    assert!(upload["dataIdentity"]
+        .as_str()
+        .unwrap()
+        .contains("eport:cursor:acct-work:daily:2026-06-01"));
+    assert!(!serde_json::to_string(&upload)
+        .unwrap()
+        .contains("secret-token"));
 }
 
 #[test]
@@ -197,13 +309,11 @@ fn missing_current_cached_provider_data_waits_for_next_probe() {
             should_start_worker: false,
         }
     );
-    assert!(
-        super::super::team_sync_state()
-            .lock()
-            .unwrap()
-            .pending
-            .is_empty()
-    );
+    assert!(super::super::team_sync_state()
+        .lock()
+        .unwrap()
+        .pending
+        .is_empty());
 }
 
 #[test]
@@ -229,13 +339,11 @@ fn unshared_account_does_not_queue_current_data() {
             should_start_worker: false,
         }
     );
-    assert!(
-        super::super::team_sync_state()
-            .lock()
-            .unwrap()
-            .pending
-            .is_empty()
-    );
+    assert!(super::super::team_sync_state()
+        .lock()
+        .unwrap()
+        .pending
+        .is_empty());
 }
 
 #[test]

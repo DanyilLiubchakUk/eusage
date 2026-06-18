@@ -1,5 +1,5 @@
 use crate::local_http_api::cache::CachedPluginSnapshot;
-use crate::plugin_engine::runtime::ProviderAccountDetection;
+use crate::plugin_engine::runtime::{ProviderAccountDetection, ProviderAccountOutput};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -22,6 +22,34 @@ pub(super) fn shared_provider_account_for_snapshot(
     team_fingerprint: &str,
     snapshot: &CachedPluginSnapshot,
 ) -> Option<SharedProviderAccount> {
+    shared_provider_account_for_detections(
+        app_data_dir,
+        team_fingerprint,
+        &snapshot.provider_id,
+        &snapshot.provider_account_detections,
+    )
+}
+
+pub(super) fn shared_provider_account_for_account_output(
+    app_data_dir: &Path,
+    team_fingerprint: &str,
+    provider_id: &str,
+    account_output: &ProviderAccountOutput,
+) -> Option<SharedProviderAccount> {
+    shared_provider_account_for_detections(
+        app_data_dir,
+        team_fingerprint,
+        provider_id,
+        &account_output.provider_account_detections,
+    )
+}
+
+fn shared_provider_account_for_detections(
+    app_data_dir: &Path,
+    team_fingerprint: &str,
+    provider_id: &str,
+    provider_account_detections: &[ProviderAccountDetection],
+) -> Option<SharedProviderAccount> {
     let settings = read_settings_value(app_data_dir)?;
     let local_salt = string_field(settings.get(LOCAL_SALT_KEY))?;
     let shared_fingerprints = shared_local_account_fingerprints(&settings, team_fingerprint);
@@ -33,10 +61,10 @@ pub(super) fn shared_provider_account_for_snapshot(
         return None;
     }
 
-    let mut matches = snapshot
-        .provider_account_detections
+    let provider_id = provider_id.trim();
+    let mut matches = provider_account_detections
         .iter()
-        .filter(|detection| detection.provider_id.trim() == snapshot.provider_id)
+        .filter(|detection| detection.provider_id.trim() == provider_id)
         .filter_map(|detection| {
             let local_fingerprint =
                 fingerprint_provider_account(detection, "local", local_salt.as_str())?;
@@ -44,11 +72,11 @@ pub(super) fn shared_provider_account_for_snapshot(
                 return None;
             }
             let label = shareable_accounts.get(&local_fingerprint)?.clone();
-            let team_fingerprint =
+            let team_account_fingerprint =
                 fingerprint_provider_account(detection, "team", team_fingerprint)?;
             Some(SharedProviderAccount {
                 local_account_fingerprint: local_fingerprint,
-                team_account_fingerprint: team_fingerprint,
+                team_account_fingerprint,
                 label,
             })
         })
@@ -65,7 +93,7 @@ pub(super) fn shared_provider_account_for_snapshot(
         _ => {
             log::warn!(
                 "team sync skipped {}: multiple shared provider accounts matched one snapshot",
-                snapshot.provider_id
+                provider_id
             );
             None
         }
@@ -76,6 +104,42 @@ pub(super) fn shared_provider_account_for_label_update(
     app_data_dir: &Path,
     team_fingerprint: &str,
     snapshot: &CachedPluginSnapshot,
+    local_account_fingerprint: &str,
+    label: &str,
+) -> Result<SharedProviderAccount, String> {
+    shared_provider_account_for_label_update_from_detections(
+        app_data_dir,
+        team_fingerprint,
+        &snapshot.provider_id,
+        &snapshot.provider_account_detections,
+        local_account_fingerprint,
+        label,
+    )
+}
+
+pub(super) fn shared_provider_account_for_account_output_label_update(
+    app_data_dir: &Path,
+    team_fingerprint: &str,
+    provider_id: &str,
+    account_output: &ProviderAccountOutput,
+    local_account_fingerprint: &str,
+    label: &str,
+) -> Result<SharedProviderAccount, String> {
+    shared_provider_account_for_label_update_from_detections(
+        app_data_dir,
+        team_fingerprint,
+        provider_id,
+        &account_output.provider_account_detections,
+        local_account_fingerprint,
+        label,
+    )
+}
+
+fn shared_provider_account_for_label_update_from_detections(
+    app_data_dir: &Path,
+    team_fingerprint: &str,
+    provider_id: &str,
+    provider_account_detections: &[ProviderAccountDetection],
     local_account_fingerprint: &str,
     label: &str,
 ) -> Result<SharedProviderAccount, String> {
@@ -101,21 +165,21 @@ pub(super) fn shared_provider_account_for_label_update(
         return Err("Provider Account is not shareable.".to_string());
     }
 
-    let mut matches = snapshot
-        .provider_account_detections
+    let provider_id = provider_id.trim();
+    let mut matches = provider_account_detections
         .iter()
-        .filter(|detection| detection.provider_id.trim() == snapshot.provider_id)
+        .filter(|detection| detection.provider_id.trim() == provider_id)
         .filter_map(|detection| {
             let local_fingerprint =
                 fingerprint_provider_account(detection, "local", local_salt.as_str())?;
             if local_fingerprint != local_account_fingerprint {
                 return None;
             }
-            let team_fingerprint =
+            let team_account_fingerprint =
                 fingerprint_provider_account(detection, "team", team_fingerprint)?;
             Some(SharedProviderAccount {
                 local_account_fingerprint: local_fingerprint,
-                team_account_fingerprint: team_fingerprint,
+                team_account_fingerprint,
                 label: label.to_string(),
             })
         })

@@ -6,18 +6,21 @@ mod provider_accounts;
 mod settings;
 
 #[cfg(test)]
+mod account_bound_upload_tests;
+#[cfg(test)]
 mod tests;
 
 use crate::local_http_api::cache::CachedPluginSnapshot;
-use client::{TeamUploadResult, send_usage_batch_http};
-use payload::{TeamUsageProvider, build_provider_upload};
+use client::{send_usage_batch_http, TeamUploadResult};
+use payload::{build_provider_account_output_upload, build_provider_upload, TeamUsageProvider};
 use provider_accounts::{
-    local_provider_account_is_shareable, shared_provider_account_for_snapshot,
+    local_provider_account_is_shareable, shared_provider_account_for_account_output,
+    shared_provider_account_for_snapshot,
 };
 use serde::Serialize;
 use settings::{
-    TeamConnectionSettings, clear_team_connection, connection_key, load_connection,
-    mark_connection_error, mark_connection_success, valid_connection,
+    clear_team_connection, connection_key, load_connection, mark_connection_error,
+    mark_connection_success, valid_connection, TeamConnectionSettings,
 };
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -25,7 +28,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 pub(crate) use current_data_upload::{
-    CurrentSharedProviderAccountUploadResult, upload_current_shared_provider_account_data,
+    upload_current_shared_provider_account_data, CurrentSharedProviderAccountUploadResult,
 };
 pub(crate) use provider_account_updates::update_shared_provider_account_label;
 
@@ -105,34 +108,61 @@ fn enqueue_snapshot_with_debounce(
     snapshot: &CachedPluginSnapshot,
     debounce: Duration,
 ) {
+    if enqueue_snapshot_uploads(app_data_dir, snapshot) {
+        std::thread::spawn(move || debounced_upload_worker(debounce));
+    }
+}
+
+fn enqueue_snapshot_uploads(app_data_dir: &Path, snapshot: &CachedPluginSnapshot) -> bool {
     let Some(connection) = load_connection(app_data_dir) else {
-        return;
+        return false;
     };
 
     if !valid_connection(&connection) {
         log::warn!("team sync disabled: saved Team connection is incomplete");
-        return;
+        return false;
     }
 
-    let Some(shared_account) =
+    let mut should_start_worker = false;
+
+    if let Some(shared_account) =
         shared_provider_account_for_snapshot(app_data_dir, &connection.team_fingerprint, snapshot)
-    else {
-        return;
-    };
-    let provider = build_provider_upload(snapshot).attach_provider_account(
-        &shared_account.team_account_fingerprint,
-        &shared_account.label,
-    );
-    let should_start_worker = enqueue_provider_upload(
-        app_data_dir.to_path_buf(),
-        connection_key(&connection),
-        shared_account.local_account_fingerprint,
-        provider,
-    );
-
-    if should_start_worker {
-        std::thread::spawn(move || debounced_upload_worker(debounce));
+    {
+        let provider = build_provider_upload(snapshot).attach_provider_account(
+            &shared_account.team_account_fingerprint,
+            &shared_account.label,
+        );
+        should_start_worker |= enqueue_provider_upload(
+            app_data_dir.to_path_buf(),
+            connection_key(&connection),
+            shared_account.local_account_fingerprint,
+            provider,
+        );
     }
+
+    for account_output in &snapshot.provider_account_outputs {
+        let Some(shared_account) = shared_provider_account_for_account_output(
+            app_data_dir,
+            &connection.team_fingerprint,
+            &snapshot.provider_id,
+            account_output,
+        ) else {
+            continue;
+        };
+        let provider = build_provider_account_output_upload(snapshot, account_output)
+            .attach_provider_account(
+                &shared_account.team_account_fingerprint,
+                &shared_account.label,
+            );
+        should_start_worker |= enqueue_provider_upload(
+            app_data_dir.to_path_buf(),
+            connection_key(&connection),
+            shared_account.local_account_fingerprint,
+            provider,
+        );
+    }
+
+    should_start_worker
 }
 
 fn enqueue_provider_upload(
