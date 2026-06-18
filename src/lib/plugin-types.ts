@@ -59,6 +59,7 @@ export type ProviderSourceFacts = {
 }
 
 export type ProviderAccountOutput = {
+  localAccountFingerprint?: string
   providerAccountDetections: [ProviderAccountDetectionCandidate]
   lines: MetricLine[]
   sourceFacts: ProviderSourceFacts

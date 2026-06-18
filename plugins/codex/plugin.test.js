@@ -952,6 +952,121 @@ describe("codex plugin", () => {
     }
   })
 
+  it("merges ePort Codex usage into native usage for the same account", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+    try {
+      const ctx = makeCtx()
+      ctx.nowIso = "2026-06-01T12:00:00.000Z"
+      writeFreshCodexAuth(ctx, { accountId: "native-account" })
+      mockCodexUsageResponse(ctx)
+      ctx.host.fs.writeText(
+        "~/.codex/eport-accounts/fp-native/eport/provider-account.json",
+        JSON.stringify({
+          version: 1,
+          provider: "codex",
+          providerAccountFingerprint: "fp-native",
+          providerAccountIdentity: {
+            identityKind: "providerAccountId",
+            identityValue: "native-account",
+            identityConfidence: "high",
+          },
+        })
+      )
+      ctx.host.fs.writeText("~/.codex/eport-accounts/fp-native/sessions/2026/06/01.jsonl", "{}\n")
+      ctx.host.ccusage.query.mockImplementation((opts) => {
+        if (opts.homePath === "~/.codex/eport-accounts/fp-native") {
+          return okTokenUsage([
+            {
+              date: "2026-06-01",
+              inputTokens: 40,
+              outputTokens: 60,
+              cachedInputTokens: 5,
+              totalTokens: 100,
+              costUSD: 0.1,
+            },
+          ])
+        }
+        return okTokenUsage([{ date: "2026-06-01", totalTokens: 25, costUSD: 0.02 }])
+      })
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+
+      expect(ctx.host.ccusage.query).toHaveBeenCalledTimes(2)
+      expect(result.providerAccountOutputs).toBeUndefined()
+      expect(result.providerAccountDetections).toEqual([
+        expect.objectContaining({
+          identityKind: "providerAccountId",
+          identityValue: "native-account",
+        }),
+      ])
+      expect(result.lines.find((line) => line.label === "Today").value)
+        .toContain("125 tokens")
+      expect(result.sourceFacts.summary.tokensTotal).toBe(125)
+      expect(result.sourceFacts.summary.estimatedCostUsd).toBe(0.12)
+      expect(result.sourceFacts.metricSamples).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            metricKey: "codex.tokens.total",
+            value: 125,
+          }),
+        ])
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("surfaces same-account ePort Codex read failures instead of merging them away", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+    try {
+      const ctx = makeCtx()
+      ctx.nowIso = "2026-06-01T12:00:00.000Z"
+      writeFreshCodexAuth(ctx, { accountId: "native-account" })
+      mockCodexUsageResponse(ctx)
+      ctx.host.fs.writeText(
+        "~/.codex/eport-accounts/fp-native/eport/provider-account.json",
+        JSON.stringify({
+          version: 1,
+          provider: "codex",
+          providerAccountFingerprint: "fp-native",
+          providerAccountIdentity: {
+            identityKind: "providerAccountId",
+            identityValue: "native-account",
+            identityConfidence: "high",
+          },
+        })
+      )
+      ctx.host.fs.writeText("~/.codex/eport-accounts/fp-native/sessions/2026/06/01.jsonl", "{}\n")
+      ctx.host.ccusage.query.mockImplementation((opts) => {
+        if (opts.homePath === "~/.codex/eport-accounts/fp-native") return { status: "runner_failed" }
+        return okTokenUsage([{ date: "2026-06-01", totalTokens: 25, costUSD: 0.02 }])
+      })
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+
+      expect(result.lines.find((line) => line.label === "Today").value)
+        .toContain("25 tokens")
+      expect(result.providerAccountOutputs).toHaveLength(1)
+      expect(result.providerAccountOutputs[0].providerAccountDetections[0].identityValue)
+        .toBe("native-account")
+      expect(result.providerAccountOutputs[0].lines).toEqual([
+        expect.objectContaining({
+          type: "badge",
+          label: "Status",
+          text: "Usage unavailable",
+        }),
+      ])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("emits an account-bound empty state for an empty ePort Codex partition", async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))

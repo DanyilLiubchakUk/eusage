@@ -1,7 +1,7 @@
 import { ProviderCard } from "@/components/provider-card"
 import { ProviderMetricLines } from "@/components/provider-metric-lines"
 import type { LocalProviderAccount } from "@/lib/provider-account-registry"
-import type { PluginDisplayState } from "@/lib/plugin-types"
+import type { MetricLine, PluginDisplayState } from "@/lib/plugin-types"
 import type { DisplayMode, ResetTimerDisplayMode, TimeFormatMode } from "@/lib/settings"
 
 interface ProviderDetailPageProps {
@@ -37,6 +37,22 @@ export function ProviderDetailPage({
       account.visibility === "visible"
   )
   const lines = plugin.data?.lines ?? []
+  const providerAccountOutputs = plugin.data?.providerAccountOutputs ?? []
+  const hasAccountBoundOutputs = providerAccountOutputs.length > 0
+  const accountBoundLines = new Map<string, typeof lines>()
+  for (const output of providerAccountOutputs) {
+    if (
+      output.localAccountFingerprint &&
+      !accountBoundLines.has(output.localAccountFingerprint)
+    ) {
+      accountBoundLines.set(output.localAccountFingerprint, output.lines)
+    }
+  }
+  const visibleAccountSections = hasAccountBoundOutputs
+    ? visibleProviderAccounts.filter((account) =>
+        accountBoundLines.has(account.localAccountFingerprint)
+      )
+    : visibleProviderAccounts
 
   const cardProps = {
     name: plugin.meta.name,
@@ -57,25 +73,49 @@ export function ProviderDetailPage({
     onResetTimerDisplayModeToggle,
   }
 
-  if (providerAccounts.length === 0) {
+  if (providerAccounts.length === 0 || !hasAccountBoundOutputs) {
     return <ProviderCard {...cardProps} />
   }
 
   return (
     <ProviderCard {...cardProps}>
       {({ now, refreshing }) =>
-        visibleProviderAccounts.length > 0 ? (
+        visibleAccountSections.length > 0 || hasAccountBoundOutputs ? (
           <div className="space-y-3">
-            {visibleProviderAccounts.map((account, index) => (
+            {hasAccountBoundOutputs && lines.length > 0 && (
+              <ProviderMetricLines
+                lines={lines}
+                displayMode={displayMode}
+                resetTimerDisplayMode={resetTimerDisplayMode}
+                timeFormatMode={timeFormatMode}
+                onResetTimerDisplayModeToggle={onResetTimerDisplayModeToggle}
+                now={now}
+                refreshing={refreshing}
+              />
+            )}
+            {visibleAccountSections.map((account, index) => (
               <section
                 key={account.localAccountFingerprint}
-                className={index === 0 ? "pt-1" : "border-t pt-3"}
+                className={
+                  index === 0 && !(hasAccountBoundOutputs && lines.length > 0)
+                    ? "pt-1"
+                    : "border-t pt-3"
+                }
               >
                 <h3 className="mb-2 truncate text-sm font-semibold">
                   {account.label}
                 </h3>
-                <ProviderMetricLines
-                  lines={lines}
+                <AccountMetricLines
+                  lines={
+                    hasAccountBoundOutputs
+                      ? accountBoundLines.get(account.localAccountFingerprint) ?? []
+                      : lines
+                  }
+                  emptyText={
+                    hasAccountBoundOutputs
+                      ? "No account-bound usage"
+                      : "No usage data"
+                  }
                   displayMode={displayMode}
                   resetTimerDisplayMode={resetTimerDisplayMode}
                   timeFormatMode={timeFormatMode}
@@ -85,6 +125,11 @@ export function ProviderDetailPage({
                 />
               </section>
             ))}
+            {visibleAccountSections.length === 0 && (
+              <div className="py-4 text-center text-sm text-muted-foreground">
+                No visible Provider Accounts
+              </div>
+            )}
           </div>
         ) : (
           <div className="py-4 text-center text-sm text-muted-foreground">
@@ -93,5 +138,41 @@ export function ProviderDetailPage({
         )
       }
     </ProviderCard>
+  )
+}
+
+type AccountMetricLinesProps = {
+  lines: MetricLine[]
+  emptyText: string
+  displayMode: DisplayMode
+  resetTimerDisplayMode: ResetTimerDisplayMode
+  timeFormatMode: TimeFormatMode
+  onResetTimerDisplayModeToggle?: () => void
+  now: number
+  refreshing: boolean
+}
+
+function AccountMetricLines({
+  lines,
+  emptyText,
+  displayMode,
+  resetTimerDisplayMode,
+  timeFormatMode,
+  onResetTimerDisplayModeToggle,
+  now,
+  refreshing,
+}: AccountMetricLinesProps) {
+  return lines.length > 0 ? (
+    <ProviderMetricLines
+      lines={lines}
+      displayMode={displayMode}
+      resetTimerDisplayMode={resetTimerDisplayMode}
+      timeFormatMode={timeFormatMode}
+      onResetTimerDisplayModeToggle={onResetTimerDisplayModeToggle}
+      now={now}
+      refreshing={refreshing}
+    />
+  ) : (
+    <div className="py-1 text-xs text-muted-foreground">{emptyText}</div>
   )
 }

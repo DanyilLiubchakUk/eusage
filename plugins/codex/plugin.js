@@ -420,13 +420,45 @@
       return ctx.host.fs.listDir(root)
         .map((name) => String(name || "").trim())
         .filter(Boolean)
-        .map((fingerprint) => ({
-          providerAccountFingerprint: fingerprint,
-          homePath: joinPath(root, fingerprint),
-        }))
+        .map((fingerprint) => {
+          const homePath = joinPath(root, fingerprint)
+          return {
+            providerAccountFingerprint: fingerprint,
+            providerAccountIdentity: readEportPartitionIdentity(ctx, homePath),
+            homePath,
+          }
+        })
     } catch (e) {
       ctx.host.log.warn("ePort Codex account partition discovery failed: " + String(e))
       return []
+    }
+  }
+
+  function readEportPartitionIdentity(ctx, homePath) {
+    if (!ctx.host.fs || typeof ctx.host.fs.exists !== "function" || typeof ctx.host.fs.readText !== "function") {
+      return null
+    }
+
+    const identityPath = joinPath(joinPath(homePath, "eport"), "provider-account.json")
+    try {
+      if (!ctx.host.fs.exists(identityPath)) return null
+      const parsed = JSON.parse(ctx.host.fs.readText(identityPath))
+      const identity = parsed && parsed.providerAccountIdentity
+      if (!identity || typeof identity !== "object") return null
+      const identityKind = String(identity.identityKind || "").trim()
+      const identityValue = String(identity.identityValue || "").trim()
+      const identityConfidence = String(identity.identityConfidence || "").trim() || "high"
+      if (identityKind !== "providerAccountId" || !identityValue) return null
+      return {
+        identityKind,
+        identityValue,
+        identityConfidence: identityConfidence === "medium" || identityConfidence === "low"
+          ? identityConfidence
+          : "high",
+      }
+    } catch (e) {
+      ctx.host.log.warn("ePort Codex account identity read failed: " + String(e))
+      return null
     }
   }
 
@@ -1052,6 +1084,16 @@
   }
 
   function eportPartitionDetection(partition) {
+    if (partition.providerAccountIdentity) {
+      return {
+        providerId: PROVIDER_ID,
+        providerName: PROVIDER_NAME,
+        identityKind: partition.providerAccountIdentity.identityKind,
+        identityValue: partition.providerAccountIdentity.identityValue,
+        identityConfidence: partition.providerAccountIdentity.identityConfidence,
+      }
+    }
+
     return {
       providerId: PROVIDER_ID,
       providerName: PROVIDER_NAME,
@@ -1065,6 +1107,7 @@
     return {
       eportPartition: {
         providerAccountFingerprint: partition.providerAccountFingerprint,
+        providerAccountIdentity: partition.providerAccountIdentity || null,
       },
       tokenUsage: tokenUsageResult.status === "ok"
         ? { status: "ok", daily: redactPayloadValue(tokenUsageResult.data.daily) }
@@ -1093,15 +1136,139 @@
     }
   }
 
-  function queryEportProviderAccountOutputs(ctx, timeZone) {
+  function sameProviderAccountDetection(left, right) {
+    if (!left || !right) return false
+    return (
+      left.providerId === right.providerId &&
+      left.identityKind === right.identityKind &&
+      String(left.identityValue || "").trim() === String(right.identityValue || "").trim()
+    )
+  }
+
+  function mergeTokenUsageResults(baseResult, nextResult) {
+    if (!nextResult || nextResult.status !== "ok") return baseResult
+    if (!baseResult || baseResult.status !== "ok") return nextResult
+    return {
+      status: "ok",
+      data: mergeTokenUsageData(baseResult.data, nextResult.data),
+    }
+  }
+
+  function mergeTokenUsageData(baseData, nextData) {
+    const dailyByDate = new Map()
+    const addDays = (daily) => {
+      for (let i = 0; i < daily.length; i++) {
+        const day = daily[i]
+        const date = day && day.date
+        if (!date) continue
+        dailyByDate.set(date, mergeTokenUsageDay(dailyByDate.get(date), day))
+      }
+    }
+
+    addDays((baseData && baseData.daily) || [])
+    addDays((nextData && nextData.daily) || [])
+
+    return {
+      ...(baseData || {}),
+      daily: Array.from(dailyByDate.values())
+        .sort((a, b) => String(a.date).localeCompare(String(b.date))),
+    }
+  }
+
+  function mergeTokenUsageDay(baseDay, nextDay) {
+    const merged = { ...(baseDay || {}), ...(nextDay || {}) }
+    const fields = [
+      "inputTokens",
+      "outputTokens",
+      "cachedInputTokens",
+      "cacheCreationInputTokens",
+      "cacheReadInputTokens",
+      "reasoningOutputTokens",
+      "totalTokens",
+    ]
+    for (let i = 0; i < fields.length; i++) {
+      const field = fields[i]
+      const total = numberOrZero(baseDay && baseDay[field]) + numberOrZero(nextDay && nextDay[field])
+      if (total > 0 || (baseDay && field in baseDay) || (nextDay && field in nextDay)) {
+        merged[field] = total
+      }
+    }
+
+    const cost = nullableNumber(baseDay && baseDay.costUSD)
+    const nextCost = nullableNumber(nextDay && nextDay.costUSD)
+    if (cost !== null || nextCost !== null) {
+      merged.costUSD = Math.round(((cost || 0) + (nextCost || 0)) * 1e9) / 1e9
+    }
+    merged.models = mergeModelUsageObjects(baseDay && baseDay.models, nextDay && nextDay.models)
+    merged.modelBreakdowns = mergeModelBreakdowns(
+      baseDay && baseDay.modelBreakdowns,
+      nextDay && nextDay.modelBreakdowns
+    )
+    return merged
+  }
+
+  function mergeModelUsageObjects(baseModels, nextModels) {
+    if (!baseModels && !nextModels) return undefined
+    const merged = {}
+    const addModels = (models) => {
+      if (!models || typeof models !== "object" || Array.isArray(models)) return
+      const names = Object.keys(models)
+      for (let i = 0; i < names.length; i++) {
+        const name = names[i]
+        merged[name] = mergeTokenUsageDay(merged[name], models[name])
+      }
+    }
+    addModels(baseModels)
+    addModels(nextModels)
+    return merged
+  }
+
+  function mergeModelBreakdowns(baseBreakdowns, nextBreakdowns) {
+    if (!Array.isArray(baseBreakdowns) && !Array.isArray(nextBreakdowns)) return undefined
+    const byName = new Map()
+    const addBreakdowns = (breakdowns) => {
+      if (!Array.isArray(breakdowns)) return
+      for (let i = 0; i < breakdowns.length; i++) {
+        const breakdown = breakdowns[i]
+        const name = String(
+          (breakdown && (breakdown.modelName || breakdown.name || breakdown.model)) || ""
+        ).trim()
+        if (!name) continue
+        byName.set(name, mergeTokenUsageDay(byName.get(name), breakdown))
+      }
+    }
+    addBreakdowns(baseBreakdowns)
+    addBreakdowns(nextBreakdowns)
+    return Array.from(byName.values())
+  }
+
+  function numberOrZero(value) {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : 0
+  }
+
+  function nullableNumber(value) {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : null
+  }
+
+  function queryEportProviderAccountOutputs(ctx, timeZone, nativeDetection, nativeTokenUsageResult) {
     const partitions = discoverEportAccountPartitions(ctx)
     const outputs = []
+    let mergedTokenUsageResult = nativeTokenUsageResult
     for (let i = 0; i < partitions.length; i++) {
       const partition = partitions[i]
       const tokenUsageResult = queryTokenUsage(ctx, timeZone, partition.homePath)
-      outputs.push(buildEportProviderAccountOutput(ctx, partition, tokenUsageResult, timeZone))
+      if (
+        tokenUsageResult.status === "ok" &&
+        sameProviderAccountDetection(eportPartitionDetection(partition), nativeDetection)
+      ) {
+        mergedTokenUsageResult = mergeTokenUsageResults(mergedTokenUsageResult, tokenUsageResult)
+      } else {
+        outputs.push(buildEportProviderAccountOutput(ctx, partition, tokenUsageResult, timeZone))
+      }
     }
-    return outputs
+    return { outputs, tokenUsageResult: mergedTokenUsageResult }
   }
 
   function probeWithAuthState(ctx, authState) {
@@ -1293,8 +1460,16 @@
       }
 
       const timeZone = reportingTimeZone(ctx)
-      const tokenUsageResult = queryTokenUsage(ctx, timeZone)
-      const providerAccountOutputs = queryEportProviderAccountOutputs(ctx, timeZone)
+      const nativeProviderAccountDetections = providerAccountDetections(auth)
+      const nativeTokenUsageResult = queryTokenUsage(ctx, timeZone)
+      const eportUsage = queryEportProviderAccountOutputs(
+        ctx,
+        timeZone,
+        nativeProviderAccountDetections[0],
+        nativeTokenUsageResult
+      )
+      const tokenUsageResult = eportUsage.tokenUsageResult
+      const providerAccountOutputs = eportUsage.outputs
       if (tokenUsageResult.status === "ok") {
         const tokenUsage = tokenUsageResult.data
         appendTokenUsageLines(lines, ctx, tokenUsage, timeZone)
@@ -1307,7 +1482,7 @@
       const output = {
         plan: plan,
         lines: lines,
-        providerAccountDetections: providerAccountDetections(auth),
+        providerAccountDetections: nativeProviderAccountDetections,
         sourceFacts: buildCodexSourceFacts(ctx, resp, data, tokenUsageResult),
         rawPayload: buildCodexRawPayload(resp, data, tokenUsageResult),
       }

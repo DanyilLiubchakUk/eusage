@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { PluginOutput } from "@/lib/plugin-types"
 import type { PluginState } from "@/hooks/app/types"
+import { fingerprintProviderAccount } from "@/lib/provider-account-fingerprint"
 import {
   getOrCreateProviderAccountLocalSalt,
   syncSavedProviderAccountRegistry,
@@ -106,7 +107,20 @@ export function useProbeState({
       })
 
       void syncProviderAccountsFromProbeOutput(output, errorMessage)
-        .then((didSync) => {
+        .then(({ didSync, output: syncedOutput }) => {
+          if (syncedOutput !== output) {
+            updatePluginStates((prev) => {
+              const existing = prev[output.providerId]
+              if (!existing || existing.data !== output) return prev
+              return {
+                ...prev,
+                [output.providerId]: {
+                  ...existing,
+                  data: syncedOutput,
+                },
+              }
+            })
+          }
           if (didSync) onProviderAccountRegistryChange?.()
         })
       onProbeResult?.()
@@ -127,14 +141,17 @@ export function useProbeState({
 async function syncProviderAccountsFromProbeOutput(
   output: PluginOutput,
   errorMessage: string | null
-): Promise<boolean> {
-  if (errorMessage) return false
+): Promise<{ didSync: boolean; output: PluginOutput }> {
+  if (errorMessage) return { didSync: false, output }
 
   try {
-    const candidates = output.providerAccountDetections ?? []
+    const candidates = getProviderAccountDetections(output)
     const localSalt = candidates.length > 0
       ? await getOrCreateProviderAccountLocalSalt()
       : ""
+    const syncedOutput = localSalt
+      ? await attachLocalAccountFingerprints(output, localSalt)
+      : output
     const result = await syncSavedProviderAccountRegistry({
       detectedAccounts: candidates.map((candidate) => ({
         ...candidate,
@@ -145,11 +162,56 @@ async function syncProviderAccountsFromProbeOutput(
     })
     if (!result.ok) {
       console.error("Failed to sync provider account registry:", result)
-      return false
+      return { didSync: false, output: syncedOutput }
     }
-    return true
+    return { didSync: true, output: syncedOutput }
   } catch (error) {
     console.error("Failed to sync provider account registry:", error)
-    return false
+    return { didSync: false, output }
   }
+}
+
+function getProviderAccountDetections(output: PluginOutput) {
+  return [
+    ...(output.providerAccountDetections ?? []),
+    ...(output.providerAccountOutputs ?? []).flatMap(
+      (accountOutput) => accountOutput.providerAccountDetections
+    ),
+  ]
+}
+
+async function attachLocalAccountFingerprints(
+  output: PluginOutput,
+  localSalt: string
+): Promise<PluginOutput> {
+  if (!output.providerAccountOutputs?.length) return output
+
+  let changed = false
+  const providerAccountOutputs = await Promise.all(
+    output.providerAccountOutputs.map(async (accountOutput) => {
+      const [detection] = accountOutput.providerAccountDetections
+      if (!detection) return accountOutput
+
+      const fingerprintResult = await fingerprintProviderAccount({
+        providerId: detection.providerId,
+        identityKind: detection.identityKind,
+        identityValue: detection.identityValue,
+        localSalt,
+      })
+      if (!fingerprintResult.ok) return accountOutput
+
+      const localAccountFingerprint = fingerprintResult.value.fingerprint
+      if (accountOutput.localAccountFingerprint === localAccountFingerprint) {
+        return accountOutput
+      }
+
+      changed = true
+      return {
+        ...accountOutput,
+        localAccountFingerprint,
+      }
+    })
+  )
+
+  return changed ? { ...output, providerAccountOutputs } : output
 }

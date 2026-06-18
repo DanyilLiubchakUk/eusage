@@ -7,7 +7,23 @@ const registryStore = vi.hoisted(() => ({
   syncSavedProviderAccountRegistry: vi.fn(),
 }))
 
+const providerAccountFingerprint = vi.hoisted(() => ({
+  fingerprintProviderAccount: vi.fn(),
+}))
+
 vi.mock("@/lib/provider-account-registry-store", () => registryStore)
+vi.mock("@/lib/provider-account-fingerprint", () => providerAccountFingerprint)
+
+function sourceFacts(fingerprint: string) {
+  return {
+    dataIdentity: `eport:codex:${fingerprint}:daily:2026-06-01`,
+    summary: {},
+    summaryVersion: "1.0.0",
+    extractorVersion: { codex: "1.0.0" },
+    metricFamilies: ["localConsumedUsage"],
+    metricSamples: [],
+  }
+}
 
 describe("useProbeState", () => {
   beforeEach(() => {
@@ -16,6 +32,15 @@ describe("useProbeState", () => {
       ok: true,
       value: { accounts: [] },
     })
+    providerAccountFingerprint.fingerprintProviderAccount.mockImplementation(
+      async (input: { identityValue: string }) => ({
+        ok: true,
+        value: {
+          scope: "local",
+          fingerprint: `local-${input.identityValue.trim()}`,
+        },
+      })
+    )
   })
 
   it("updates pluginStatesRef synchronously when marking plugins loading", () => {
@@ -77,6 +102,84 @@ describe("useProbeState", () => {
       detectedAt: expect.any(String),
     })
     expect(onProviderAccountRegistryChange).toHaveBeenCalledTimes(1)
+  })
+
+  it("syncs account-bound child detections and stores local child fingerprints", async () => {
+    const { result } = renderHook(() => useProbeState({}))
+
+    act(() => {
+      result.current.handleProbeResult({
+        providerId: "codex",
+        displayName: "Codex",
+        iconUrl: "codex.svg",
+        lines: [{ type: "text", label: "Native", value: "50" }],
+        providerAccountOutputs: [
+          {
+            providerAccountDetections: [
+              {
+                providerId: "codex",
+                providerName: "Codex",
+                identityKind: "providerAccountId",
+                identityValue: "work",
+                identityConfidence: "high",
+                label: "Work Codex",
+              },
+            ],
+            lines: [{ type: "text", label: "Tokens", value: "100" }],
+            sourceFacts: sourceFacts("work"),
+          },
+          {
+            providerAccountDetections: [
+              {
+                providerId: "codex",
+                providerName: "Codex",
+                identityKind: "providerAccountId",
+                identityValue: "side",
+                identityConfidence: "high",
+                label: "Side Codex",
+              },
+            ],
+            lines: [{ type: "text", label: "Tokens", value: "250" }],
+            sourceFacts: sourceFacts("side"),
+          },
+        ],
+      })
+    })
+
+    await waitFor(() => {
+      expect(registryStore.syncSavedProviderAccountRegistry).toHaveBeenCalled()
+    })
+    expect(registryStore.syncSavedProviderAccountRegistry).toHaveBeenCalledWith({
+      detectedAccounts: [
+        {
+          providerId: "codex",
+          providerName: "Codex",
+          identityKind: "providerAccountId",
+          identityValue: "work",
+          identityConfidence: "high",
+          label: "Work Codex",
+          localSalt: "local-salt-1",
+        },
+        {
+          providerId: "codex",
+          providerName: "Codex",
+          identityKind: "providerAccountId",
+          identityValue: "side",
+          identityConfidence: "high",
+          label: "Side Codex",
+          localSalt: "local-salt-1",
+        },
+      ],
+      scannedProviderIds: ["codex"],
+      detectedAt: expect.any(String),
+    })
+    await waitFor(() => {
+      expect(
+        result.current.pluginStates.codex.data?.providerAccountOutputs?.map(
+          (output) => output.localAccountFingerprint
+        )
+      ).toEqual(["local-work", "local-side"])
+    })
   })
 
   it("marks a successful scanned provider even when no accounts are detected", async () => {
