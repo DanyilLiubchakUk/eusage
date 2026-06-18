@@ -37,6 +37,29 @@ describe("codex plugin", () => {
     expect(result.lines.find((line) => line.label === "Session")).toBeTruthy()
   }
 
+  const writeFreshCodexAuth = (ctx, {
+    path = "~/.codex/auth.json",
+    accessToken = "token",
+    accountId,
+  } = {}) => {
+    const tokens = { access_token: accessToken }
+    if (accountId) tokens.account_id = accountId
+    ctx.host.fs.writeText(path, JSON.stringify({
+      tokens,
+      last_refresh: new Date().toISOString(),
+    }))
+  }
+
+  const mockCodexUsageResponse = (ctx, body = {}) => {
+    ctx.host.http.request.mockReturnValue({
+      status: 200,
+      headers: { "x-codex-primary-used-percent": "10" },
+      bodyText: JSON.stringify(body),
+    })
+  }
+
+  const okTokenUsage = (daily) => ({ status: "ok", data: { daily } })
+
   it("throws when auth missing", async () => {
     const ctx = makeCtx()
     const plugin = await loadPlugin()
@@ -801,6 +824,233 @@ describe("codex plugin", () => {
     expect(firstCall.homePath).toBe("/tmp/codex-home")
   })
 
+  it("keeps native Codex usage provider-level when no ePort partitions exist", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+    try {
+      const ctx = makeCtx()
+      ctx.nowIso = "2026-06-01T12:00:00.000Z"
+      writeFreshCodexAuth(ctx, { accountId: "native-account" })
+      mockCodexUsageResponse(ctx)
+      ctx.host.ccusage.query.mockReturnValue(okTokenUsage([
+        { date: "2026-06-01", totalTokens: 50, costUSD: 0.05 },
+      ]))
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+
+      expect(result.providerAccountOutputs).toBeUndefined()
+      expect(ctx.host.ccusage.query).toHaveBeenCalledTimes(1)
+      expect(ctx.host.ccusage.query.mock.calls[0][0]).toMatchObject({
+        provider: "codex",
+        since: "20260502",
+        timezone: "UTC",
+      })
+      expect(ctx.host.ccusage.query.mock.calls[0][0].homePath).toBeUndefined()
+      expect(result.providerAccountDetections).toEqual([
+        expect.objectContaining({
+          identityKind: "providerAccountId",
+          identityValue: "native-account",
+        }),
+      ])
+      expect(result.lines.find((line) => line.label === "Today").value).toContain("50 tokens")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("emits account-bound child outputs for multiple ePort Codex partitions", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+    try {
+      const ctx = makeCtx()
+      ctx.nowIso = "2026-06-01T12:00:00.000Z"
+      writeFreshCodexAuth(ctx, { accountId: "native-account" })
+      mockCodexUsageResponse(ctx)
+      ctx.host.fs.writeText("~/.codex/eport-accounts/acct-work/sessions/2026/06/01.jsonl", "{}\n")
+      ctx.host.fs.writeText("~/.codex/eport-accounts/acct-side/sessions/2026/06/01.jsonl", "{}\n")
+      ctx.host.ccusage.query.mockImplementation((opts) => {
+        if (opts.homePath === "~/.codex/eport-accounts/acct-work") {
+          return okTokenUsage([
+            {
+              date: "2026-06-01",
+              inputTokens: 40,
+              outputTokens: 60,
+              cachedInputTokens: 5,
+              totalTokens: 100,
+              costUSD: 0.1,
+            },
+          ])
+        }
+        if (opts.homePath === "~/.codex/eport-accounts/acct-side") {
+          return okTokenUsage([
+            {
+              date: "2026-06-01",
+              inputTokens: 100,
+              outputTokens: 150,
+              cachedInputTokens: 10,
+              totalTokens: 250,
+              costUSD: 0.25,
+            },
+          ])
+        }
+        return okTokenUsage([{ date: "2026-06-01", totalTokens: 25, costUSD: 0.02 }])
+      })
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+
+      expect(ctx.host.ccusage.query).toHaveBeenCalledTimes(3)
+      expect(ctx.host.ccusage.query.mock.calls.map((call) => call[0].homePath)).toEqual([
+        undefined,
+        "~/.codex/eport-accounts/acct-side",
+        "~/.codex/eport-accounts/acct-work",
+      ])
+      expect(result.lines.find((line) => line.label === "Today").value).toContain("25 tokens")
+      expect(result.providerAccountDetections).toEqual([
+        expect.objectContaining({ identityValue: "native-account" }),
+      ])
+
+      const outputsByAccount = new Map(
+        result.providerAccountOutputs.map((output) => [
+          output.providerAccountDetections[0].identityValue,
+          output,
+        ])
+      )
+      expect(outputsByAccount.size).toBe(2)
+      expect(outputsByAccount.get("acct-work").providerAccountDetections).toEqual([
+        {
+          providerId: "codex",
+          providerName: "Codex",
+          identityKind: "providerAccountId",
+          identityValue: "acct-work",
+          identityConfidence: "high",
+        },
+      ])
+      expect(outputsByAccount.get("acct-work").lines.find((line) => line.label === "Today").value)
+        .toContain("100 tokens")
+      expect(outputsByAccount.get("acct-side").lines.find((line) => line.label === "Today").value)
+        .toContain("250 tokens")
+      expect(outputsByAccount.get("acct-work").sourceFacts.dataIdentity)
+        .toBe("eport:codex:acct-work:daily:2026-06-01")
+      expect(outputsByAccount.get("acct-side").sourceFacts.dataIdentity)
+        .toBe("eport:codex:acct-side:daily:2026-06-01")
+      expect(outputsByAccount.get("acct-work").sourceFacts.metricSamples).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            metricKey: "codex.tokens.total",
+            value: 100,
+            source: "calculated",
+          }),
+        ])
+      )
+      expect(outputsByAccount.get("acct-side").sourceFacts.summary.tokensTotal).toBe(250)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("emits an account-bound empty state for an empty ePort Codex partition", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+    try {
+      const ctx = makeCtx()
+      ctx.nowIso = "2026-06-01T12:00:00.000Z"
+      writeFreshCodexAuth(ctx)
+      mockCodexUsageResponse(ctx)
+      ctx.host.fs.writeText("~/.codex/eport-accounts/acct-empty/.keep", "")
+      ctx.host.ccusage.query.mockImplementation((opts) => {
+        if (opts.homePath === "~/.codex/eport-accounts/acct-empty") return okTokenUsage([])
+        return okTokenUsage([])
+      })
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+      const output = result.providerAccountOutputs[0]
+
+      expect(result.providerAccountOutputs).toHaveLength(1)
+      expect(output.providerAccountDetections[0].identityValue).toBe("acct-empty")
+      expect(output.lines.find((line) => line.label === "Today").value).toContain("0 tokens")
+      expect(output.lines.find((line) => line.label === "Yesterday").value).toContain("0 tokens")
+      expect(output.sourceFacts.dataIdentity).toBe("eport:codex:acct-empty:daily:2026-06-01")
+      expect(output.sourceFacts.summary.tokensTotal).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("surfaces unreadable ePort Codex partitions as account-bound error output", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+    try {
+      const ctx = makeCtx()
+      ctx.nowIso = "2026-06-01T12:00:00.000Z"
+      writeFreshCodexAuth(ctx)
+      mockCodexUsageResponse(ctx)
+      ctx.host.fs.writeText("~/.codex/eport-accounts/acct-bad/sessions/2026/06/01.jsonl", "{}\n")
+      ctx.host.ccusage.query.mockImplementation((opts) => {
+        if (opts.homePath === "~/.codex/eport-accounts/acct-bad") return { status: "runner_failed" }
+        return okTokenUsage([])
+      })
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+      const output = result.providerAccountOutputs[0]
+
+      expect(output.providerAccountDetections[0].identityValue).toBe("acct-bad")
+      expect(output.lines).toEqual([
+        expect.objectContaining({
+          type: "badge",
+          label: "Status",
+          text: "Usage unavailable",
+        }),
+      ])
+      expect(output.sourceFacts.dataIdentity).toBe("eport:codex:acct-bad:daily:2026-06-01")
+      expect(output.sourceFacts.summary.provider.codex.eportPartitionStatus).toBe("runner_failed")
+      expect(output.rawPayload.tokenUsage.status).toBe("runner_failed")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("discovers ePort Codex partitions under CODEX_HOME", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+    try {
+      const ctx = makeCtx()
+      ctx.nowIso = "2026-06-01T12:00:00.000Z"
+      ctx.host.env.get.mockImplementation((name) => (name === "CODEX_HOME" ? "/tmp/codex-home" : null))
+      writeFreshCodexAuth(ctx, { path: "/tmp/codex-home/auth.json" })
+      mockCodexUsageResponse(ctx)
+      ctx.host.fs.writeText("/tmp/codex-home/eport-accounts/acct-env/sessions/2026/06/01.jsonl", "{}\n")
+      ctx.host.ccusage.query.mockImplementation((opts) => {
+        if (opts.homePath === "/tmp/codex-home/eport-accounts/acct-env") {
+          return okTokenUsage([{ date: "2026-06-01", totalTokens: 75, costUSD: 0.07 }])
+        }
+        return okTokenUsage([{ date: "2026-06-01", totalTokens: 5, costUSD: 0.01 }])
+      })
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+
+      expect(ctx.host.ccusage.query.mock.calls.map((call) => call[0].homePath)).toEqual([
+        "/tmp/codex-home",
+        "/tmp/codex-home/eport-accounts/acct-env",
+      ])
+      expect(result.providerAccountOutputs).toHaveLength(1)
+      expect(result.providerAccountOutputs[0].providerAccountDetections[0].identityValue).toBe("acct-env")
+      expect(result.providerAccountOutputs[0].lines.find((line) => line.label === "Today").value)
+        .toContain("75 tokens")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("queries ccusage on each probe", async () => {
     const ctx = makeCtx()
     ctx.host.fs.writeText("~/.codex/auth.json", JSON.stringify({
@@ -924,37 +1174,39 @@ describe("codex plugin", () => {
   })
 
   it("adds Yesterday line from codex ccusage format", async () => {
-    const ctx = makeCtx()
-    ctx.host.fs.writeText("~/.codex/auth.json", JSON.stringify({
-      tokens: { access_token: "token" },
-      last_refresh: new Date().toISOString(),
-    }))
-    ctx.host.http.request.mockReturnValue({
-      status: 200,
-      headers: { "x-codex-primary-used-percent": "10" },
-      bodyText: JSON.stringify({}),
-    })
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const month = yesterday.toLocaleString("en-US", { month: "short" })
-    const day = String(yesterday.getDate()).padStart(2, "0")
-    const year = yesterday.getFullYear()
-    const yesterdayKey = month + " " + day + ", " + year
-    ctx.host.ccusage.query.mockReturnValue({
-      status: "ok",
-      data: {
-        daily: [
-        { date: yesterdayKey, totalTokens: 220, costUSD: 1.1 },
-        ],
-      },
-    })
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
 
-    const plugin = await loadPlugin()
-    const result = plugin.probe(ctx)
-    const yesterdayLine = result.lines.find((l) => l.label === "Yesterday")
-    expect(yesterdayLine).toBeTruthy()
-    expect(yesterdayLine.value).toContain("220 tokens")
-    expect(yesterdayLine.value).toContain("$1.10")
+    try {
+      const ctx = makeCtx()
+      ctx.nowIso = "2026-06-01T12:00:00.000Z"
+      ctx.host.fs.writeText("~/.codex/auth.json", JSON.stringify({
+        tokens: { access_token: "token" },
+        last_refresh: new Date().toISOString(),
+      }))
+      ctx.host.http.request.mockReturnValue({
+        status: 200,
+        headers: { "x-codex-primary-used-percent": "10" },
+        bodyText: JSON.stringify({}),
+      })
+      ctx.host.ccusage.query.mockReturnValue({
+        status: "ok",
+        data: {
+          daily: [
+          { date: "May 31, 2026", totalTokens: 220, costUSD: 1.1 },
+          ],
+        },
+      })
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+      const yesterdayLine = result.lines.find((l) => l.label === "Yesterday")
+      expect(yesterdayLine).toBeTruthy()
+      expect(yesterdayLine.value).toContain("220 tokens")
+      expect(yesterdayLine.value).toContain("$1.10")
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("matches UTC timestamp day keys at month boundary (regression)", async () => {
