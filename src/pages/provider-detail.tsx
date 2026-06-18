@@ -73,18 +73,52 @@ export function ProviderDetailPage({
     onResetTimerDisplayModeToggle,
   }
 
-  if (providerAccounts.length === 0 || !hasAccountBoundOutputs) {
+  if (
+    providerAccounts.length === 0 ||
+    !hasAccountBoundOutputs ||
+    visibleAccountSections.length === 0
+  ) {
     return <ProviderCard {...cardProps} />
   }
 
   return (
     <ProviderCard {...cardProps}>
-      {({ now, refreshing }) =>
-        visibleAccountSections.length > 0 || hasAccountBoundOutputs ? (
-          <div className="space-y-3">
-            {hasAccountBoundOutputs && lines.length > 0 && (
-              <ProviderMetricLines
-                lines={lines}
+      {({ now, refreshing }) => (
+        <div className="space-y-3">
+          {hasAccountBoundOutputs && lines.length > 0 && (
+            <ProviderMetricLines
+              lines={lines}
+              displayMode={displayMode}
+              resetTimerDisplayMode={resetTimerDisplayMode}
+              timeFormatMode={timeFormatMode}
+              onResetTimerDisplayModeToggle={onResetTimerDisplayModeToggle}
+              now={now}
+              refreshing={refreshing}
+            />
+          )}
+          {visibleAccountSections.map((account, index) => (
+            <section
+              key={account.localAccountFingerprint}
+              className={
+                index === 0 && !(hasAccountBoundOutputs && lines.length > 0)
+                  ? "pt-1"
+                  : "border-t pt-3"
+              }
+            >
+              <h3 className="mb-2 truncate text-sm font-semibold">
+                {account.label}
+              </h3>
+              <AccountMetricLines
+                lines={
+                  hasAccountBoundOutputs
+                    ? accountBoundLines.get(account.localAccountFingerprint) ?? []
+                    : lines
+                }
+                emptyText={
+                  hasAccountBoundOutputs
+                    ? "No account-bound usage"
+                    : "No usage data"
+                }
                 displayMode={displayMode}
                 resetTimerDisplayMode={resetTimerDisplayMode}
                 timeFormatMode={timeFormatMode}
@@ -92,51 +126,10 @@ export function ProviderDetailPage({
                 now={now}
                 refreshing={refreshing}
               />
-            )}
-            {visibleAccountSections.map((account, index) => (
-              <section
-                key={account.localAccountFingerprint}
-                className={
-                  index === 0 && !(hasAccountBoundOutputs && lines.length > 0)
-                    ? "pt-1"
-                    : "border-t pt-3"
-                }
-              >
-                <h3 className="mb-2 truncate text-sm font-semibold">
-                  {account.label}
-                </h3>
-                <AccountMetricLines
-                  lines={
-                    hasAccountBoundOutputs
-                      ? accountBoundLines.get(account.localAccountFingerprint) ?? []
-                      : lines
-                  }
-                  emptyText={
-                    hasAccountBoundOutputs
-                      ? "No account-bound usage"
-                      : "No usage data"
-                  }
-                  displayMode={displayMode}
-                  resetTimerDisplayMode={resetTimerDisplayMode}
-                  timeFormatMode={timeFormatMode}
-                  onResetTimerDisplayModeToggle={onResetTimerDisplayModeToggle}
-                  now={now}
-                  refreshing={refreshing}
-                />
-              </section>
-            ))}
-            {visibleAccountSections.length === 0 && (
-              <div className="py-4 text-center text-sm text-muted-foreground">
-                No visible Provider Accounts
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="py-4 text-center text-sm text-muted-foreground">
-            No visible Provider Accounts
-          </div>
-        )
-      }
+            </section>
+          ))}
+        </div>
+      )}
     </ProviderCard>
   )
 }

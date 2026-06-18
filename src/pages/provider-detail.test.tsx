@@ -252,10 +252,43 @@ describe("ProviderDetailPage", () => {
     )
 
     expect(screen.getByText("Native tokens")).toBeInTheDocument()
-    expect(screen.getByText("No visible Provider Accounts")).toBeInTheDocument()
+    expect(screen.queryByText("No visible Provider Accounts")).not.toBeInTheDocument()
     expect(screen.queryByText("Hidden Alpha")).not.toBeInTheDocument()
     expect(screen.queryByText("Account tokens")).not.toBeInTheDocument()
     expect(screen.queryByText("900")).not.toBeInTheDocument()
+  })
+
+  it("does not show an account placeholder while account-bound rows are unmatched", () => {
+    render(
+      <ProviderDetailPage
+        displayMode="used"
+        resetTimerDisplayMode="relative"
+        plugin={plugin({
+          data: {
+            providerId: "a",
+            displayName: "Alpha",
+            iconUrl: "",
+            lines: [{ type: "text", label: "Native tokens", value: "50" }],
+            providerAccountOutputs: [
+              {
+                localAccountFingerprint: "fp-new",
+                providerAccountDetections: [providerAccountDetection("new")],
+                lines: [{ type: "text", label: "Account tokens", value: "100" }],
+                sourceFacts: sourceFacts("fp-new"),
+              },
+            ],
+          },
+        })}
+        providerAccounts={[
+          providerAccount({ label: "Work Alpha", localAccountFingerprint: "fp-work" }),
+        ]}
+      />
+    )
+
+    expect(screen.getByText("Native tokens")).toBeInTheDocument()
+    expect(screen.queryByText("No visible Provider Accounts")).not.toBeInTheDocument()
+    expect(screen.queryByText("Work Alpha")).not.toBeInTheDocument()
+    expect(screen.queryByText("Account tokens")).not.toBeInTheDocument()
   })
 
   it("shows an account-bound empty state instead of provider-level rows", () => {
