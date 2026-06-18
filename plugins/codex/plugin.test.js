@@ -1166,6 +1166,103 @@ describe("codex plugin", () => {
     }
   })
 
+  it("discovers and merges ePort Codex partitions under Windows CODEX_HOME", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+    try {
+      const ctx = makeCtx()
+      ctx.app.platform = "windows"
+      ctx.nowIso = "2026-06-01T12:00:00.000Z"
+      const codexHome = "C:\\Users\\dev\\.codex"
+      const partitionHome = `${codexHome}\\eport-accounts\\fp-native`
+      ctx.host.env.get.mockImplementation((name) => (name === "CODEX_HOME" ? codexHome : null))
+      writeFreshCodexAuth(ctx, { path: `${codexHome}\\auth.json`, accountId: "native-account" })
+      mockCodexUsageResponse(ctx)
+      ctx.host.fs.writeText(
+        `${partitionHome}\\eport\\provider-account.json`,
+        JSON.stringify({
+          version: 1,
+          provider: "codex",
+          providerAccountFingerprint: "fp-native",
+          providerAccountIdentity: {
+            identityKind: "providerAccountId",
+            identityValue: "native-account",
+            identityConfidence: "high",
+          },
+        })
+      )
+      ctx.host.fs.writeText(`${partitionHome}\\sessions\\2026\\06\\01.jsonl`, "{}\n")
+      ctx.host.ccusage.query.mockImplementation((opts) => {
+        if (opts.homePath === partitionHome) {
+          return okTokenUsage([{ date: "2026-06-01", totalTokens: 75, costUSD: 0.07 }])
+        }
+        return okTokenUsage([{ date: "2026-06-01", totalTokens: 5, costUSD: 0.01 }])
+      })
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+
+      expect(ctx.host.ccusage.query.mock.calls.map((call) => call[0].homePath)).toEqual([
+        codexHome,
+        partitionHome,
+      ])
+      expect(result.providerAccountOutputs).toBeUndefined()
+      expect(result.lines.find((line) => line.label === "Today").value)
+        .toContain("80 tokens")
+      expect(result.sourceFacts.summary.tokensTotal).toBe(80)
+      expect(result.sourceFacts.summary.estimatedCostUsd).toBe(0.08)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("uses the default Codex home for Windows ePort partition discovery", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"))
+
+    try {
+      const ctx = makeCtx()
+      ctx.app.platform = "windows"
+      ctx.nowIso = "2026-06-01T12:00:00.000Z"
+      writeFreshCodexAuth(ctx, { accountId: "native-account" })
+      mockCodexUsageResponse(ctx)
+      ctx.host.fs.writeText(
+        "~/.codex/eport-accounts/fp-side/eport/provider-account.json",
+        JSON.stringify({
+          version: 1,
+          provider: "codex",
+          providerAccountFingerprint: "fp-side",
+          providerAccountIdentity: {
+            identityKind: "providerAccountId",
+            identityValue: "side-account",
+            identityConfidence: "high",
+          },
+        })
+      )
+      ctx.host.fs.writeText("~/.codex/eport-accounts/fp-side/sessions/2026/06/01.jsonl", "{}\n")
+      ctx.host.ccusage.query.mockImplementation((opts) => {
+        if (opts.homePath === "~/.codex/eport-accounts/fp-side") {
+          return okTokenUsage([{ date: "2026-06-01", totalTokens: 75, costUSD: 0.07 }])
+        }
+        return okTokenUsage([{ date: "2026-06-01", totalTokens: 5, costUSD: 0.01 }])
+      })
+
+      const plugin = await loadPlugin()
+      const result = plugin.probe(ctx)
+
+      expect(ctx.host.ccusage.query.mock.calls.map((call) => call[0].homePath)).toEqual([
+        undefined,
+        "~/.codex/eport-accounts/fp-side",
+      ])
+      expect(result.providerAccountOutputs).toHaveLength(1)
+      expect(result.providerAccountOutputs[0].providerAccountDetections[0].identityValue)
+        .toBe("side-account")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("queries ccusage on each probe", async () => {
     const ctx = makeCtx()
     ctx.host.fs.writeText("~/.codex/auth.json", JSON.stringify({

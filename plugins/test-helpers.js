@@ -19,7 +19,8 @@ export const makeCtx = () => {
           if (files.has(path)) return true
           const base = String(path).replace(/\/+$/, "")
           for (const filePath of files.keys()) {
-            if (String(filePath).startsWith(base + "/")) return true
+            const full = String(filePath)
+            if (full.startsWith(base + "/") || full.startsWith(base + "\\")) return true
           }
           return false
         },
@@ -30,10 +31,15 @@ export const makeCtx = () => {
           const out = new Set()
           for (const filePath of files.keys()) {
             const full = String(filePath)
-            if (!full.startsWith(base + "/")) continue
-            const rest = full.slice(base.length + 1)
+            const prefix = full.startsWith(base + "/")
+              ? base + "/"
+              : full.startsWith(base + "\\")
+                ? base + "\\"
+                : null
+            if (!prefix) continue
+            const rest = full.slice(prefix.length)
             if (!rest) continue
-            const child = rest.split("/")[0]
+            const child = rest.split(/[\\/]/)[0]
             if (child) out.add(child)
           }
           return Array.from(out).sort()

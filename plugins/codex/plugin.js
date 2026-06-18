@@ -24,7 +24,9 @@
   const DEFAULT_REPORTING_TIME_ZONE = "UTC"
 
   function joinPath(base, leaf) {
-    return base.replace(/[\\/]+$/, "") + "/" + leaf
+    const text = String(base || "")
+    const separator = /^[a-zA-Z]:[\\/]/.test(text) || text.startsWith("\\\\") ? "\\" : "/"
+    return text.replace(/[\\/]+$/, "") + separator + leaf
   }
 
   function readCodexHome(ctx) {
