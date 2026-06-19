@@ -41,4 +41,26 @@ describe("admin form validation", () => {
       "End date must be on or after start date."
     )
   })
+
+  it("rejects custom ranges outside available data", async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(
+      <AdminDateRangeControls
+        value={{ preset: "custom", startDay: "2026-06-10", endDay: "2026-06-12" }}
+        bounds={{ minDay: "2026-06-01", maxDay: "2026-06-30" }}
+        onChange={onChange}
+      />
+    )
+
+    fireEvent.change(screen.getByLabelText("Custom start date"), {
+      target: { value: "2026-05-31" },
+    })
+    await user.click(screen.getByRole("button", { name: "Apply pending custom date range" }))
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Choose dates inside the available data range."
+    )
+  })
 })

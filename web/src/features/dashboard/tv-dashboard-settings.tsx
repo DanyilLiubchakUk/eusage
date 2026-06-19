@@ -310,7 +310,7 @@ function TvDisplayLinkPanel({ controls }: { controls: TvDisplayLinkControls }) {
         </label>
       ) : (
         <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm font-bold text-[#c0d0c7]">
-          Rotate to show a fresh link here.
+          {controls.link ? "Rotate to show a fresh link here." : "Create a read-only display link. Admin controls stay hidden, and the raw token is shown once."}
         </div>
       )}
       <div className="flex flex-wrap gap-2">

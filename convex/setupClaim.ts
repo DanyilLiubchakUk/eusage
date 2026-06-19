@@ -184,7 +184,7 @@ export async function claimFirstOwner(args: {
 
   const teamName = args.input.teamName.trim()
   if (!teamName) {
-    return setupError("team-name-required", "Team name is required.")
+    return setupError("team-name-required", "Organization name is required.")
   }
   if (teamName.length > SETUP_TEAM_NAME_MAX_LENGTH) {
     return setupError("team-name-too-long", "Use 80 characters or fewer.")

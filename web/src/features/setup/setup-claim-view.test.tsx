@@ -80,14 +80,14 @@ function renderClaimView(props: {
 }
 
 describe("SetupClaimView", () => {
-  it("submits team name and setup token for a signed-in user", async () => {
+  it("submits Organization name and setup token for a signed-in user", async () => {
     const user = userEvent.setup()
     const onClaim = vi.fn(async () => successResult)
 
     renderClaimView({ onClaim })
 
-    await user.clear(screen.getByLabelText("Team name"))
-    await user.type(screen.getByLabelText("Team name"), "Acme Team")
+    await user.clear(screen.getByLabelText("Organization name"))
+    await user.type(screen.getByLabelText("Organization name"), "Acme Team")
     await user.type(screen.getByLabelText("Setup token"), "correct")
     await user.click(screen.getByRole("button", { name: "Claim deployment" }))
 
@@ -129,11 +129,11 @@ describe("SetupClaimView", () => {
 
     renderClaimView({ onClaim })
 
-    await user.clear(screen.getByLabelText("Team name"))
+    await user.clear(screen.getByLabelText("Organization name"))
     await user.click(screen.getByRole("button", { name: "Claim deployment" }))
 
     expect(onClaim).not.toHaveBeenCalled()
-    expect(screen.getByText("Team name is required.")).toBeInTheDocument()
+    expect(screen.getByText("Organization name is required.")).toBeInTheDocument()
     expect(screen.getByText("Setup token is required.")).toBeInTheDocument()
   })
 
@@ -142,7 +142,7 @@ describe("SetupClaimView", () => {
 
     expect(screen.getByPlaceholderText("eLink Design")).toBeInTheDocument()
     expect(screen.getByPlaceholderText("Paste setup token")).toBeInTheDocument()
-    expect(screen.getByLabelText("Team name")).toHaveAttribute("maxlength", "80")
+    expect(screen.getByLabelText("Organization name")).toHaveAttribute("maxlength", "80")
     expect(screen.getByLabelText("Setup token")).toHaveAttribute("maxlength", "256")
   })
 

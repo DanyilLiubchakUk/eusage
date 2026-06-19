@@ -144,6 +144,30 @@ describe("active Organization scope", () => {
     })
   })
 
+  it("blocks invalid Organization role claims", async () => {
+    const identity = organizationScopeIdentityFromConvex({
+      subject: "user_beta_viewer",
+      org_id: "org_beta",
+      org_role: "org:viewer",
+    })
+
+    expect(identity).toMatchObject({
+      clerkOrganizationRole: null,
+    })
+
+    const result = await resolveActiveOrganizationManager({
+      identity,
+      store: scopeStore(),
+    })
+
+    expect(result).toMatchObject({
+      status: "role-not-authorized",
+      clerkOrganizationId: "org_beta",
+      role: null,
+      team: betaTeam,
+    })
+  })
+
   it("writes developers only to the active Organization team", async () => {
     const ownerState = await resolveActiveOrganizationManager({
       identity: {

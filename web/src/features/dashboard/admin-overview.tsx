@@ -44,6 +44,7 @@ export function AdminOverview({
   const estimatedCostPoints = model.estimatedCostSeries.points
   const usageDays = chartDays(tokenPoints, estimatedCostPoints)
   const providerRows = model.providerBreakdownRows
+  const needsFirstSyncGuide = state.developers.length === 0 || state.snapshots.length === 0
 
   return (
     <main className="mx-auto grid w-full max-w-6xl gap-5 px-6 py-8 pb-12 max-md:px-4">
@@ -61,6 +62,8 @@ export function AdminOverview({
           <p className="mt-2 text-sm font-semibold text-primary">{model.teamMetaLabel}</p>
         </div>
       </header>
+
+      {needsFirstSyncGuide ? <FirstSyncGuide /> : null}
 
       <section
         className="grid grid-cols-4 items-start gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1"
@@ -240,6 +243,28 @@ export function AdminOverview({
     </main>
   )
 }
+
+function FirstSyncGuide() {
+  return (
+    <Card role="region" aria-label="First sync guide">
+      <CardContent className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div className="grid gap-1">
+          <strong className="text-base text-foreground">No usage data yet</strong>
+          <p className="m-0 text-sm leading-6 text-muted-foreground">
+            Create a developer, copy the connection string, connect desktop, then the first sync fills Overview and TV.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 md:justify-end">
+          <a className={firstSyncLinkClass} href="/developers">Create developer</a>
+          <a className={firstSyncLinkClass} href="/developers">Connect desktop</a>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+const firstSyncLinkClass =
+  "inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
 
 type ChartPoint = {
   day: string

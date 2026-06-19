@@ -203,7 +203,7 @@ describe("claimFirstOwner", () => {
     expect(fake.owner).toBeNull()
   })
 
-  it("rejects an oversized team name without creating rows", async () => {
+  it("rejects an oversized Organization name without creating rows", async () => {
     const fake = createStore()
 
     const result = await claimFirstOwner({

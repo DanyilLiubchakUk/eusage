@@ -124,7 +124,7 @@ export function SetupClaimView({
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-1 rounded-lg bg-muted/35 p-4">
-                <span className="text-xs font-extrabold uppercase tracking-wide text-primary">Team</span>
+                <span className="text-xs font-extrabold uppercase tracking-wide text-primary">Organization</span>
                 <strong className="break-words text-base text-foreground">{state.team.name} is claimed.</strong>
               </div>
               <div className="grid gap-1 rounded-lg bg-muted/35 p-4">
@@ -154,7 +154,7 @@ export function SetupClaimView({
                   error={formErrors.teamName}
                   errorId="setup-team-name-error"
                   htmlFor="setup-team-name"
-                  label="Team name"
+                  label="Organization name"
                 >
                   <Input
                     id="setup-team-name"
@@ -253,7 +253,7 @@ function browserReportingTimeZone() {
 }
 
 const setupFormSchema = z.object({
-  teamName: z.string().trim().min(1, "Team name is required.").max(SETUP_TEAM_NAME_MAX_LENGTH, "Use 80 characters or fewer."),
+  teamName: z.string().trim().min(1, "Organization name is required.").max(SETUP_TEAM_NAME_MAX_LENGTH, "Use 80 characters or fewer."),
   setupToken: z.string().trim().min(1, "Setup token is required.").max(SETUP_TOKEN_MAX_LENGTH, "Use 256 characters or fewer."),
 })
 
