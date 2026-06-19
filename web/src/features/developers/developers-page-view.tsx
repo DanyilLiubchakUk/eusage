@@ -356,6 +356,14 @@ function pageCopy(state: DevelopersState) {
     return "Sign in to manage developer tokens."
   }
 
+  if (state.status === "organization-required") {
+    return "Select an Organization before managing developer tokens."
+  }
+
+  if (state.status === "organization-not-configured") {
+    return "Active Organization is not connected to setup."
+  }
+
   return "Setup is not complete."
 }
 

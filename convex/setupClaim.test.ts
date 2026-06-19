@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   claimFirstOwner,
   type NewSetupOwnerRecord,
+  type NewSetupOrganizationRecord,
   type NewSetupTeamRecord,
   type SetupClaimStore,
   type SetupOwnerRecord,
@@ -16,6 +17,7 @@ function createStore(seed?: {
   let owner = seed?.owner ?? null
   let nextTeamId = 1
   const createdOwners: NewSetupOwnerRecord[] = []
+  const createdOrganizations: NewSetupOrganizationRecord[] = []
 
   const store: SetupClaimStore = {
     getTeam: async () => team,
@@ -31,6 +33,9 @@ function createStore(seed?: {
       createdOwners.push(newOwner)
       owner = newOwner
     },
+    createOrganization: async (newOrganization: NewSetupOrganizationRecord) => {
+      createdOrganizations.push(newOrganization)
+    },
   }
 
   return {
@@ -43,6 +48,9 @@ function createStore(seed?: {
     },
     get createdOwners() {
       return createdOwners
+    },
+    get createdOrganizations() {
+      return createdOrganizations
     },
   }
 }
@@ -84,6 +92,34 @@ describe("claimFirstOwner", () => {
     expect(fake.team?.slug).toBe("acme-team")
     expect(fake.team?.reportingTimeZone).toBe("America/New_York")
     expect(fake.createdOwners).toHaveLength(1)
+  })
+
+  it("creates a durable Clerk Organization mapping when setup has an active Organization", async () => {
+    const fake = createStore()
+
+    const result = await claimFirstOwner({
+      input: {
+        teamName: "Acme Team",
+        setupToken: "correct",
+      },
+      identity: {
+        ...identity,
+        clerkOrganizationId: "org_acme",
+      },
+      expectedSetupToken: "correct",
+      now: 1780320000000,
+      store: fake.store,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(fake.createdOrganizations).toEqual([
+      {
+        clerkOrganizationId: "org_acme",
+        teamId: "team-1",
+        createdAt: 1780320000000,
+        updatedAt: 1780320000000,
+      },
+    ])
   })
 
   it("defaults the reporting timezone to UTC for old setup callers", async () => {

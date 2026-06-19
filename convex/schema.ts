@@ -10,6 +10,14 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_slug", ["slug"]),
+  organizations: defineTable({
+    clerkOrganizationId: v.string(),
+    teamId: v.id("teams"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_clerkOrganizationId", ["clerkOrganizationId"])
+    .index("by_teamId", ["teamId"]),
   admins: defineTable({
     teamId: v.id("teams"),
     clerkUserId: v.string(),

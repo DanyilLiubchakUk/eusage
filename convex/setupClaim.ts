@@ -63,6 +63,7 @@ export type SetupClaimResult =
 
 export type SetupClaimIdentity = {
   clerkUserId: string
+  clerkOrganizationId?: string | null
   email: string | null
   name: string | null
 }
@@ -89,6 +90,12 @@ export type SetupOwnerRecord = {
 
 export type NewSetupTeamRecord = Omit<SetupTeamRecord, "_id">
 export type NewSetupOwnerRecord = SetupOwnerRecord
+export type NewSetupOrganizationRecord = {
+  clerkOrganizationId: string
+  teamId: string
+  createdAt: number
+  updatedAt: number
+}
 export const SETUP_TEAM_NAME_MAX_LENGTH = 80
 
 export type SetupClaimStore = {
@@ -96,6 +103,7 @@ export type SetupClaimStore = {
   getOwner: () => Promise<SetupOwnerRecord | null>
   createTeam: (team: NewSetupTeamRecord) => Promise<SetupTeamRecord>
   createOwner: (owner: NewSetupOwnerRecord) => Promise<void>
+  createOrganization?: (organization: NewSetupOrganizationRecord) => Promise<void>
 }
 
 export type SetupClaimInput = {
@@ -216,6 +224,14 @@ export async function claimFirstOwner(args: {
   }
 
   await args.store.createOwner(owner)
+  if (args.identity.clerkOrganizationId && args.store.createOrganization) {
+    await args.store.createOrganization({
+      clerkOrganizationId: args.identity.clerkOrganizationId,
+      teamId: team._id,
+      createdAt: args.now,
+      updatedAt: args.now,
+    })
+  }
 
   return {
     ok: true,

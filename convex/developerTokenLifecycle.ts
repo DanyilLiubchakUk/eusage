@@ -13,6 +13,8 @@ import {
 
 export type DeveloperTokenLifecycleErrorCode =
   | "not-authenticated"
+  | "organization-required"
+  | "organization-not-configured"
   | "not-owner"
   | "setup-state-invalid"
   | "developer-not-found"

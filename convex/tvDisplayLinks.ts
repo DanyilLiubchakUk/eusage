@@ -1,8 +1,17 @@
 import { v } from "convex/values"
 import type { Id } from "./_generated/dataModel"
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
+import { mutation, query, type MutationCtx } from "./_generated/server"
 import { dashboardSourceRowsForTeam } from "./dashboardSourceRows"
+import {
+  getActiveOrganizationOwnerState,
+  type OrganizationScopeFailureStatus,
+} from "./organizationScope"
 import { fingerprintSecretHash, generateSecret, hashSecret } from "./tokenSecrets"
+
+type ReadyOrganizationOwnerState = Extract<
+  Awaited<ReturnType<typeof getActiveOrganizationOwnerState>>,
+  { status: "ready" }
+>
 
 export type TvDisplayLinkStatus = "active" | "revoked"
 
@@ -53,7 +62,12 @@ export type TvDisplayLinkResult =
   | {
       ok: false
       status: "error"
-      code: "not-authenticated" | "not-owner" | "setup-state-invalid"
+      code:
+        | "not-authenticated"
+        | "organization-required"
+        | "organization-not-configured"
+        | "not-owner"
+        | "setup-state-invalid"
       message: string
     }
 
@@ -68,7 +82,7 @@ export type PublicTvDisplayLink = {
 export const get = query({
   args: {},
   handler: async (ctx) => {
-    const ownerState = await getOwnerTeamState(ctx)
+    const ownerState = await getActiveOrganizationOwnerState(ctx)
     if (ownerState.status !== "ready") {
       return { status: ownerState.status, link: null }
     }
@@ -89,32 +103,44 @@ export const get = query({
 
 export const create = mutation({
   args: {},
-  handler: async (ctx) =>
-    createTvDisplayLinkCore({
-      identity: await getIdentity(ctx),
+  handler: async (ctx) => {
+    const ownerState = await getActiveOrganizationOwnerState(ctx)
+    if (ownerState.status !== "ready") return tvDisplayScopeError(ownerState.status)
+
+    return createTvDisplayLinkCore({
+      identity: { clerkUserId: ownerState.owner.clerkUserId },
       now: Date.now(),
-      store: convexTvDisplayLinkStore(ctx),
-    }),
+      store: convexTvDisplayLinkStore(ctx, ownerState),
+    })
+  },
 })
 
 export const rotate = mutation({
   args: {},
-  handler: async (ctx) =>
-    rotateTvDisplayLinkCore({
-      identity: await getIdentity(ctx),
+  handler: async (ctx) => {
+    const ownerState = await getActiveOrganizationOwnerState(ctx)
+    if (ownerState.status !== "ready") return tvDisplayScopeError(ownerState.status)
+
+    return rotateTvDisplayLinkCore({
+      identity: { clerkUserId: ownerState.owner.clerkUserId },
       now: Date.now(),
-      store: convexTvDisplayLinkStore(ctx),
-    }),
+      store: convexTvDisplayLinkStore(ctx, ownerState),
+    })
+  },
 })
 
 export const revoke = mutation({
   args: {},
-  handler: async (ctx) =>
-    revokeTvDisplayLinkCore({
-      identity: await getIdentity(ctx),
+  handler: async (ctx) => {
+    const ownerState = await getActiveOrganizationOwnerState(ctx)
+    if (ownerState.status !== "ready") return tvDisplayScopeError(ownerState.status)
+
+    return revokeTvDisplayLinkCore({
+      identity: { clerkUserId: ownerState.owner.clerkUserId },
       now: Date.now(),
-      store: convexTvDisplayLinkStore(ctx),
-    }),
+      store: convexTvDisplayLinkStore(ctx, ownerState),
+    })
+  },
 })
 
 export const displaySource = query({
@@ -292,10 +318,13 @@ async function authorizeOwner(
   return { ok: true, team }
 }
 
-function convexTvDisplayLinkStore(ctx: MutationCtx): TvDisplayLinkStore {
+function convexTvDisplayLinkStore(
+  ctx: MutationCtx,
+  ownerState: ReadyOrganizationOwnerState
+): TvDisplayLinkStore {
   return {
-    getTeam: async () => ctx.db.query("teams").first(),
-    getOwner: async () => ctx.db.query("admins").first(),
+    getTeam: async () => ownerState.team,
+    getOwner: async () => ownerState.owner,
     listActiveLinks: async (teamId) =>
       ctx.db
         .query("tvDisplayLinks")
@@ -316,23 +345,6 @@ function convexTvDisplayLinkStore(ctx: MutationCtx): TvDisplayLinkStore {
       await ctx.db.patch(linkId as Id<"tvDisplayLinks">, patch)
     },
   }
-}
-
-async function getOwnerTeamState(ctx: { auth: QueryCtx["auth"]; db: QueryCtx["db"] }) {
-  const identity = await ctx.auth.getUserIdentity()
-  if (!identity) return { status: "not-authenticated" as const }
-
-  const team = await ctx.db.query("teams").first()
-  const owner = await ctx.db.query("admins").first()
-  if (!team || !owner || owner.teamId !== team._id) return { status: "setup-state-invalid" as const }
-  if (owner.clerkUserId !== identity.subject) return { status: "not-owner" as const }
-
-  return { status: "ready" as const, team }
-}
-
-async function getIdentity(ctx: MutationCtx) {
-  const identity = await ctx.auth.getUserIdentity()
-  return identity ? { clerkUserId: identity.subject } : null
 }
 
 function publicTvDisplayLink(link: TvDisplayLinkRecord): PublicTvDisplayLink {
@@ -362,4 +374,26 @@ function createError(
     code,
     message,
   }
+}
+
+function tvDisplayScopeError(
+  status: OrganizationScopeFailureStatus
+): Extract<TvDisplayLinkResult, { ok: false }> {
+  if (status === "not-authenticated") {
+    return createError(status, "Sign in with Clerk before managing TV links.")
+  }
+  if (status === "organization-required") {
+    return createError(status, "Select a Clerk Organization before managing TV links.")
+  }
+  if (status === "organization-not-configured") {
+    return createError(status, "Active Organization is not connected to eUsage setup.")
+  }
+  if (status === "not-owner") {
+    return createError(status, "Only the setup owner can manage TV links.")
+  }
+
+  return createError(
+    "setup-state-invalid",
+    "Setup must be complete before managing TV links."
+  )
 }

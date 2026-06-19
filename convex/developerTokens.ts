@@ -83,6 +83,8 @@ export type CreateDeveloperInput = {
 
 export type CreateDeveloperErrorCode =
   | "not-authenticated"
+  | "organization-required"
+  | "organization-not-configured"
   | "not-owner"
   | "setup-state-invalid"
   | "developer-name-required"

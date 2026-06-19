@@ -14,35 +14,21 @@ import {
   isLocalSeedOrigin,
   seedLocalDashboardData,
 } from "./dashboardSeed"
+import { getActiveOrganizationOwnerState } from "./organizationScope"
 import { normalizeReportingTimeZone } from "./reportingTimeZone"
 
 export const sourceRows = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-
-    if (!identity) {
-      return unavailableDashboardSource("not-authenticated")
+    const ownerState = await getActiveOrganizationOwnerState(ctx)
+    if (ownerState.status !== "ready") {
+      return unavailableDashboardSource(
+        ownerState.status,
+        ownerState.team ?? undefined
+      )
     }
 
-    const team = await ctx.db.query("teams").first()
-    const owner = await ctx.db.query("admins").first()
-
-    if (!team || !owner || owner.teamId !== team._id) {
-      return unavailableDashboardSource("setup-state-invalid")
-    }
-
-    const publicTeam = {
-      name: team.name,
-      slug: team.slug,
-      reportingTimeZone: team.reportingTimeZone,
-    }
-
-    if (owner.clerkUserId !== identity.subject) {
-      return unavailableDashboardSource("not-owner", publicTeam)
-    }
-
-    return dashboardSourceRowsForTeam(ctx, team, { includeDeveloperTokens: true })
+    return dashboardSourceRowsForTeam(ctx, ownerState.team, { includeDeveloperTokens: true })
   },
 })
 
@@ -231,15 +217,70 @@ export const clearTeamData = mutation({
       usageSnapshots: 0,
     }
 
-    deleted.metricSamples = await deleteTeamRows(ctx, "metricSamples", ownerState.team._id)
-    deleted.usageSnapshots = await deleteTeamRows(ctx, "usageSnapshots", ownerState.team._id)
-    deleted.rawPayloads = await deleteTeamRows(ctx, "rawPayloads", ownerState.team._id)
-    deleted.syncErrors = await deleteTeamRows(ctx, "syncErrors", ownerState.team._id)
-    deleted.providerAccounts = await deleteTeamRows(ctx, "providerAccounts", ownerState.team._id)
-    deleted.devices = await deleteTeamRows(ctx, "devices", ownerState.team._id)
-    deleted.developerTokens = await deleteTeamRows(ctx, "developerTokens", ownerState.team._id)
-    deleted.providers = await deleteTeamRows(ctx, "providers", ownerState.team._id)
-    deleted.developers = await deleteTeamRows(ctx, "developers", ownerState.team._id)
+    const teamId = ownerState.team._id
+    deleted.metricSamples = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("metricSamples")
+        .withIndex("by_team_metric_day", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.usageSnapshots = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("usageSnapshots")
+        .withIndex("by_team_updatedAt", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.rawPayloads = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("rawPayloads")
+        .withIndex("by_team_provider_capturedAt", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.syncErrors = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("syncErrors")
+        .withIndex("by_team_createdAt", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.providerAccounts = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("providerAccounts")
+        .withIndex("by_team_account_fingerprint", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.devices = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("devices")
+        .withIndex("by_teamId_status", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.developerTokens = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("developerTokens")
+        .withIndex("by_teamId_status", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.providers = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("providers")
+        .withIndex("by_teamId_status", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.developers = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("developers")
+        .withIndex("by_teamId_status", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
 
     return {
       status: "ok" as const,
@@ -272,20 +313,15 @@ export const seedLocalMockData = mutation({
 })
 
 async function getOwnerTeamState(ctx: MutationCtx) {
-  const identity = await ctx.auth.getUserIdentity()
-  if (!identity) return { status: "not-authenticated" as const }
-
-  const team = await ctx.db.query("teams").first()
-  const owner = await ctx.db.query("admins").first()
-  if (!team || !owner || owner.teamId !== team._id) {
-    return { status: "setup-state-invalid" as const }
+  const ownerState = await getActiveOrganizationOwnerState(ctx)
+  if (ownerState.status !== "ready") {
+    return { status: ownerState.status }
   }
-  if (owner.clerkUserId !== identity.subject) return { status: "not-owner" as const }
 
-  return { status: "ready" as const, team: team as { _id: Id<"teams"> } }
+  return { status: "ready" as const, team: ownerState.team }
 }
 
-async function deleteTeamRows<
+async function deleteRows<
   TTable extends
     | "developers"
     | "developerTokens"
@@ -296,12 +332,10 @@ async function deleteTeamRows<
     | "rawPayloads"
     | "syncErrors"
     | "usageSnapshots",
->(ctx: MutationCtx, table: TTable, teamId: Id<"teams">) {
-  const rows = await ctx.db.query(table).collect()
+>(ctx: MutationCtx, rows: Array<{ _id: Id<TTable> }>) {
   let count = 0
 
   for (const row of rows) {
-    if (row.teamId !== teamId) continue
     await ctx.db.delete(row._id)
     count += 1
   }
