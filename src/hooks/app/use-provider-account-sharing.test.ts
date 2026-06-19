@@ -87,6 +87,36 @@ describe("useProviderAccountSharing", () => {
     })
   })
 
+  it("waits for Provider Accounts to load before pruning saved sharing", async () => {
+    store.loadProviderAccountSharingSettings.mockResolvedValue({
+      sharedLocalAccountFingerprints: ["fp-work"],
+    })
+
+    const { result, rerender } = renderHook(
+      ({ groups, providerAccountsLoaded }) =>
+        useProviderAccountSharing(groups, providerAccountsLoaded),
+      { initialProps: { groups: [], providerAccountsLoaded: false } }
+    )
+
+    expect(result.current.providerAccountSharingSettings).toEqual({
+      sharedLocalAccountFingerprints: [],
+    })
+    expect(store.loadProviderAccountSharingSettings).not.toHaveBeenCalled()
+    expect(store.saveProviderAccountSharingSettings).not.toHaveBeenCalled()
+
+    rerender({
+      groups: [providerGroup()],
+      providerAccountsLoaded: true,
+    })
+
+    await waitFor(() => {
+      expect(result.current.providerAccountSharingSettings).toEqual({
+        sharedLocalAccountFingerprints: ["fp-work"],
+      })
+    })
+    expect(store.saveProviderAccountSharingSettings).not.toHaveBeenCalled()
+  })
+
   it("syncs Team current data and metadata after saving a share-on toggle", async () => {
     const syncOrder: string[] = []
     store.saveProviderAccountSharingSettings.mockImplementation(async () => {

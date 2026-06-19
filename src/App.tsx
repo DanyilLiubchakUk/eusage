@@ -87,6 +87,7 @@ function App() {
 
   const {
     providerAccountRegistry,
+    providerAccountRegistryLoaded,
     providerAccountLabelSyncError,
     reloadProviderAccountRegistry,
     handleProviderAccountRename,
@@ -211,7 +212,7 @@ function App() {
     resetProviderAccountSharing,
     handleProviderAccountSharingChange,
     retryProviderAccountSharingSync,
-  } = useProviderAccountSharing(providerAccountGroups)
+  } = useProviderAccountSharing(providerAccountGroups, providerAccountRegistryLoaded)
   const [showProviderAccountSharingPrompt, setShowProviderAccountSharingPrompt] =
     useState(false)
 

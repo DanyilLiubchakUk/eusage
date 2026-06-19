@@ -18,12 +18,15 @@ import { updateSharedProviderAccountLabel } from "@/lib/provider-account-team-sy
 export function useProviderAccountSettings() {
   const [providerAccountRegistry, setProviderAccountRegistry] =
     useState<ProviderAccountRegistry>({ accounts: [] })
+  const [providerAccountRegistryLoaded, setProviderAccountRegistryLoaded] =
+    useState(false)
   const [providerAccountLabelSyncError, setProviderAccountLabelSyncError] =
     useState<string | null>(null)
 
   const reloadProviderAccountRegistry = useCallback(async () => {
     try {
       setProviderAccountRegistry(await loadProviderAccountRegistry())
+      setProviderAccountRegistryLoaded(true)
     } catch (error) {
       console.error("Failed to load provider account registry:", error)
     }
@@ -148,6 +151,7 @@ export function useProviderAccountSettings() {
 
   return {
     providerAccountRegistry,
+    providerAccountRegistryLoaded,
     providerAccountLabelSyncError,
     reloadProviderAccountRegistry,
     handleProviderAccountRename,

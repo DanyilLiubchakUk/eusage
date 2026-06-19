@@ -19,7 +19,10 @@ import {
 import type { LocalProviderAccount } from "@/lib/provider-account-registry"
 import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings"
 
-export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]) {
+export function useProviderAccountSharing(
+  groups: ProviderAccountSettingsGroup[],
+  providerAccountsLoaded = true
+) {
   const [providerAccountSharingSettings, setProviderAccountSharingSettings] =
     useState<ProviderAccountSharingSettings>({
       ...DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS,
@@ -40,6 +43,8 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
   )
 
   const reloadProviderAccountSharingSettings = useCallback(async () => {
+    if (!providerAccountsLoaded) return
+
     try {
       const loaded = await loadProviderAccountSharingSettings()
       const next = pruneProviderAccountSharing(loaded, shareableFingerprints)
@@ -52,13 +57,15 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
     } catch (error) {
       console.error("Failed to load provider account sharing settings:", error)
     }
-  }, [shareableFingerprints])
+  }, [providerAccountsLoaded, shareableFingerprints])
 
   useEffect(() => {
     void reloadProviderAccountSharingSettings()
   }, [reloadProviderAccountSharingSettings])
 
   useEffect(() => {
+    if (!providerAccountsLoaded) return
+
     setProviderAccountSharingSettings((current) => {
       const next = pruneProviderAccountSharing(current, shareableFingerprints)
       if (areProviderAccountSharingSettingsEqual(current, next)) return current
@@ -67,7 +74,7 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
       })
       return next
     })
-  }, [shareableFingerprints])
+  }, [providerAccountsLoaded, shareableFingerprints])
 
   const syncSharedProviderAccount = useCallback(async (account: LocalProviderAccount) => {
     const result = await syncSharedProviderAccountWithTeam(account)
