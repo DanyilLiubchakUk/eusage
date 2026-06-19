@@ -5,6 +5,7 @@ import {
   desktopApiOptions,
   getBearerToken,
   getBearerTokenHash,
+  getOptionalBearerTokenHash,
 } from "./http"
 import { hashDeveloperToken } from "../../../../convex/developerTokens"
 
@@ -12,14 +13,18 @@ describe("desktop API HTTP helpers", () => {
   it("builds safe public team config metadata", () => {
     const response = buildTeamConfigResponse({
       teamName: "Acme Team",
+      organizationName: "Acme Organization",
       reportingTimeZone: "America/New_York",
       teamFingerprint: "team-fingerprint",
+      organizationFingerprint: "organization-fingerprint",
     })
 
     expect(response).toMatchObject({
       teamName: "Acme Team",
+      organizationName: "Acme Organization",
       reportingTimeZone: "America/New_York",
       teamFingerprint: "team-fingerprint",
+      organizationFingerprint: "organization-fingerprint",
       apiVersion: "v1",
       endpoints: {
         teamConfig: "/api/v1/team-config",
@@ -44,6 +49,14 @@ describe("desktop API HTTP helpers", () => {
 
     expect(getBearerToken(headers)).toBe(rawToken)
     await expect(getBearerTokenHash(headers)).resolves.toEqual({
+      ok: true,
+      tokenHash: await hashDeveloperToken(rawToken),
+    })
+    await expect(getOptionalBearerTokenHash(new Headers())).resolves.toEqual({
+      ok: true,
+      tokenHash: null,
+    })
+    await expect(getOptionalBearerTokenHash(headers)).resolves.toEqual({
       ok: true,
       tokenHash: await hashDeveloperToken(rawToken),
     })

@@ -38,9 +38,12 @@ export {
 } from "./desktopApiCore"
 
 export const getTeamConfig = query({
-  args: {},
-  handler: async (ctx) =>
+  args: {
+    tokenHash: v.optional(v.string()),
+  },
+  handler: async (ctx, args) =>
     getPublicTeamConfig({
+      tokenHash: args.tokenHash,
       store: createQueryStore(ctx),
     }),
 })
@@ -124,7 +127,13 @@ type ProviderAccountMetadataResult =
 
 type ProviderAccountMetadataStore = Pick<
   DesktopApiStore,
-  "getTeam" | "getTokenByHash" | "getDeveloper" | "updateDeveloper" | "updateToken"
+  | "getTeam"
+  | "getTeamById"
+  | "getOrganizationByTeamId"
+  | "getTokenByHash"
+  | "getDeveloper"
+  | "updateDeveloper"
+  | "updateToken"
 > & {
   getProviderAccount: (
     account: Pick<
@@ -189,10 +198,29 @@ export async function updateProviderAccountMetadata(args: {
   }
 }
 
-function createQueryStore(ctx: QueryCtx): Pick<DesktopApiStore, "getTeam"> {
+function createQueryStore(
+  ctx: QueryCtx
+): Pick<
+  DesktopApiStore,
+  "getTeam" | "getTeamById" | "getOrganizationByTeamId" | "getTokenByHash" | "getDeveloper"
+> {
   return {
     getTeam: async () =>
       ctx.db.query("teams").first() as Promise<DeveloperTeamRecord | null>,
+    getTeamById: async (teamId) =>
+      ctx.db.get(teamId as Id<"teams">) as Promise<DeveloperTeamRecord | null>,
+    getOrganizationByTeamId: async (teamId) =>
+      ctx.db
+        .query("organizations")
+        .withIndex("by_teamId", (q) => q.eq("teamId", teamId as Id<"teams">))
+        .first(),
+    getTokenByHash: async (tokenHash) =>
+      ctx.db
+        .query("developerTokens")
+        .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
+        .first(),
+    getDeveloper: async (developerId) =>
+      ctx.db.get(developerId as Id<"developers">),
   }
 }
 
@@ -227,6 +255,13 @@ function createMutationStore(ctx: MutationCtx): DesktopApiStore {
   return {
     getTeam: async () =>
       ctx.db.query("teams").first() as Promise<DeveloperTeamRecord | null>,
+    getTeamById: async (teamId) =>
+      ctx.db.get(teamId as Id<"teams">) as Promise<DeveloperTeamRecord | null>,
+    getOrganizationByTeamId: async (teamId) =>
+      ctx.db
+        .query("organizations")
+        .withIndex("by_teamId", (q) => q.eq("teamId", teamId as Id<"teams">))
+        .first(),
     getTokenByHash: async (tokenHash) =>
       ctx.db
         .query("developerTokens")
@@ -234,10 +269,12 @@ function createMutationStore(ctx: MutationCtx): DesktopApiStore {
         .first(),
     getDeveloper: async (developerId) =>
       ctx.db.get(developerId as Id<"developers">),
-    getDeviceByDeviceId: async (deviceId) =>
+    getDeviceByTeamAndDeviceId: async (teamId, deviceId) =>
       ctx.db
         .query("devices")
-        .withIndex("by_deviceId", (q) => q.eq("deviceId", deviceId))
+        .withIndex("by_team_deviceId", (q) =>
+          q.eq("teamId", teamId as Id<"teams">).eq("deviceId", deviceId)
+        )
         .first(),
     createDevice: async (device) => {
       const id = await ctx.db.insert("devices", {

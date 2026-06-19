@@ -168,9 +168,11 @@ export type NewSyncErrorRecord = Omit<SyncErrorRecord, "_id">
 export type UsageIngestStore = Pick<
   DesktopApiStore,
   | "getTeam"
+  | "getTeamById"
+  | "getOrganizationByTeamId"
   | "getTokenByHash"
   | "getDeveloper"
-  | "getDeviceByDeviceId"
+  | "getDeviceByTeamAndDeviceId"
   | "updateDevice"
   | "updateDeveloper"
   | "updateToken"

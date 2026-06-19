@@ -1,13 +1,33 @@
 import {
   publicDeveloperRow,
   type DeveloperRecord,
-  type DeveloperTeamRecord,
   type DeveloperTokenRecord,
   type PublicDeveloperRow,
 } from "./developerTokens"
+import {
+  authenticateDesktopTokenHash,
+  desktopError,
+  publicDesktopTeamMetadata,
+  type DesktopApiAuthStore,
+  type DesktopApiError,
+  type PublicDesktopTeamMetadata,
+} from "./desktopApiAuth"
 import { displayDeviceName } from "./deviceNames"
-import { reportingTimeZoneOrDefault } from "./reportingTimeZone"
-import { hashSecret } from "./tokenSecrets"
+
+export {
+  authenticateDesktopTokenHash,
+  desktopError,
+  getPublicTeamConfig,
+  publicDesktopTeamMetadata,
+  teamFingerprint,
+  type DesktopApiAuthStore,
+  type DesktopApiError,
+  type DesktopApiErrorCode,
+  type DesktopAuthResult,
+  type DesktopOrganizationRecord,
+  type PublicDesktopTeamMetadata,
+  type PublicTeamConfigResult,
+} from "./desktopApiAuth"
 
 export const DEVICE_STALE_AFTER_MS = 72 * 60 * 60 * 1000
 
@@ -47,49 +67,6 @@ export type PublicDeveloperRowWithDevices = PublicDeveloperRow & {
   devices: PublicDeviceRow[]
 }
 
-export type PublicTeamConfigResult =
-  | {
-      ok: true
-      team: {
-        name: string
-        reportingTimeZone: string
-        teamFingerprint: string
-      }
-    }
-  | DesktopApiError
-
-export type DesktopApiErrorCode =
-  | "setup-state-invalid"
-  | "missing-bearer-auth"
-  | "invalid-token"
-  | "revoked-token"
-  | "inactive-developer"
-  | "invalid-json"
-  | "invalid-body"
-  | "upload-schema-version-required"
-  | "unsupported-upload-schema-version"
-  | "usage-providers-required"
-  | "device-id-required"
-  | "device-os-required"
-  | "device-app-version-required"
-  | "device-not-found"
-
-export type DesktopApiError = {
-  ok: false
-  status: "error"
-  code: DesktopApiErrorCode
-  message: string
-}
-
-type DesktopAuthResult =
-  | {
-      ok: true
-      team: DeveloperTeamRecord
-      developer: DeveloperRecord
-      token: DeveloperTokenRecord
-    }
-  | DesktopApiError
-
 export type DeviceCheckInInput = {
   tokenHash: string
   deviceId: string
@@ -108,10 +85,7 @@ export type DeviceCheckInResult =
       ok: true
       message: string
       developerId: string
-      team: {
-        reportingTimeZone: string
-        teamFingerprint: string
-      }
+      team: PublicDesktopTeamMetadata
       device: PublicDeviceRow
     }
   | DesktopApiError
@@ -121,19 +95,16 @@ export type DeviceDisconnectResult =
       ok: true
       message: string
       developerId: string
-      team: {
-        reportingTimeZone: string
-        teamFingerprint: string
-      }
+      team: PublicDesktopTeamMetadata
       device: PublicDeviceRow
     }
   | DesktopApiError
 
-export type DesktopApiStore = {
-  getTeam: () => Promise<DeveloperTeamRecord | null>
-  getTokenByHash: (tokenHash: string) => Promise<DeveloperTokenRecord | null>
-  getDeveloper: (developerId: string) => Promise<DeveloperRecord | null>
-  getDeviceByDeviceId: (deviceId: string) => Promise<DeviceRecord | null>
+export type DesktopApiStore = DesktopApiAuthStore & {
+  getDeviceByTeamAndDeviceId: (
+    teamId: string,
+    deviceId: string
+  ) => Promise<DeviceRecord | null>
   createDevice: (device: NewDeviceRecord) => Promise<DeviceRecord>
   updateDevice: (
     deviceRecordId: string,
@@ -161,62 +132,6 @@ export type DesktopApiStore = {
   ) => Promise<DeveloperTokenRecord>
 }
 
-export async function getPublicTeamConfig(args: {
-  store: Pick<DesktopApiStore, "getTeam">
-}): Promise<PublicTeamConfigResult> {
-  const team = await args.store.getTeam()
-  if (!team) {
-    return desktopError("setup-state-invalid", "Team setup is not complete.")
-  }
-
-  return {
-    ok: true,
-    team: {
-      name: team.name,
-      reportingTimeZone: reportingTimeZoneOrDefault(team.reportingTimeZone),
-      teamFingerprint: await teamFingerprint(team._id),
-    },
-  }
-}
-
-export async function authenticateDesktopTokenHash(args: {
-  tokenHash: string | null
-  store: Pick<DesktopApiStore, "getTeam" | "getTokenByHash" | "getDeveloper">
-}): Promise<DesktopAuthResult> {
-  const tokenHash = args.tokenHash?.trim()
-  if (!tokenHash) {
-    return desktopError(
-      "missing-bearer-auth",
-      "Authorization bearer token is required."
-    )
-  }
-
-  const team = await args.store.getTeam()
-  if (!team) {
-    return desktopError("setup-state-invalid", "Team setup is not complete.")
-  }
-
-  const token = await args.store.getTokenByHash(tokenHash)
-  if (!token || token.teamId !== team._id) {
-    return desktopError("invalid-token", "Developer token is invalid.")
-  }
-
-  if (token.status !== "active") {
-    return desktopError("revoked-token", "Developer token is revoked.")
-  }
-
-  const developer = await args.store.getDeveloper(token.developerId)
-  if (!developer || developer.teamId !== team._id) {
-    return desktopError("invalid-token", "Developer token is invalid.")
-  }
-
-  if (developer.status !== "active") {
-    return desktopError("inactive-developer", "Developer is inactive.")
-  }
-
-  return { ok: true, team, developer, token }
-}
-
 export async function checkInDevice(args: {
   input: DeviceCheckInInput
   now: number
@@ -231,7 +146,10 @@ export async function checkInDevice(args: {
   const deviceInput = normalizeCheckInInput(args.input)
   if (!deviceInput.ok) return deviceInput
 
-  const existingDevice = await args.store.getDeviceByDeviceId(deviceInput.deviceId)
+  const existingDevice = await args.store.getDeviceByTeamAndDeviceId(
+    auth.team._id,
+    deviceInput.deviceId
+  )
   const devicePatch = {
     developerId: auth.developer._id,
     deviceName: deviceInput.deviceName,
@@ -262,10 +180,7 @@ export async function checkInDevice(args: {
     ok: true,
     message: "Device checked in.",
     developerId: auth.developer._id,
-    team: {
-      reportingTimeZone: reportingTimeZoneOrDefault(auth.team.reportingTimeZone),
-      teamFingerprint: await teamFingerprint(auth.team._id),
-    },
+    team: await publicDesktopTeamMetadata(auth.team),
     device: publicDeviceRow(device, args.now),
   }
 }
@@ -286,8 +201,8 @@ export async function disconnectDevice(args: {
     return desktopError("device-id-required", "Device ID is required.")
   }
 
-  const device = await args.store.getDeviceByDeviceId(deviceId)
-  if (!device || device.teamId !== auth.team._id) {
+  const device = await args.store.getDeviceByTeamAndDeviceId(auth.team._id, deviceId)
+  if (!device) {
     return desktopError("device-not-found", "Device was not found.")
   }
 
@@ -301,16 +216,9 @@ export async function disconnectDevice(args: {
     ok: true,
     message: "Device disconnected.",
     developerId: auth.developer._id,
-    team: {
-      reportingTimeZone: reportingTimeZoneOrDefault(auth.team.reportingTimeZone),
-      teamFingerprint: await teamFingerprint(auth.team._id),
-    },
+    team: await publicDesktopTeamMetadata(auth.team),
     device: publicDeviceRow(updatedDevice, args.now),
   }
-}
-
-async function teamFingerprint(teamId: string) {
-  return hashSecret(["eusage-team-fingerprint:v1", teamId].join("\0"))
 }
 
 export function publicDeviceRow(device: DeviceRecord, now: number): PublicDeviceRow {
@@ -378,13 +286,4 @@ function normalizeCheckInInput(input: DeviceCheckInInput) {
 function trimRequired(value: string | undefined) {
   const trimmed = value?.trim()
   return trimmed ? trimmed : null
-}
-
-function desktopError(code: DesktopApiErrorCode, message: string): DesktopApiError {
-  return {
-    ok: false,
-    status: "error",
-    code,
-    message,
-  }
 }

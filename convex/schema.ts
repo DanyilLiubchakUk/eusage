@@ -77,6 +77,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_deviceId", ["deviceId"])
+    .index("by_team_deviceId", ["teamId", "deviceId"])
     .index("by_developerId_status", ["developerId", "status"])
     .index("by_teamId_status", ["teamId", "status"])
     .index("by_lastSeenAt", ["lastSeenAt"]),

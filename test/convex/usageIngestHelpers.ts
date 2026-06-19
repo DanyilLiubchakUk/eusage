@@ -30,6 +30,13 @@ export async function createUsageIngestTestStore() {
     name: "Acme Team",
     slug: "acme-team",
   }
+  const teams = [team]
+  const organizations = [
+    {
+      clerkOrganizationId: "org-acme",
+      teamId: "team-1",
+    },
+  ]
   const developers: DeveloperRecord[] = [
     {
       _id: "developer-1",
@@ -75,12 +82,16 @@ export async function createUsageIngestTestStore() {
 
   const store: UsageIngestStore = {
     getTeam: async () => team,
+    getTeamById: async (teamId) =>
+      teams.find((candidate) => candidate._id === teamId) ?? null,
+    getOrganizationByTeamId: async (teamId) =>
+      organizations.find((organization) => organization.teamId === teamId) ?? null,
     getTokenByHash: async (hash) =>
       tokens.find((token) => token.tokenHash === hash) ?? null,
     getDeveloper: async (developerId) =>
       developers.find((developer) => developer._id === developerId) ?? null,
-    getDeviceByDeviceId: async (deviceId) =>
-      devices.find((device) => device.deviceId === deviceId) ?? null,
+    getDeviceByTeamAndDeviceId: async (teamId, deviceId) =>
+      devices.find((device) => device.teamId === teamId && device.deviceId === deviceId) ?? null,
     updateDevice: async (deviceRecordId, patch) => {
       const device = devices.find((row) => row._id === deviceRecordId)
       if (!device) throw new Error("Missing device in fake store.")

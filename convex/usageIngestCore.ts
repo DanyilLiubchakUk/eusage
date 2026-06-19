@@ -25,8 +25,11 @@ export async function ingestUsageBatch(args: {
   const batch = normalizeBatch(args.input.batch)
   if (!batch.ok) return batch
 
-  const device = await args.store.getDeviceByDeviceId(batch.deviceId)
-  if (!device || device.teamId !== auth.team._id) {
+  const device = await args.store.getDeviceByTeamAndDeviceId(
+    auth.team._id,
+    batch.deviceId
+  )
+  if (!device) {
     return {
       ok: false,
       status: "error",
