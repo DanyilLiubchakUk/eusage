@@ -6,7 +6,12 @@ This fork is not the official OpenUsage project. Original source code is MIT lic
 
 ## Product Direction
 
-eUsage is open source and self-deployed per team.
+eUsage is moving toward a hosted SaaS product for many organizations.
+The new direction keeps Clerk for auth, Convex for data, the desktop app for local usage collection, and the existing Overview/Developers/TV surfaces for the first admin experience.
+See `docs/prd/eusage-saas-organization-platform.md`.
+
+The older v1 notes below describe the current baseline and implementation history.
+They are not the final SaaS target.
 
 v1 implementation order:
 
