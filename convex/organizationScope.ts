@@ -4,7 +4,11 @@ import type { MutationCtx, QueryCtx } from "./_generated/server"
 export type OrganizationScopeIdentity = {
   clerkUserId: string
   clerkOrganizationId: string | null
+  clerkOrganizationRole: OrganizationRole | null
 }
+
+export type OrganizationRole = "owner" | "admin" | "developer"
+export type OrganizationManagerRole = Extract<OrganizationRole, "owner" | "admin">
 
 export type OrganizationMappingRecord<TTeamId extends string = string> = {
   clerkOrganizationId: string
@@ -38,13 +42,25 @@ export type OrganizationScopeStore<
   getOwner: (teamId: TTeamId) => Promise<TOwner | null>
 }
 
-export type ActiveOrganizationOwnerState<
+export type ActiveOrganizationManagerState<
   TTeamId extends string = string,
   TTeam extends OrganizationTeamRecord<TTeamId> = OrganizationTeamRecord<TTeamId>,
   TOwner extends OrganizationOwnerRecord<TTeamId> = OrganizationOwnerRecord<TTeamId>,
 > =
-  | { status: "ready"; clerkOrganizationId: string; team: TTeam; owner: TOwner }
-  | { status: "not-owner"; clerkOrganizationId: string; team: TTeam }
+  | {
+      status: "ready"
+      clerkUserId: string
+      clerkOrganizationId: string
+      role: OrganizationManagerRole
+      team: TTeam
+      owner: TOwner
+    }
+  | {
+      status: "role-not-authorized"
+      clerkOrganizationId: string
+      role: OrganizationRole | null
+      team: TTeam
+    }
   | {
       status:
         | "not-authenticated"
@@ -56,7 +72,7 @@ export type ActiveOrganizationOwnerState<
     }
 
 export type OrganizationScopeFailureStatus = Exclude<
-  ActiveOrganizationOwnerState["status"],
+  ActiveOrganizationManagerState["status"],
   "ready"
 >
 
@@ -64,7 +80,22 @@ export function clerkOrganizationIdFromIdentity(
   identity: { [key: string]: unknown } | null
 ) {
   const orgId = identity?.org_id
-  return typeof orgId === "string" && orgId.trim() ? orgId.trim() : null
+  if (typeof orgId === "string" && orgId.trim()) return orgId.trim()
+
+  const organization = objectClaim(identity?.o)
+  const v2OrgId = organization?.id
+  return typeof v2OrgId === "string" && v2OrgId.trim() ? v2OrgId.trim() : null
+}
+
+export function clerkOrganizationRoleFromIdentity(
+  identity: { [key: string]: unknown } | null
+) {
+  const orgRole = identity?.org_role
+  if (typeof orgRole === "string") return normalizeOrganizationRole(orgRole)
+
+  const organization = objectClaim(identity?.o)
+  const v2Role = organization?.rol
+  return typeof v2Role === "string" ? normalizeOrganizationRole(v2Role) : null
 }
 
 export function organizationScopeIdentityFromConvex(
@@ -75,17 +106,24 @@ export function organizationScopeIdentityFromConvex(
   return {
     clerkUserId: identity.subject,
     clerkOrganizationId: clerkOrganizationIdFromIdentity(identity),
+    clerkOrganizationRole: clerkOrganizationRoleFromIdentity(identity),
   }
 }
 
-export async function resolveActiveOrganizationOwner<
+export function isOrganizationManagerRole(
+  role: OrganizationRole | null | undefined
+): role is OrganizationManagerRole {
+  return role === "owner" || role === "admin"
+}
+
+export async function resolveActiveOrganizationManager<
   TTeamId extends string,
   TTeam extends OrganizationTeamRecord<TTeamId>,
   TOwner extends OrganizationOwnerRecord<TTeamId>,
 >(args: {
   identity: OrganizationScopeIdentity | null
   store: OrganizationScopeStore<TTeamId, TTeam, TOwner>
-}): Promise<ActiveOrganizationOwnerState<TTeamId, TTeam, TOwner>> {
+}): Promise<ActiveOrganizationManagerState<TTeamId, TTeam, TOwner>> {
   if (!args.identity) {
     return { status: "not-authenticated", clerkOrganizationId: null, team: null }
   }
@@ -106,24 +144,31 @@ export async function resolveActiveOrganizationOwner<
     return { status: "setup-state-invalid", clerkOrganizationId, team: null }
   }
 
-  if (owner.clerkUserId !== args.identity.clerkUserId) {
-    return { status: "not-owner", clerkOrganizationId, team }
+  if (!isOrganizationManagerRole(args.identity.clerkOrganizationRole)) {
+    return {
+      status: "role-not-authorized",
+      clerkOrganizationId,
+      role: args.identity.clerkOrganizationRole,
+      team,
+    }
   }
 
   return {
     status: "ready",
+    clerkUserId: args.identity.clerkUserId,
     clerkOrganizationId,
+    role: args.identity.clerkOrganizationRole,
     team,
     owner,
   }
 }
 
-export async function getActiveOrganizationOwnerState(ctx: QueryCtx | MutationCtx) {
+export async function getActiveOrganizationManagerState(ctx: QueryCtx | MutationCtx) {
   const identity = organizationScopeIdentityFromConvex(
     await ctx.auth.getUserIdentity()
   )
 
-  return resolveActiveOrganizationOwner<Id<"teams">, Doc<"teams">, Doc<"admins">>({
+  return resolveActiveOrganizationManager<Id<"teams">, Doc<"teams">, Doc<"admins">>({
     identity,
     store: {
       getOrganization: async (clerkOrganizationId) =>
@@ -141,4 +186,17 @@ export async function getActiveOrganizationOwnerState(ctx: QueryCtx | MutationCt
           .first(),
     },
   })
+}
+
+function normalizeOrganizationRole(role: string): OrganizationRole | null {
+  const normalized = role.trim().toLowerCase().replace(/^org:/, "")
+  if (normalized === "owner" || normalized === "admin") return normalized
+  if (normalized === "developer" || normalized === "member") return "developer"
+  return null
+}
+
+function objectClaim(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
 }

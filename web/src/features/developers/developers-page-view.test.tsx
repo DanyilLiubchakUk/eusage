@@ -291,10 +291,10 @@ describe("DevelopersPageView", () => {
     expect(screen.queryByLabelText("Developer name")).not.toBeInTheDocument()
   })
 
-  it("does not render the form for non-owner users", () => {
+  it("does not render the form without Owner or Admin role", () => {
     renderDevelopersPage({
       state: {
-        status: "not-owner",
+        status: "role-not-authorized",
         team: {
           name: "Acme Team",
           slug: "acme-team",
@@ -304,7 +304,7 @@ describe("DevelopersPageView", () => {
     })
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Only the setup owner can manage developers."
+      "Owner or Admin role is required to manage developers."
     )
     expect(screen.queryByLabelText("Developer name")).not.toBeInTheDocument()
   })

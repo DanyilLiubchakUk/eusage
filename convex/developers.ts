@@ -20,20 +20,20 @@ import {
   type PublicDeveloperRowWithDevices,
 } from "./desktopApi"
 import {
-  getActiveOrganizationOwnerState,
+  getActiveOrganizationManagerState,
   type OrganizationScopeFailureStatus,
 } from "./organizationScope"
 import { v } from "convex/values"
 
-type ReadyOrganizationOwnerState = Extract<
-  Awaited<ReturnType<typeof getActiveOrganizationOwnerState>>,
+type ReadyOrganizationManagerState = Extract<
+  Awaited<ReturnType<typeof getActiveOrganizationManagerState>>,
   { status: "ready" }
 >
 
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const ownerState = await getActiveOrganizationOwnerState(ctx)
+    const ownerState = await getActiveOrganizationManagerState(ctx)
     if (ownerState.status !== "ready") {
       return {
         status: ownerState.status,
@@ -89,7 +89,7 @@ export const rotate = mutation({
     tokenLabel: v.string(),
   },
   handler: async (ctx, input) => {
-    const ownerState = await getActiveOrganizationOwnerState(ctx)
+    const ownerState = await getActiveOrganizationManagerState(ctx)
     if (ownerState.status !== "ready") {
       return developerLifecycleScopeError(ownerState.status)
     }
@@ -97,7 +97,10 @@ export const rotate = mutation({
     return rotateDeveloperToken({
       developerId: input.developerId,
       tokenLabel: input.tokenLabel,
-      identity: { clerkUserId: ownerState.owner.clerkUserId },
+      identity: {
+        clerkUserId: ownerState.clerkUserId,
+        organizationRole: ownerState.role,
+      },
       now: Date.now(),
       store: createLifecycleStore(ctx, ownerState),
     })
@@ -109,14 +112,17 @@ export const revoke = mutation({
     developerId: v.id("developers"),
   },
   handler: async (ctx, input) => {
-    const ownerState = await getActiveOrganizationOwnerState(ctx)
+    const ownerState = await getActiveOrganizationManagerState(ctx)
     if (ownerState.status !== "ready") {
       return developerLifecycleScopeError(ownerState.status)
     }
 
     return revokeDeveloperToken({
       developerId: input.developerId,
-      identity: { clerkUserId: ownerState.owner.clerkUserId },
+      identity: {
+        clerkUserId: ownerState.clerkUserId,
+        organizationRole: ownerState.role,
+      },
       now: Date.now(),
       store: createLifecycleStore(ctx, ownerState),
     })
@@ -129,7 +135,7 @@ export const reenable = mutation({
     tokenLabel: v.string(),
   },
   handler: async (ctx, input) => {
-    const ownerState = await getActiveOrganizationOwnerState(ctx)
+    const ownerState = await getActiveOrganizationManagerState(ctx)
     if (ownerState.status !== "ready") {
       return developerLifecycleScopeError(ownerState.status)
     }
@@ -137,7 +143,10 @@ export const reenable = mutation({
     return reenableDeveloper({
       developerId: input.developerId,
       tokenLabel: input.tokenLabel,
-      identity: { clerkUserId: ownerState.owner.clerkUserId },
+      identity: {
+        clerkUserId: ownerState.clerkUserId,
+        organizationRole: ownerState.role,
+      },
       now: Date.now(),
       store: createLifecycleStore(ctx, ownerState),
     })
@@ -171,7 +180,7 @@ function latestToken<T extends { createdAt: number }>(tokens: T[]) {
 
 function createLifecycleStore(
   ctx: MutationCtx,
-  ownerState: ReadyOrganizationOwnerState
+  ownerState: ReadyOrganizationManagerState
 ): DeveloperTokenLifecycleStore {
   return {
     getTeam: async () => ownerState.team as DeveloperTeamRecord,
@@ -224,14 +233,17 @@ export const create = mutation({
     metadataNotes: v.optional(v.string()),
   },
   handler: async (ctx, input) => {
-    const ownerState = await getActiveOrganizationOwnerState(ctx)
+    const ownerState = await getActiveOrganizationManagerState(ctx)
     if (ownerState.status !== "ready") {
       return createDeveloperScopeError(ownerState.status)
     }
 
     return createDeveloperWithToken({
       input,
-      identity: { clerkUserId: ownerState.owner.clerkUserId },
+      identity: {
+        clerkUserId: ownerState.clerkUserId,
+        organizationRole: ownerState.role,
+      },
       now: Date.now(),
       store: {
         getTeam: async () => ownerState.team as DeveloperTeamRecord,
@@ -294,7 +306,7 @@ function developerLifecycleScopeError(
 }
 
 function developerScopeErrorCode(status: OrganizationScopeFailureStatus) {
-  return status === "not-owner" ||
+  return status === "role-not-authorized" ||
     status === "not-authenticated" ||
     status === "organization-required" ||
     status === "organization-not-configured"
@@ -312,8 +324,8 @@ function developerScopeErrorMessage(status: OrganizationScopeFailureStatus) {
   if (status === "organization-not-configured") {
     return "Active Organization is not connected to eUsage setup."
   }
-  if (status === "not-owner") {
-    return "Only the setup owner can manage developers."
+  if (status === "role-not-authorized") {
+    return "Owner or Admin role is required to manage developers."
   }
 
   return "Setup must be complete before managing developers."

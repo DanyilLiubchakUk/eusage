@@ -10,7 +10,7 @@ import {
   type TvDisplayLinkStore,
   type TvDisplayOwnerRecord,
   type TvDisplayTeamRecord,
-} from "./tvDisplayLinks"
+} from "./tvDisplayLinkCore"
 
 function createStore(seed?: {
   owner?: TvDisplayOwnerRecord | null
@@ -60,7 +60,7 @@ describe("TV display links", () => {
     const rawToken = "eusage_tv_secret_raw_token"
 
     const result = await createTvDisplayLinkCore({
-      identity: { clerkUserId: "user_owner" },
+      identity: { clerkUserId: "user_owner", organizationRole: "owner" },
       now: 1780320000000,
       rawToken,
       store: fake.store,
@@ -96,7 +96,7 @@ describe("TV display links", () => {
     })
 
     const result = await createTvDisplayLinkCore({
-      identity: { clerkUserId: "user_owner" },
+      identity: { clerkUserId: "user_owner", organizationRole: "owner" },
       now: 1780330000000,
       store: fake.store,
     })
@@ -125,7 +125,7 @@ describe("TV display links", () => {
     const rawToken = "eusage_tv_new_secret"
 
     const result = await rotateTvDisplayLinkCore({
-      identity: { clerkUserId: "user_owner" },
+      identity: { clerkUserId: "user_owner", organizationRole: "owner" },
       now: 1780330000000,
       rawToken,
       store: fake.store,
@@ -162,7 +162,7 @@ describe("TV display links", () => {
     })
 
     const result = await revokeTvDisplayLinkCore({
-      identity: { clerkUserId: "user_owner" },
+      identity: { clerkUserId: "user_owner", organizationRole: "owner" },
       now: 1780330000000,
       store: fake.store,
     })
@@ -175,11 +175,25 @@ describe("TV display links", () => {
     })
   })
 
-  it("rejects TV display link management from non-owner users", async () => {
+  it("allows Admin role to manage TV display links", async () => {
     const fake = createStore()
 
     const result = await createTvDisplayLinkCore({
-      identity: { clerkUserId: "user_other" },
+      identity: { clerkUserId: "user_admin", organizationRole: "admin" },
+      now: 1780320000000,
+      rawToken: "eusage_tv_secret_raw_token",
+      store: fake.store,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(fake.links).toHaveLength(1)
+  })
+
+  it("rejects TV display link management from Developer role users", async () => {
+    const fake = createStore()
+
+    const result = await createTvDisplayLinkCore({
+      identity: { clerkUserId: "user_developer", organizationRole: "developer" },
       now: 1780320000000,
       rawToken: "eusage_tv_secret_raw_token",
       store: fake.store,
@@ -188,7 +202,7 @@ describe("TV display links", () => {
     expect(result).toMatchObject({
       ok: false,
       status: "error",
-      code: "not-owner",
+      code: "role-not-authorized",
     })
     expect(fake.links).toHaveLength(0)
   })

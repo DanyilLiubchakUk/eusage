@@ -96,7 +96,14 @@ export function DashboardUnavailable({
 
   return (
     <PageState label="Dashboard unavailable" title="Dashboard unavailable">
-      <p className="m-0">{state.status}</p>
+      <p className="m-0">{dashboardUnavailableMessage(state.status)}</p>
     </PageState>
   )
+}
+
+function dashboardUnavailableMessage(status: string) {
+  if (status === "role-not-authorized") {
+    return "Owner or Admin role is required to manage dashboard and TV settings."
+  }
+  return status
 }

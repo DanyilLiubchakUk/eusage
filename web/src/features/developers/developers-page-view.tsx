@@ -157,10 +157,10 @@ export function DevelopersPageView({
     )
   }
 
-  if (state.status === "not-owner") {
+  if (state.status === "role-not-authorized") {
     return (
       <PageState label="Developers unavailable" title="Developers unavailable" tone="error">
-        <p className="m-0">Only the setup owner can manage developers.</p>
+        <p className="m-0">Owner or Admin role is required to manage developers.</p>
       </PageState>
     )
   }
@@ -348,8 +348,8 @@ function pageCopy(state: DevelopersState) {
     return `${state.team.name} developer tokens and connection strings.`
   }
 
-  if (state.status === "not-owner") {
-    return "This page is owner-only."
+  if (state.status === "role-not-authorized") {
+    return "This page requires Owner or Admin role."
   }
 
   if (state.status === "not-authenticated") {

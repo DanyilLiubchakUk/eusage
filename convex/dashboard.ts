@@ -14,21 +14,21 @@ import {
   isLocalSeedOrigin,
   seedLocalDashboardData,
 } from "./dashboardSeed"
-import { getActiveOrganizationOwnerState } from "./organizationScope"
+import { getActiveOrganizationManagerState } from "./organizationScope"
 import { normalizeReportingTimeZone } from "./reportingTimeZone"
 
 export const sourceRows = query({
   args: {},
   handler: async (ctx) => {
-    const ownerState = await getActiveOrganizationOwnerState(ctx)
-    if (ownerState.status !== "ready") {
+    const managerState = await getActiveOrganizationManagerState(ctx)
+    if (managerState.status !== "ready") {
       return unavailableDashboardSource(
-        ownerState.status,
-        ownerState.team ?? undefined
+        managerState.status,
+        managerState.team ?? undefined
       )
     }
 
-    return dashboardSourceRowsForTeam(ctx, ownerState.team, { includeDeveloperTokens: true })
+    return dashboardSourceRowsForTeam(ctx, managerState.team, { includeDeveloperTokens: true })
   },
 })
 
@@ -51,8 +51,8 @@ export const updateDashboardSettings = mutation({
     reportingTimeZone: v.optional(v.string()),
   },
   handler: async (ctx, input) => {
-    const ownerState = await getOwnerTeamState(ctx)
-    if (ownerState.status !== "ready") return ownerState
+    const managerState = await getManagerTeamState(ctx)
+    if (managerState.status !== "ready") return managerState
     if (input.defaultDateRange !== undefined && !isValidDateRange(input.defaultDateRange)) {
       return {
         status: "invalid-date-range" as const,
@@ -72,11 +72,11 @@ export const updateDashboardSettings = mutation({
 
     const existing = await ctx.db
       .query("dashboardSettings")
-      .withIndex("by_teamId", (q) => q.eq("teamId", ownerState.team._id))
+      .withIndex("by_teamId", (q) => q.eq("teamId", managerState.team._id))
       .first()
     const now = Date.now()
     if (reportingTimeZone) {
-      await ctx.db.patch(ownerState.team._id, {
+      await ctx.db.patch(managerState.team._id, {
         reportingTimeZone,
         updatedAt: now,
       })
@@ -97,7 +97,7 @@ export const updateDashboardSettings = mutation({
       await ctx.db.patch(existing._id, patch)
     } else {
       await ctx.db.insert("dashboardSettings", {
-        teamId: ownerState.team._id,
+        teamId: managerState.team._id,
         defaultDateRange: input.defaultDateRange ?? defaultDashboardSettings().defaultDateRange,
         ...(input.visibleProviderIds === undefined || input.visibleProviderIds === null
           ? {}
@@ -142,8 +142,8 @@ export const updateTvSettings = mutation({
     ),
   },
   handler: async (ctx, input) => {
-    const ownerState = await getOwnerTeamState(ctx)
-    if (ownerState.status !== "ready") return ownerState
+    const managerState = await getManagerTeamState(ctx)
+    if (managerState.status !== "ready") return managerState
     if (input.dateRange !== undefined && !isValidDateRange(input.dateRange)) {
       return {
         status: "invalid-date-range" as const,
@@ -159,7 +159,7 @@ export const updateTvSettings = mutation({
 
     const existing = await ctx.db
       .query("tvSettings")
-      .withIndex("by_teamId", (q) => q.eq("teamId", ownerState.team._id))
+      .withIndex("by_teamId", (q) => q.eq("teamId", managerState.team._id))
       .first()
     const now = Date.now()
     const patch = {
@@ -178,7 +178,7 @@ export const updateTvSettings = mutation({
       await ctx.db.patch(existing._id, patch)
     } else {
       await ctx.db.insert("tvSettings", {
-        teamId: ownerState.team._id,
+        teamId: managerState.team._id,
         dateRange: input.dateRange ?? defaultTvSettings().dateRange,
         ...(input.visibleProviderIds === undefined || input.visibleProviderIds === null
           ? {}
@@ -202,8 +202,8 @@ export const clearTeamData = mutation({
     confirm: v.literal("DELETE TEAM DATA"),
   },
   handler: async (ctx) => {
-    const ownerState = await getOwnerTeamState(ctx)
-    if (ownerState.status !== "ready") return ownerState
+    const managerState = await getManagerTeamState(ctx)
+    if (managerState.status !== "ready") return managerState
 
     const deleted = {
       developers: 0,
@@ -217,7 +217,7 @@ export const clearTeamData = mutation({
       usageSnapshots: 0,
     }
 
-    const teamId = ownerState.team._id
+    const teamId = managerState.team._id
     deleted.metricSamples = await deleteRows(
       ctx,
       await ctx.db
@@ -295,8 +295,8 @@ export const seedLocalMockData = mutation({
     clientOrigin: v.string(),
   },
   handler: async (ctx, input) => {
-    const ownerState = await getOwnerTeamState(ctx)
-    if (ownerState.status !== "ready") return ownerState
+    const managerState = await getManagerTeamState(ctx)
+    if (managerState.status !== "ready") return managerState
     if (!isLocalSeedOrigin(input.clientOrigin)) {
       return {
         status: "not-local-dev" as const,
@@ -304,7 +304,7 @@ export const seedLocalMockData = mutation({
       }
     }
 
-    const result = await seedLocalDashboardData(ctx, ownerState.team._id)
+    const result = await seedLocalDashboardData(ctx, managerState.team._id)
     return {
       status: "ok" as const,
       ...result,
@@ -312,13 +312,13 @@ export const seedLocalMockData = mutation({
   },
 })
 
-async function getOwnerTeamState(ctx: MutationCtx) {
-  const ownerState = await getActiveOrganizationOwnerState(ctx)
-  if (ownerState.status !== "ready") {
-    return { status: ownerState.status }
+async function getManagerTeamState(ctx: MutationCtx) {
+  const managerState = await getActiveOrganizationManagerState(ctx)
+  if (managerState.status !== "ready") {
+    return { status: managerState.status }
   }
 
-  return { status: "ready" as const, team: ownerState.team }
+  return { status: "ready" as const, team: managerState.team }
 }
 
 async function deleteRows<

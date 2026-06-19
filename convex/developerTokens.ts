@@ -1,4 +1,8 @@
 import { fingerprintSecretHash, generateSecret, hashSecret } from "./tokenSecrets"
+import {
+  isOrganizationManagerRole,
+  type OrganizationRole,
+} from "./organizationScope"
 
 export type DeveloperStatus = "active" | "inactive"
 export type DeveloperTokenStatus = "active" | "revoked"
@@ -85,7 +89,7 @@ export type CreateDeveloperErrorCode =
   | "not-authenticated"
   | "organization-required"
   | "organization-not-configured"
-  | "not-owner"
+  | "role-not-authorized"
   | "setup-state-invalid"
   | "developer-name-required"
   | "developer-name-too-long"
@@ -118,7 +122,10 @@ export type CreateDeveloperStore = {
 
 export async function createDeveloperWithToken(args: {
   input: CreateDeveloperInput
-  identity: { clerkUserId: string } | null
+  identity: {
+    clerkUserId: string
+    organizationRole: OrganizationRole | null
+  } | null
   now: number
   rawToken?: string
   store: CreateDeveloperStore
@@ -137,8 +144,11 @@ export async function createDeveloperWithToken(args: {
     )
   }
 
-  if (owner.clerkUserId !== args.identity.clerkUserId) {
-    return createError("not-owner", "Only the setup owner can create developers.")
+  if (!isOrganizationManagerRole(args.identity.organizationRole)) {
+    return createError(
+      "role-not-authorized",
+      "Owner or Admin role is required to manage developers."
+    )
   }
 
   const displayName = args.input.displayName.trim()

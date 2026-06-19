@@ -87,7 +87,7 @@ describe("developer tokens", () => {
         tokenLabel: "Alex laptop",
         metadataNotes: "Team lead",
       },
-      identity: { clerkUserId: "user_owner" },
+      identity: { clerkUserId: "user_owner", organizationRole: "owner" },
       now: 1780320000000,
       rawToken,
       store: fake.store,
@@ -122,7 +122,7 @@ describe("developer tokens", () => {
         displayName: "Alex Dev",
         tokenLabel: "12345678901234567",
       },
-      identity: { clerkUserId: "user_owner" },
+      identity: { clerkUserId: "user_owner", organizationRole: "owner" },
       now: 1780320000000,
       rawToken: "eusage_dev_secret_raw_token",
       store: fake.store,
@@ -169,7 +169,7 @@ describe("developer tokens", () => {
       const fake = createStore()
       const result = await createDeveloperWithToken({
         input: testCase.input,
-        identity: { clerkUserId: "user_owner" },
+        identity: { clerkUserId: "user_owner", organizationRole: "owner" },
         now: 1780320000000,
         rawToken: "eusage_dev_secret_raw_token",
         store: fake.store,
@@ -185,7 +185,26 @@ describe("developer tokens", () => {
     }
   })
 
-  it("rejects non-owner developer creation", async () => {
+  it("allows Admin role to create developers", async () => {
+    const fake = createStore()
+
+    const result = await createDeveloperWithToken({
+      input: {
+        displayName: "Admin Created",
+        tokenLabel: "Laptop",
+      },
+      identity: { clerkUserId: "user_admin", organizationRole: "admin" },
+      now: 1780320000000,
+      rawToken: "eusage_dev_secret_raw_token",
+      store: fake.store,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(fake.developers).toHaveLength(1)
+    expect(fake.tokens).toHaveLength(1)
+  })
+
+  it("rejects Developer role developer creation", async () => {
     const fake = createStore()
 
     const result = await createDeveloperWithToken({
@@ -193,7 +212,7 @@ describe("developer tokens", () => {
         displayName: "Alex Dev",
         tokenLabel: "Alex laptop",
       },
-      identity: { clerkUserId: "user_other" },
+      identity: { clerkUserId: "user_developer", organizationRole: "developer" },
       now: 1780320000000,
       rawToken: "eusage_dev_secret_raw_token",
       store: fake.store,
@@ -202,7 +221,7 @@ describe("developer tokens", () => {
     expect(result).toMatchObject({
       ok: false,
       status: "error",
-      code: "not-owner",
+      code: "role-not-authorized",
     })
     expect(fake.developers).toHaveLength(0)
     expect(fake.tokens).toHaveLength(0)

@@ -1,11 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
-import {
-  AdminDashboardPlaceholder,
-  DashboardUnavailable,
-  TvDashboardPlaceholder,
-} from "./dashboard-placeholders"
+import { AdminDashboardPlaceholder, DashboardUnavailable, TvDashboardPlaceholder } from "./dashboard-placeholders"
 import { AdminDateRangeControls } from "./admin-date-range-controls"
 import { buildAdminOverviewModel } from "./admin-overview-data"
 import { AdminReportingTimeZoneControl } from "./admin-reporting-time-zone-control"
@@ -49,6 +45,12 @@ describe("dashboard placeholders", () => {
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument()
     expect(screen.queryByText("Dashboard unavailable")).not.toBeInTheDocument()
     expect(screen.queryByText("not-authenticated")).not.toBeInTheDocument()
+  })
+
+  it("shows an explicit role message for dashboard admin gates", () => {
+    render(<DashboardUnavailable state={{ status: "role-not-authorized" } as DashboardSourceState} />)
+    expect(screen.getByText("Owner or Admin role is required to manage dashboard and TV settings.")).toBeInTheDocument()
+    expect(screen.queryByText("role-not-authorized")).not.toBeInTheDocument()
   })
 
   it("keeps Admin overview cards in one aligned grid", () => {

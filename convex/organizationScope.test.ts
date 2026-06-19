@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { createDeveloperWithToken } from "./developerTokens"
 import {
   organizationScopeIdentityFromConvex,
-  resolveActiveOrganizationOwner,
+  resolveActiveOrganizationManager,
   type OrganizationMappingRecord,
   type OrganizationOwnerRecord,
   type OrganizationTeamRecord,
@@ -53,18 +53,37 @@ describe("active Organization scope", () => {
       organizationScopeIdentityFromConvex({
         subject: "user_alpha_owner",
         org_id: "org_alpha",
+        org_role: "org:owner",
       })
     ).toEqual({
       clerkUserId: "user_alpha_owner",
       clerkOrganizationId: "org_alpha",
+      clerkOrganizationRole: "owner",
+    })
+  })
+
+  it("reads Clerk v2 Organization ID and role claims", () => {
+    expect(
+      organizationScopeIdentityFromConvex({
+        subject: "user_beta_admin",
+        o: {
+          id: "org_beta",
+          rol: "admin",
+        },
+      })
+    ).toEqual({
+      clerkUserId: "user_beta_admin",
+      clerkOrganizationId: "org_beta",
+      clerkOrganizationRole: "admin",
     })
   })
 
   it("requires an active Clerk Organization before tenant data access", async () => {
-    const result = await resolveActiveOrganizationOwner({
+    const result = await resolveActiveOrganizationManager({
       identity: {
         clerkUserId: "user_alpha_owner",
         clerkOrganizationId: null,
+        clerkOrganizationRole: "owner",
       },
       store: scopeStore(),
     })
@@ -76,11 +95,12 @@ describe("active Organization scope", () => {
     })
   })
 
-  it("resolves tenant reads from the active Organization mapping", async () => {
-    const result = await resolveActiveOrganizationOwner({
+  it("resolves tenant reads for an Owner role from the active Organization mapping", async () => {
+    const result = await resolveActiveOrganizationManager({
       identity: {
         clerkUserId: "user_beta_owner",
         clerkOrganizationId: "org_beta",
+        clerkOrganizationRole: "owner",
       },
       store: scopeStore(),
     })
@@ -90,27 +110,46 @@ describe("active Organization scope", () => {
     expect(result.team._id).toBe("team-beta")
   })
 
-  it("blocks a user from reading another Organization mapping", async () => {
-    const result = await resolveActiveOrganizationOwner({
+  it("resolves tenant reads for an Admin role from the active Organization mapping", async () => {
+    const result = await resolveActiveOrganizationManager({
       identity: {
-        clerkUserId: "user_alpha_owner",
+        clerkUserId: "user_beta_admin",
         clerkOrganizationId: "org_beta",
+        clerkOrganizationRole: "admin",
+      },
+      store: scopeStore(),
+    })
+
+    expect(result.status).toBe("ready")
+    if (result.status !== "ready") throw new Error("Expected ready Organization scope.")
+    expect(result.team._id).toBe("team-beta")
+    expect(result.role).toBe("admin")
+  })
+
+  it("blocks Developer role from tenant data access", async () => {
+    const result = await resolveActiveOrganizationManager({
+      identity: {
+        clerkUserId: "user_beta_developer",
+        clerkOrganizationId: "org_beta",
+        clerkOrganizationRole: "developer",
       },
       store: scopeStore(),
     })
 
     expect(result).toMatchObject({
-      status: "not-owner",
+      status: "role-not-authorized",
       clerkOrganizationId: "org_beta",
+      role: "developer",
       team: betaTeam,
     })
   })
 
   it("writes developers only to the active Organization team", async () => {
-    const ownerState = await resolveActiveOrganizationOwner({
+    const ownerState = await resolveActiveOrganizationManager({
       identity: {
-        clerkUserId: "user_beta_owner",
+        clerkUserId: "user_beta_admin",
         clerkOrganizationId: "org_beta",
+        clerkOrganizationRole: "admin",
       },
       store: scopeStore(),
     })
@@ -125,7 +164,10 @@ describe("active Organization scope", () => {
         displayName: "Beta Dev",
         tokenLabel: "Laptop",
       },
-      identity: { clerkUserId: "user_beta_owner" },
+      identity: {
+        clerkUserId: "user_beta_admin",
+        organizationRole: "admin",
+      },
       now,
       rawToken: "eusage_dev_beta_secret",
       store: {
