@@ -133,8 +133,8 @@ export function SetupClaimView({
               </div>
             </div>
             <div className="flex justify-center sm:justify-end">
-              <Link className={buttonVariants({ className: "w-full sm:w-fit" })} to="/">
-                Open dashboard
+              <Link className={buttonVariants({ className: "w-full sm:w-fit" })} to="/overview">
+                Open overview
               </Link>
             </div>
           </CardContent>
@@ -211,7 +211,7 @@ function SetupClaimMessage({ result }: { result: SetupClaimResult }) {
     return (
       <div className="rounded-md border border-primary/30 bg-primary/10 p-4 text-primary" role="status">
         <p className="mb-2 mt-0">{result.message}</p>
-        <Link to="/">Open dashboard</Link>
+        <Link to="/overview">Open overview</Link>
       </div>
     )
   }

@@ -12,7 +12,7 @@ type NavLink = {
 }
 
 const NAV_LINKS: NavLink[] = [
-  { to: "/", label: "Overview", icon: LayoutDashboard, exact: true },
+  { to: "/overview", label: "Overview", icon: LayoutDashboard, exact: true },
   { to: "/developers", label: "Developers", icon: Users },
   { to: "/tv", label: "TV", icon: MonitorPlay },
 ]

@@ -97,9 +97,9 @@ describe("SetupClaimView", () => {
       reportingTimeZone: expect.any(String),
     })
     expect(await screen.findByText("Setup complete.")).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Open dashboard" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open overview" })).toHaveAttribute(
       "href",
-      "/"
+      "/overview"
     )
   })
 
@@ -167,9 +167,9 @@ describe("SetupClaimView", () => {
     expect(screen.getByRole("heading", { name: "Setup complete" })).toBeInTheDocument()
     expect(screen.getByText("Acme Team is claimed.")).toBeInTheDocument()
     expect(screen.queryByLabelText("Setup token")).not.toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Open dashboard" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open overview" })).toHaveAttribute(
       "href",
-      "/"
+      "/overview"
     )
   })
 

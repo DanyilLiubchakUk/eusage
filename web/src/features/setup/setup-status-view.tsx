@@ -27,7 +27,7 @@ export function SetupStatusView({ state }: SetupStatusViewProps) {
         ) : null}
         {state.status === "setup-complete" ? (
           <div className="mt-5 flex flex-wrap justify-center gap-3">
-            <Link className={buttonVariants()} to="/">
+            <Link className={buttonVariants()} to="/overview">
               Open overview
             </Link>
             <Link className={buttonVariants()} to="/developers">
