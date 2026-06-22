@@ -22,18 +22,36 @@ describe("LandingPage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "eUsage shows where your AI spend is going.",
+        name: /see where your AI spend actually goes/i,
       })
     ).toBeInTheDocument()
-    expect(screen.getByText(/group developers into organizations/i)).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Open app" })).toHaveAttribute(
-      "href",
-      "/overview"
-    )
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Start setup" })).toHaveAttribute(
-      "href",
-      "/setup"
-    )
+    expect(screen.getByText(/groups developers into organizations/i)).toBeInTheDocument()
+
+    const openAppLinks = screen.getAllByRole("link", { name: /open app/i })
+    expect(openAppLinks.length).toBeGreaterThan(0)
+    expect(openAppLinks[0]).toHaveAttribute("href", "/overview")
+
+    const signInButtons = screen.getAllByRole("button", { name: /sign in/i })
+    expect(signInButtons.length).toBeGreaterThan(0)
+
+    const setupLinks = screen.getAllByRole("link", { name: /start setup/i })
+    expect(setupLinks.length).toBeGreaterThan(0)
+    expect(setupLinks[0]).toHaveAttribute("href", "/setup")
+  })
+
+  it("links to Overview, Developers, and TV sections", () => {
+    render(<LandingPage />)
+
+    const overviewLinks = screen.getAllByRole("link", { name: "Overview" })
+    expect(overviewLinks.length).toBeGreaterThan(0)
+    expect(overviewLinks[0]).toHaveAttribute("href", "/overview")
+
+    const developerLinks = screen.getAllByRole("link", { name: "Developers" })
+    expect(developerLinks.length).toBeGreaterThan(0)
+    expect(developerLinks[0]).toHaveAttribute("href", "/developers")
+
+    const tvLinks = screen.getAllByRole("link", { name: "TV" })
+    expect(tvLinks.length).toBeGreaterThan(0)
+    expect(tvLinks[0]).toHaveAttribute("href", "/tv")
   })
 })
