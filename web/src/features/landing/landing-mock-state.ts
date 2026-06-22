@@ -1,24 +1,44 @@
 /**
  * Mock dashboard state for the public landing page hero preview.
  *
- * Token volumes and costs reflect a realistic mid-size engineering team
- * (12 active developers) over a 30-day window, using public API list
- * prices as of 2025-2026:
+ * Token volumes and costs are landing-demo estimates, not billing truth.
+ * Public pricing changes often, and "total tokens" can include fresh input,
+ * cache writes, cache reads, and output tokens at different rates.
  *
- *  - Cursor (Composer 2.5 / blended):       ~$0.50 / M input, ~$2.50 / M output
- *  - Codex (GPT-4.1):                        $2.00 / M input, $8.00 / M output
- *  - Claude (Sonnet 4.6):                    $3.00 / M input, $15.00 / M output
- *  - JetBrains AI Assistant (AI Credits):    $1.00 per AI Credit, blended ~$2.50 / M
+ * The generic mix below treats 5M displayed tokens as roughly:
+ *  - 1.00M fresh input
+ *  - 0.25M cache write
+ *  - 3.00M cache read
+ *  - 0.75M output
  *
- * Blended input:output ratio assumed at roughly 4:1 for code-assistant workloads.
- *
- * Team: 12 developers, 12.52B total tokens, ~$31.2K estimated API-equivalent cost.
- * Cursor is the largest provider by token volume (~4.08B).
+ * Cursor pool values stay provider-reported dollars in the card. JetBrains
+ * uses AI Credits in real data; the token row here is only API-equivalent demo
+ * math based on common coding-model rates.
  */
 
 import type { DashboardSourceState } from "../dashboard/dashboard"
 
 const now = Date.UTC(2026, 5, 22, 12)
+
+export const LANDING_COST_ESTIMATE_NOTE =
+  "Rough estimate. Real bills depend on model, cache mix, credits, and provider pricing."
+
+const GENERAL_TOKEN_MIX = {
+  input: 0.2,
+  cacheWrite: 0.05,
+  cacheRead: 0.6,
+  output: 0.15,
+} as const
+
+type ProviderTokenEstimate = {
+  providerId: string
+  tokensTotal: number
+  costPerMInput: number
+  costPerMCachedInput?: number
+  costPerMCacheWrite?: number
+  costPerMCacheRead?: number
+  costPerMOutput: number
+}
 
 const developers = Array.from({ length: 12 }, (_, i) => {
   const id = `dev-${i + 1}`
@@ -50,37 +70,42 @@ const developers = Array.from({ length: 12 }, (_, i) => {
   }
 })
 
-// 12.52B tokens total. Cursor leads on volume; daily samples sum exactly to these totals.
 const PROVIDER_BREAKDOWN = [
   {
     providerId: "cursor",
-    tokensInput: 3_264_000_000,
-    tokensOutput: 816_000_000,
+    tokensTotal: 4_080_000_000,
+    // Cursor Composer 2 public rate: cache modeled at input rate for the demo.
     costPerMInput: 0.5,
+    costPerMCachedInput: 0.5,
     costPerMOutput: 2.5,
   },
   {
     providerId: "codex",
-    tokensInput: 2_816_000_000,
-    tokensOutput: 704_000_000,
-    costPerMInput: 2.0,
-    costPerMOutput: 8.0,
+    tokensTotal: 3_520_000_000,
+    // Codex midpoint model for estimates: GPT-5.4 standard API pricing.
+    costPerMInput: 2.5,
+    costPerMCachedInput: 0.25,
+    costPerMOutput: 15.0,
   },
   {
     providerId: "claude",
-    tokensInput: 2_112_000_000,
-    tokensOutput: 528_000_000,
+    tokensTotal: 2_640_000_000,
+    // Claude Sonnet 4.6 standard pricing.
     costPerMInput: 3.0,
+    costPerMCacheWrite: 3.75,
+    costPerMCacheRead: 0.3,
     costPerMOutput: 15.0,
   },
   {
     providerId: "jetbrains-ai-assistant",
-    tokensInput: 1_824_000_000,
-    tokensOutput: 456_000_000,
-    costPerMInput: 0.5,
-    costPerMOutput: 2.5,
+    tokensTotal: 2_280_000_000,
+    // JetBrains charges AI Credits against LLM-rate usage. This is a demo blend.
+    costPerMInput: 2.75,
+    costPerMCacheWrite: 2.0,
+    costPerMCacheRead: 0.275,
+    costPerMOutput: 15.0,
   },
-] as const
+] as const satisfies readonly ProviderTokenEstimate[]
 
 const DAY_COUNT = 30
 
@@ -98,15 +123,32 @@ function distributeDailyTotals(total: number, dayCount: number): number[] {
   return values
 }
 
-function estimatedCostUsd(provider: (typeof PROVIDER_BREAKDOWN)[number]) {
+function tokenBreakdown(totalTokens: number) {
+  return {
+    input: totalTokens * GENERAL_TOKEN_MIX.input,
+    cacheWrite: totalTokens * GENERAL_TOKEN_MIX.cacheWrite,
+    cacheRead: totalTokens * GENERAL_TOKEN_MIX.cacheRead,
+    output: totalTokens * GENERAL_TOKEN_MIX.output,
+  }
+}
+
+function estimatedCostUsd(provider: ProviderTokenEstimate) {
+  const tokens = tokenBreakdown(provider.tokensTotal)
+  const cacheWriteRate =
+    provider.costPerMCacheWrite ?? provider.costPerMCachedInput ?? provider.costPerMInput
+  const cacheReadRate =
+    provider.costPerMCacheRead ?? provider.costPerMCachedInput ?? provider.costPerMInput
+
   return (
-    (provider.tokensInput / 1_000_000) * provider.costPerMInput +
-    (provider.tokensOutput / 1_000_000) * provider.costPerMOutput
+    (tokens.input / 1_000_000) * provider.costPerMInput +
+    (tokens.cacheWrite / 1_000_000) * cacheWriteRate +
+    (tokens.cacheRead / 1_000_000) * cacheReadRate +
+    (tokens.output / 1_000_000) * provider.costPerMOutput
   )
 }
 
 const snapshots = PROVIDER_BREAKDOWN.map((provider, idx) => {
-  const tokensTotal = provider.tokensInput + provider.tokensOutput
+  const tokensTotal = provider.tokensTotal
   const costUsd = estimatedCostUsd(provider)
   const isCursor = provider.providerId === "cursor"
   return {
@@ -138,7 +180,7 @@ const snapshots = PROVIDER_BREAKDOWN.map((provider, idx) => {
 })
 
 const metricSamples = PROVIDER_BREAKDOWN.flatMap((provider, providerIdx) => {
-  const tokensTotal = provider.tokensInput + provider.tokensOutput
+  const tokensTotal = provider.tokensTotal
   const costUsd = estimatedCostUsd(provider)
   const dailyTokens = distributeDailyTotals(tokensTotal, DAY_COUNT)
   const dailyCosts = distributeDailyTotals(Math.round(costUsd * 100), DAY_COUNT).map(
