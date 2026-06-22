@@ -47,39 +47,44 @@ export function AdminOverview({
   const needsFirstSyncGuide = state.developers.length === 0 || state.snapshots.length === 0
 
   return (
-    <main className="mx-auto grid w-full max-w-6xl gap-5 px-6 py-8 pb-12 max-md:px-4">
-      <header className="grid gap-5">
-        <div className="max-w-3xl">
-          <p className="mb-3 inline-flex items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-primary">
+    <main className="overview-shell mx-auto grid w-full max-w-6xl gap-7 px-6 py-10 pb-16 max-md:px-5 max-md:py-6">
+      <header className="overview-hero grid gap-6">
+        <div className="grid gap-4 max-w-3xl">
+          <span className="overview-eyebrow inline-flex w-fit items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">
+            <span className="overview-eyebrow-dot" aria-hidden="true" />
             Admin Overview
-          </p>
-          <h1 className="m-0 text-5xl font-extrabold leading-none text-foreground max-md:text-4xl">
+          </span>
+          <h1 className="overview-title m-0 text-[clamp(2.25rem,4.5vw,3.75rem)] font-extrabold leading-[0.95] tracking-tight">
             {model.teamName}
           </h1>
-          <p className="mt-4 text-lg leading-7 text-muted-foreground">
+          <p className="overview-lede m-0 max-w-xl text-base leading-7">
             Fixed all-up dashboard for visible team usage, provider health, and sync status.
           </p>
-          <p className="mt-2 text-sm font-semibold text-primary">{model.teamMetaLabel}</p>
+          <p className="overview-meta m-0 font-mono text-xs uppercase tracking-[0.14em]">
+            {model.teamMetaLabel}
+          </p>
         </div>
+
+        <div className="overview-system-bar" aria-hidden="true" />
       </header>
 
       {needsFirstSyncGuide ? <FirstSyncGuide /> : null}
 
       <section
-        className="grid grid-cols-4 items-start gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1"
+        className="overview-kpi-strip grid grid-cols-4 items-stretch gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1"
         aria-label="KPI strip"
       >
         {model.kpis.map((item) => (
-          <Card key={item.label} className="min-w-0" size="sm">
+          <Card key={item.label} className="overview-kpi-card min-w-0" size="sm">
             <CardContent className="grid min-w-0 content-start gap-3">
-              <span className="truncate text-xs font-extrabold uppercase tracking-wide text-primary">
+              <span className="overview-kpi-label truncate font-mono text-[0.65rem] font-semibold uppercase tracking-[0.18em]">
                 {item.label}
               </span>
-              <div className="grid min-w-0 gap-1">
-                <strong className="truncate text-xl font-extrabold leading-6 text-foreground max-xl:text-lg">
+              <div className="grid min-w-0 gap-1.5">
+                <strong className="overview-kpi-value truncate text-xl font-extrabold leading-6 max-xl:text-lg">
                   {item.value}
                 </strong>
-                <span className="truncate text-sm font-semibold leading-5 text-foreground/80">
+                <span className="overview-kpi-secondary truncate text-sm font-medium">
                   {item.secondary}
                 </span>
               </div>
@@ -89,7 +94,7 @@ export function AdminOverview({
       </section>
 
       <section
-        className="grid grid-cols-[minmax(16rem,max-content)_minmax(0,1fr)] items-center justify-between gap-x-16 gap-y-3 max-lg:grid-cols-1 -mb-2.5"
+        className="overview-filters grid grid-cols-[minmax(16rem,max-content)_minmax(0,1fr)] items-center justify-between gap-x-16 gap-y-3 max-lg:grid-cols-1 -mb-2.5"
         role="region"
         aria-label="Dashboard filters"
       >
@@ -246,11 +251,11 @@ export function AdminOverview({
 
 function FirstSyncGuide() {
   return (
-    <Card role="region" aria-label="First sync guide">
+    <Card className="overview-kpi-card" role="region" aria-label="First sync guide">
       <CardContent className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
         <div className="grid gap-1">
           <strong className="text-base text-foreground">No usage data yet</strong>
-          <p className="m-0 text-sm leading-6 text-muted-foreground">
+          <p className="overview-lede m-0 text-sm leading-6">
             Create a developer, copy the connection string, connect desktop, then the first sync fills Overview and TV.
           </p>
         </div>
@@ -264,7 +269,7 @@ function FirstSyncGuide() {
 }
 
 const firstSyncLinkClass =
-  "inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
+  "inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
 
 type ChartPoint = {
   day: string

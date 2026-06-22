@@ -37,7 +37,7 @@ export function AdminProviderVisibilityControls({
 
   return (
     <div
-      className="[scrollbar-width:thin] [scrollbar-color:#d1d5db_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:hover:bg-gray-400 flex w-fit max-w-full min-w-0 gap-2 overflow-x-auto overscroll-x-contain"
+      className="flex w-fit max-w-full min-w-0 gap-2 overflow-x-auto overscroll-x-contain"
       aria-label="Provider visibility controls"
     >
       {providers.map((provider) => (
