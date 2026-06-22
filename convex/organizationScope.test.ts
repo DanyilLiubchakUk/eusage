@@ -95,6 +95,40 @@ describe("active Organization scope", () => {
     })
   })
 
+  it("resolves the setup Owner when the Convex JWT template omits Organization claims", async () => {
+    const result = await resolveActiveOrganizationManager({
+      identity: {
+        clerkUserId: "user_alpha_owner",
+        clerkOrganizationId: null,
+        clerkOrganizationRole: null,
+      },
+      store: scopeStore({ ownerFallback: true }),
+    })
+
+    expect(result.status).toBe("ready")
+    if (result.status !== "ready") throw new Error("Expected ready Organization scope.")
+    expect(result.clerkOrganizationId).toBe("org_alpha")
+    expect(result.role).toBe("owner")
+    expect(result.team._id).toBe("team-alpha")
+  })
+
+  it("resolves the setup Owner when old setup data has no Organization mapping", async () => {
+    const result = await resolveActiveOrganizationManager({
+      identity: {
+        clerkUserId: "user_alpha_owner",
+        clerkOrganizationId: null,
+        clerkOrganizationRole: null,
+      },
+      store: scopeStore({ ownerFallback: true, omitOrganizations: true }),
+    })
+
+    expect(result.status).toBe("ready")
+    if (result.status !== "ready") throw new Error("Expected ready Organization scope.")
+    expect(result.clerkOrganizationId).toBe("owner:team-alpha")
+    expect(result.role).toBe("owner")
+    expect(result.team._id).toBe("team-alpha")
+  })
+
   it("resolves tenant reads for an Owner role from the active Organization mapping", async () => {
     const result = await resolveActiveOrganizationManager({
       identity: {
@@ -223,15 +257,27 @@ describe("active Organization scope", () => {
   })
 })
 
-function scopeStore() {
+function scopeStore(options: { omitOrganizations?: boolean; ownerFallback?: boolean } = {}) {
   return {
     getOrganization: async (clerkOrganizationId: string) =>
-      organizations.find(
-        (organization) => organization.clerkOrganizationId === clerkOrganizationId
-      ) ?? null,
+      options.omitOrganizations
+        ? null
+        : organizations.find(
+            (organization) => organization.clerkOrganizationId === clerkOrganizationId
+          ) ?? null,
     getTeam: async (teamId: string) =>
       teams.find((team) => team._id === teamId) ?? null,
     getOwner: async (teamId: string) =>
       owners.find((owner) => owner.teamId === teamId) ?? null,
+    ...(options.ownerFallback
+      ? {
+          getOwnerByClerkUserId: async (clerkUserId: string) =>
+            owners.find((owner) => owner.clerkUserId === clerkUserId) ?? null,
+          getOrganizationByTeamId: async (teamId: string) =>
+            options.omitOrganizations
+              ? null
+              : organizations.find((organization) => organization.teamId === teamId) ?? null,
+        }
+      : {}),
   }
 }

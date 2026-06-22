@@ -1,5 +1,5 @@
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
-import { SignInButton, useAuth } from "@clerk/tanstack-react-start"
+import { SignInButton, useAuth, useOrganization } from "@clerk/tanstack-react-start"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
@@ -11,6 +11,7 @@ import {
   DashboardUnavailable,
 } from "../features/dashboard/dashboard-placeholders"
 import { DASHBOARD_SOURCE_REFETCH_INTERVAL_MS } from "../features/dashboard/dashboard-refresh"
+import type { DashboardSourceState } from "../features/dashboard/dashboard"
 import { TvDashboard } from "../features/dashboard/tv-dashboard"
 
 export const Route = createFileRoute("/tv")({
@@ -19,20 +20,26 @@ export const Route = createFileRoute("/tv")({
 
 function TvRoute() {
   const auth = useDashboardAuth()
-  const canReadDashboard = auth.isLoaded && auth.isSignedIn
+  const canReadDashboard = auth.isLoaded && auth.isSignedIn && auth.orgId
   const dashboardSourceQuery = convexQuery(
     api.dashboard.sourceRows,
     canReadDashboard ? {} : "skip"
   )
+  const dashboardQueryKey = [...dashboardSourceQuery.queryKey, "org", auth.orgId]
   const tvDisplayLinkQuery = convexQuery(
     api.tvDisplayLinks.get,
     canReadDashboard ? {} : "skip"
   )
+  const tvDisplayLinkQueryKey = [...tvDisplayLinkQuery.queryKey, "org", auth.orgId]
   const { data } = useQuery({
     ...dashboardSourceQuery,
+    queryKey: dashboardQueryKey,
     refetchInterval: DASHBOARD_SOURCE_REFETCH_INTERVAL_MS,
   })
-  const { data: displayLinkState } = useQuery(tvDisplayLinkQuery)
+  const { data: displayLinkState } = useQuery({
+    ...tvDisplayLinkQuery,
+    queryKey: tvDisplayLinkQueryKey,
+  })
   const queryClient = useQueryClient()
   const updateTvSettings = useConvexMutation(api.dashboard.updateTvSettings)
   const createDisplayLink = useConvexMutation(api.tvDisplayLinks.create)
@@ -42,6 +49,15 @@ function TvRoute() {
 
   if (!auth.isLoaded) return <DashboardLoading />
   if (!auth.isSignedIn) return <DashboardSignInRequired signInSlot={<DashboardSignInButton />} />
+  if (!auth.orgId) {
+    return (
+      <DashboardUnavailable
+        state={{ status: "organization-required" } as DashboardSourceState}
+        auth={auth}
+        signInSlot={<DashboardSignInButton />}
+      />
+    )
+  }
   if (!data || !displayLinkState) return <DashboardLoading />
 
   if (data.status !== "ready") {
@@ -72,19 +88,19 @@ function TvRoute() {
                 const result = await createDisplayLink({})
                 if (!result.ok) throw new Error(result.message)
                 setRawDisplayToken(result.rawToken ?? null)
-                await queryClient.invalidateQueries({ queryKey: tvDisplayLinkQuery.queryKey })
+                await queryClient.invalidateQueries({ queryKey: tvDisplayLinkQueryKey })
               },
               onRotate: async () => {
                 const result = await rotateDisplayLink({})
                 if (!result.ok) throw new Error(result.message)
                 setRawDisplayToken(result.rawToken ?? null)
-                await queryClient.invalidateQueries({ queryKey: tvDisplayLinkQuery.queryKey })
+                await queryClient.invalidateQueries({ queryKey: tvDisplayLinkQueryKey })
               },
               onRevoke: async () => {
                 const result = await revokeDisplayLink({})
                 if (!result.ok) throw new Error(result.message)
                 setRawDisplayToken(null)
-                await queryClient.invalidateQueries({ queryKey: tvDisplayLinkQuery.queryKey })
+                await queryClient.invalidateQueries({ queryKey: tvDisplayLinkQueryKey })
               },
             }
           : undefined
@@ -94,17 +110,19 @@ function TvRoute() {
         if (result.status !== "ok") {
           throw new Error(`TV settings update failed: ${result.status}`)
         }
-        await queryClient.invalidateQueries({ queryKey: dashboardSourceQuery.queryKey })
+        await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
       }}
     />
   )
 }
 
 function useDashboardAuth() {
-  const { isLoaded, isSignedIn } = useAuth()
+  const { isLoaded, isSignedIn, orgId } = useAuth()
+  const { organization } = useOrganization()
   return {
     isLoaded,
     isSignedIn: isSignedIn === true,
+    orgId: orgId ?? organization?.id ?? null,
   }
 }
 

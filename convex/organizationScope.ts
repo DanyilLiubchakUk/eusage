@@ -38,8 +38,12 @@ export type OrganizationScopeStore<
   getOrganization: (
     clerkOrganizationId: string
   ) => Promise<OrganizationMappingRecord<TTeamId> | null>
+  getOrganizationByTeamId?: (
+    teamId: TTeamId
+  ) => Promise<OrganizationMappingRecord<TTeamId> | null>
   getTeam: (teamId: TTeamId) => Promise<TTeam | null>
   getOwner: (teamId: TTeamId) => Promise<TOwner | null>
+  getOwnerByClerkUserId?: (clerkUserId: string) => Promise<TOwner | null>
 }
 
 export type ActiveOrganizationManagerState<
@@ -130,6 +134,11 @@ export async function resolveActiveOrganizationManager<
 
   const clerkOrganizationId = args.identity.clerkOrganizationId
   if (!clerkOrganizationId) {
+    const ownerScope = await resolveOwnerScopeWithoutOrganizationClaim({
+      identity: args.identity,
+      store: args.store,
+    })
+    if (ownerScope) return ownerScope
     return { status: "organization-required", clerkOrganizationId: null, team: null }
   }
 
@@ -163,6 +172,37 @@ export async function resolveActiveOrganizationManager<
   }
 }
 
+async function resolveOwnerScopeWithoutOrganizationClaim<
+  TTeamId extends string,
+  TTeam extends OrganizationTeamRecord<TTeamId>,
+  TOwner extends OrganizationOwnerRecord<TTeamId>,
+>(args: {
+  identity: OrganizationScopeIdentity
+  store: OrganizationScopeStore<TTeamId, TTeam, TOwner>
+}): Promise<ActiveOrganizationManagerState<TTeamId, TTeam, TOwner> | null> {
+  if (!args.store.getOwnerByClerkUserId || !args.store.getOrganizationByTeamId) {
+    return null
+  }
+
+  const owner = await args.store.getOwnerByClerkUserId(args.identity.clerkUserId)
+  if (!owner) return null
+
+  const team = await args.store.getTeam(owner.teamId)
+  const organization = await args.store.getOrganizationByTeamId(owner.teamId)
+  if (!team || owner.teamId !== team._id) {
+    return { status: "setup-state-invalid", clerkOrganizationId: null, team: null }
+  }
+
+  return {
+    status: "ready",
+    clerkUserId: args.identity.clerkUserId,
+    clerkOrganizationId: organization?.clerkOrganizationId ?? `owner:${owner.teamId}`,
+    role: "owner",
+    team,
+    owner,
+  }
+}
+
 export async function getActiveOrganizationManagerState(ctx: QueryCtx | MutationCtx) {
   const identity = organizationScopeIdentityFromConvex(
     await ctx.auth.getUserIdentity()
@@ -182,6 +222,16 @@ export async function getActiveOrganizationManagerState(ctx: QueryCtx | Mutation
       getOwner: async (teamId) =>
         ctx.db
           .query("admins")
+          .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
+          .first(),
+      getOwnerByClerkUserId: async (clerkUserId) =>
+        ctx.db
+          .query("admins")
+          .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", clerkUserId))
+          .first(),
+      getOrganizationByTeamId: async (teamId) =>
+        ctx.db
+          .query("organizations")
           .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
           .first(),
     },

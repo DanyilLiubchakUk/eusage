@@ -2,6 +2,7 @@ import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
 import {
   SignInButton,
   useAuth,
+  useOrganization,
 } from "@clerk/tanstack-react-start"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
@@ -17,13 +18,20 @@ export const Route = createFileRoute("/developers")({
 })
 
 function DevelopersRoute() {
-  const { isLoaded, isSignedIn } = useAuth()
+  const { isLoaded, isSignedIn, orgId } = useAuth()
+  const { organization } = useOrganization()
   const auth = {
     isLoaded,
     isSignedIn: isSignedIn === true,
+    orgId: orgId ?? organization?.id ?? null,
   }
-  const developersQuery = convexQuery(api.developers.list, auth.isSignedIn ? {} : "skip")
-  const { data } = useQuery(developersQuery)
+  const canReadDevelopers = auth.isLoaded && auth.isSignedIn && auth.orgId
+  const developersQuery = convexQuery(api.developers.list, canReadDevelopers ? {} : "skip")
+  const developersQueryKey = [...developersQuery.queryKey, "org", auth.orgId]
+  const { data } = useQuery({
+    ...developersQuery,
+    queryKey: developersQueryKey,
+  })
   const queryClient = useQueryClient()
   const createDeveloper = useConvexMutation(api.developers.create)
   const rotateDeveloperToken = useConvexMutation(api.developers.rotate)
@@ -41,14 +49,19 @@ function DevelopersRoute() {
     team: null,
     developers: [],
   }
+  const noOrganizationState = {
+    status: "organization-required" as const,
+    team: null,
+    developers: [],
+  }
 
   if (!auth.isLoaded) return <DevelopersLoading />
-  if (auth.isSignedIn && !data) return <DevelopersLoading />
+  if (auth.isSignedIn && auth.orgId && !data) return <DevelopersLoading />
 
   return (
     <AppShell>
       <DevelopersPageView
-        state={data ?? signedOutState}
+        state={data ?? (auth.isSignedIn ? noOrganizationState : signedOutState)}
         auth={{
           ...auth,
         }}
@@ -56,7 +69,7 @@ function DevelopersRoute() {
         teamUrl={browserOrigin()}
         onCreate={async (input) => {
           const result = await createDeveloper(input)
-          await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
+          await queryClient.invalidateQueries({ queryKey: developersQueryKey })
           return result
         }}
         onRotate={async (input) => {
@@ -64,14 +77,14 @@ function DevelopersRoute() {
             developerId: input.developerId as Id<"developers">,
             tokenLabel: input.tokenLabel,
           })
-          await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
+          await queryClient.invalidateQueries({ queryKey: developersQueryKey })
           return result
         }}
         onRevoke={async (input) => {
           const result = await revokeDeveloperToken({
             developerId: input.developerId as Id<"developers">,
           })
-          await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
+          await queryClient.invalidateQueries({ queryKey: developersQueryKey })
           return result
         }}
         onReenable={async (input) => {
@@ -79,7 +92,7 @@ function DevelopersRoute() {
             developerId: input.developerId as Id<"developers">,
             tokenLabel: input.tokenLabel,
           })
-          await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
+          await queryClient.invalidateQueries({ queryKey: developersQueryKey })
           return result
         }}
       />
