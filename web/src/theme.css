@@ -89,11 +89,11 @@
   --accent-green-soft: rgba(15, 118, 110, 0.12);
 
   /* Surface utilities for the new overview shell. */
-  --surface-hairline: #e5e5e5;
+  --surface-hairline: #d4d4d4;
   --surface-raised: #fafafa;
-  --surface-inset: #f7f7f7;
+  --surface-inset: #f0f0f0;
   --text-dim: #525252;
-  --text-faint: #a3a3a3;
+  --text-faint: #8a8a8a;
 
   /* Film grain — dark specks on light surfaces, light specks on dark. */
   --surface-noise-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch' result='t'/%3E%3CfeColorMatrix in='t' type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.42 0.42 0.42 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -254,8 +254,17 @@
 
 /* Grain on individual surfaces — scrolls with the element, not the viewport. */
 .surface-grain,
-:where(.bg-card, .overview-kpi-card, .app-nav, .landing-header) {
+:where(.bg-card, .overview-kpi-card) {
   position: relative;
+  isolation: isolate;
+}
+
+/* Keep headers pinned while scrolling — do not set position:relative here. */
+.app-nav,
+.landing-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   isolation: isolate;
 }
 
@@ -300,22 +309,43 @@
   display: grid;
 }
 
+/* Light mode: subtle elevation so the preview card separates from white bg. */
+.overview-preview-card {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 24px -12px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="dark"] .overview-preview-card {
+  box-shadow: none;
+}
+
+/* Step numbers — visible watermark, not a faint hairline. */
+.overview-step-number {
+  color: var(--surface-hairline);
+}
+
+:root[data-theme="light"] .overview-step-number,
+:root:not([data-theme="dark"]) .overview-step-number {
+  color: #e0e0e0;
+}
+
 .overview-hero {
   gap: 1.25rem;
 }
 
-.overview-eyebrow {
+.page-eyebrow {
   color: var(--accent-green);
   background: var(--accent-green-soft);
-  border: 1px solid color-mix(in srgb, var(--accent-green) 32%, transparent);
+  border-color: color-mix(in srgb, var(--accent-green) 40%, transparent);
 }
 
-.overview-eyebrow-dot {
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 9999px;
-  background: var(--accent-green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-green) 22%, transparent);
+.page-meta {
+  color: var(--accent-green);
+}
+
+.page-kpi-label {
+  color: var(--accent-green);
 }
 
 .overview-title {
@@ -329,11 +359,7 @@
   text-wrap: pretty;
 }
 
-.overview-meta {
-  color: var(--text-faint);
-}
-
-/* Thin green "system" beam under the hero — the one memorable idea. */
+/* Thin green "system" beam under the hero — landing only. */
 .overview-system-bar {
   position: relative;
   height: 1px;
@@ -414,28 +440,19 @@
 }
 
 .overview-shell :where([data-slot="card-content"]) {
-  gap: 1rem;
-}
-
-/* Panel headers — tight Vercel-style metadata row. */
-.overview-shell :where([data-slot="card-content"]) > :first-child {
-  border-bottom: 1px solid var(--surface-hairline);
-  padding-bottom: 0.75rem;
+  gap: 0.75rem;
 }
 
 .overview-shell :where([data-slot="card-content"]) > :first-child strong {
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--foreground);
 }
 
 .overview-shell :where([data-slot="card-content"]) > :first-child span {
-  font-family: "Geist Mono", ui-monospace, monospace;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-faint);
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
 }
 
 /* Tables — open hairline rows, no heavy borders. */
@@ -484,8 +501,19 @@
   color: var(--text-dim) !important;
 }
 
-.overview-shell :where(canvas[role="img"]) {
-  background: transparent;
+.admin-chart-frame {
+  min-height: 18rem;
+}
+
+.admin-chart-frame,
+.admin-chart-frame-empty {
+  min-height: 18rem;
+}
+
+.admin-chart-frame canvas[role="img"] {
+  display: block;
+  height: 100%;
+  width: 100%;
 }
 
 /* Compact provider breakdown list. */

@@ -1,10 +1,11 @@
 import { ConvexQueryClient } from "@convex-dev/react-query"
-import { ClerkProvider, useAuth, useOrganization } from "@clerk/tanstack-react-start"
+import { useAuth, useOrganization } from "@clerk/tanstack-react-start"
 import { QueryClient } from "@tanstack/react-query"
 import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import { useCallback, useMemo } from "react"
 import { ConvexProviderWithAuth } from "convex/react"
+import { EusageClerkProvider } from "./features/shell/eusage-clerk-provider"
 import { routeTree } from "./routeTree.gen"
 
 function getConvexUrl() {
@@ -36,11 +37,11 @@ export function getRouter() {
       queryClient,
     },
     InnerWrap: ({ children }) => (
-      <ClerkProvider>
+      <EusageClerkProvider>
         <ConvexProviderWithAuth client={convexQueryClient.convexClient} useAuth={useConvexClerkAuth}>
           {children}
         </ConvexProviderWithAuth>
-      </ClerkProvider>
+      </EusageClerkProvider>
     ),
   })
 

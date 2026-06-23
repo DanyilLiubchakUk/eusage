@@ -55,6 +55,8 @@ Each Organization owns:
 
 Clerk owns login, organization membership, active organization context, and role claims. Convex owns product data. Every Convex read/write that touches customer data must be scoped to the active organization.
 
+Use Clerk's built-in Organization flows as the source of truth for create, switch, invite, member, and role management. eUsage should wrap and style those flows so they feel native to the product instead of rebuilding membership management from scratch.
+
 ### Roles
 
 Use three roles for the SaaS product:
@@ -70,15 +72,16 @@ Owners and Admins use the web app. Developers use the desktop app. A person can 
 - Home page explains eUsage and links to setup/sign-in.
 - App shell shows current organization context.
 - Signed-in users can create or choose an organization before seeing org data.
+- Organization create, switch, invite, member, and role management use Clerk's built-in flow with eUsage styling.
 - Empty states guide the first useful action: create developer, connect desktop, first sync, open TV.
 - Validation blocks bad organization names, duplicate slugs, invalid roles, invalid token labels, invalid date ranges, and invalid TV slide durations.
 - Errors fail loud: visible message, no silent fallback.
 
 ### Data Requirements
 
-- Add an organization identifier to every tenant-owned row.
-- Keep existing team/developer/token/device/provider boundaries where possible, but route them through organization context.
-- Index high-volume tables by organization first.
+- Resolve every tenant-owned read/write through the active Organization.
+- Keep existing team/developer/token/device/provider boundaries where possible, but route them through Organization context.
+- Index high-volume tenant tables by the resolved tenant key before reading customer data.
 - Never query global tenant data and filter later in app code.
 - Desktop tokens stay organization-scoped.
 - TV display links stay organization-scoped and read-only.

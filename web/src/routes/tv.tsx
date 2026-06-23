@@ -1,9 +1,8 @@
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
-import { SignInButton, useAuth, useOrganization } from "@clerk/tanstack-react-start"
+import { useAuth, useOrganization } from "@clerk/tanstack-react-start"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
 import { api } from "../../../convex/_generated/api"
 import {
   DashboardLoading,
@@ -13,6 +12,7 @@ import {
 import { DASHBOARD_SOURCE_REFETCH_INTERVAL_MS } from "../features/dashboard/dashboard-refresh"
 import type { DashboardSourceState } from "../features/dashboard/dashboard"
 import { TvDashboard } from "../features/dashboard/tv-dashboard"
+import { SignInButton } from "../features/shell/sign-in-button"
 
 export const Route = createFileRoute("/tv")({
   component: TvRoute,
@@ -48,13 +48,13 @@ function TvRoute() {
   const [rawDisplayToken, setRawDisplayToken] = useState<string | null>(null)
 
   if (!auth.isLoaded) return <DashboardLoading />
-  if (!auth.isSignedIn) return <DashboardSignInRequired signInSlot={<DashboardSignInButton />} />
+  if (!auth.isSignedIn) return <DashboardSignInRequired signInSlot={<SignInButton />} />
   if (!auth.orgId) {
     return (
       <DashboardUnavailable
         state={{ status: "organization-required" } as DashboardSourceState}
         auth={auth}
-        signInSlot={<DashboardSignInButton />}
+        signInSlot={<SignInButton />}
       />
     )
   }
@@ -65,7 +65,7 @@ function TvRoute() {
       <DashboardUnavailable
         state={data}
         auth={auth}
-        signInSlot={<DashboardSignInButton />}
+        signInSlot={<SignInButton />}
       />
     )
   }
@@ -124,16 +124,6 @@ function useDashboardAuth() {
     isSignedIn: isSignedIn === true,
     orgId: orgId ?? organization?.id ?? null,
   }
-}
-
-function DashboardSignInButton() {
-  return (
-    <SignInButton mode="modal">
-      <Button type="button">
-        Sign in
-      </Button>
-    </SignInButton>
-  )
 }
 
 function getOrigin() {

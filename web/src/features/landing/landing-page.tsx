@@ -100,7 +100,7 @@ export function LandingPage() {
 
 function LandingHeader() {
   return (
-    <header className="landing-header sticky top-0 z-50 border-b border-[var(--surface-hairline)] bg-background/80 backdrop-blur-xl">
+    <header className="landing-header sticky top-0 z-50 border-b bg-background/90 backdrop-blur-md">
       <div className="mx-auto flex min-h-14 w-full max-w-6xl items-center gap-4 px-6 max-md:px-5">
         <Link
           to="/"
@@ -328,7 +328,7 @@ function HeroPreview() {
       <aside
         ref={cardRef}
         aria-label="Live overview preview"
-        className="overview-shell pointer-events-none w-full rounded-xl border border-[var(--surface-hairline)] bg-card p-6 will-change-transform"
+        className="overview-shell overview-preview-card pointer-events-none w-full rounded-xl border border-[var(--surface-hairline)] bg-card p-6 will-change-transform"
         style={{ transformStyle: "preserve-3d" }}
       >
       {/* Hero KPI — total team usage, oversized */}
@@ -493,7 +493,7 @@ function Features() {
           {FEATURES.map(({ icon: Icon, title, body }) => (
             <article
               key={title}
-              className="group grid gap-3 rounded-xl border border-[var(--surface-hairline)] bg-card p-5 transition-colors hover:border-[color-mix(in_srgb,var(--accent-green)_45%,var(--surface-hairline))]"
+              className="group grid gap-3 rounded-xl border border-[var(--surface-hairline)] bg-card p-5 transition-colors hover:border-[color-mix(in_srgb,var(--accent-green)_45%,var(--surface-hairline))] overview-preview-card"
             >
               <span className="grid size-10 place-items-center rounded-lg border border-[var(--surface-hairline)] bg-[var(--surface-raised)] text-[var(--accent-green)] transition-colors group-hover:bg-[var(--accent-green-soft)]">
                 <Icon className="size-5" aria-hidden="true" strokeWidth={2.25} />
@@ -530,13 +530,13 @@ function HowItWorks() {
           {STEPS.map(({ icon: Icon, title, body }, i) => (
             <li
               key={title}
-              className="relative grid gap-3 rounded-xl border border-[var(--surface-hairline)] bg-card p-5"
+              className="overview-preview-card relative grid gap-3 rounded-xl border border-[var(--surface-hairline)] bg-card p-5"
             >
               <div className="flex items-center justify-between">
                 <span className="grid size-10 place-items-center rounded-lg border border-[var(--surface-hairline)] bg-background text-[var(--accent-green)]">
                   <Icon className="size-5" aria-hidden="true" strokeWidth={2.25} />
                 </span>
-                <span className="font-mono text-3xl font-black tracking-tight text-[var(--surface-hairline)]">
+                <span className="overview-step-number font-mono text-3xl font-black tracking-tight">
                   {String(i + 1).padStart(2, "0")}
                 </span>
               </div>
@@ -560,7 +560,7 @@ function CtaBand() {
   return (
     <section className="border-b border-[var(--surface-hairline)]">
       <div className="mx-auto max-w-6xl px-6 py-14 max-md:px-5 max-md:py-10">
-        <div className="relative overflow-hidden rounded-2xl border border-[var(--surface-hairline)] bg-card px-6 py-8 max-md:px-5 max-md:py-6">
+        <div className="overview-preview-card relative overflow-hidden rounded-2xl border border-[var(--surface-hairline)] bg-card px-6 py-8 max-md:px-5 max-md:py-6">
           <div
             className="absolute inset-0 -z-0 bg-[radial-gradient(900px_300px_at_30%_-50%,var(--accent-green-soft),transparent)]"
             aria-hidden="true"

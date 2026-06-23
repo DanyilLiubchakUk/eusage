@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card"
+import { PageEyebrow } from "../shell/page-eyebrow"
 import { DashboardChart } from "./dashboard-chart"
 import { AdminDateRangeControls } from "./admin-date-range-controls"
 import { AdminProviderVisibilityControls } from "./admin-provider-visibility-controls"
@@ -47,44 +48,37 @@ export function AdminOverview({
   const needsFirstSyncGuide = state.developers.length === 0 || state.snapshots.length === 0
 
   return (
-    <main className="overview-shell mx-auto grid w-full max-w-6xl gap-7 px-6 py-10 pb-16 max-md:px-5 max-md:py-6">
-      <header className="overview-hero grid gap-6">
-        <div className="grid gap-4 max-w-3xl">
-          <span className="overview-eyebrow inline-flex w-fit items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">
-            <span className="overview-eyebrow-dot" aria-hidden="true" />
-            Admin Overview
-          </span>
-          <h1 className="overview-title m-0 text-[clamp(2.25rem,4.5vw,3.75rem)] font-extrabold leading-[0.95] tracking-tight">
+    <main className="overview-shell mx-auto grid w-full max-w-6xl gap-5 px-6 py-8 pb-12 max-md:px-4">
+      <header className="grid gap-5">
+        <div className="max-w-3xl">
+          <PageEyebrow>Admin Overview</PageEyebrow>
+          <h1 className="m-0 text-5xl font-extrabold leading-none text-foreground max-md:text-4xl">
             {model.teamName}
           </h1>
-          <p className="overview-lede m-0 max-w-xl text-base leading-7">
+          <p className="mt-4 text-lg leading-7 text-muted-foreground">
             Fixed all-up dashboard for visible team usage, provider health, and sync status.
           </p>
-          <p className="overview-meta m-0 font-mono text-xs uppercase tracking-[0.14em]">
-            {model.teamMetaLabel}
-          </p>
+          <p className="page-meta mt-2 text-sm font-semibold">{model.teamMetaLabel}</p>
         </div>
-
-        <div className="overview-system-bar" aria-hidden="true" />
       </header>
 
       {needsFirstSyncGuide ? <FirstSyncGuide /> : null}
 
       <section
-        className="overview-kpi-strip grid grid-cols-4 items-stretch gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1"
+        className="grid grid-cols-4 items-start gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1"
         aria-label="KPI strip"
       >
         {model.kpis.map((item) => (
           <Card key={item.label} className="overview-kpi-card min-w-0" size="sm">
-            <CardContent className="grid min-w-0 content-start gap-3">
-              <span className="overview-kpi-label truncate font-mono text-[0.65rem] font-semibold uppercase tracking-[0.18em]">
+            <CardContent className="grid min-w-0 content-start gap-1.5">
+              <span className="page-kpi-label truncate text-xs font-extrabold uppercase tracking-wide">
                 {item.label}
               </span>
-              <div className="grid min-w-0 gap-1.5">
-                <strong className="overview-kpi-value truncate text-xl font-extrabold leading-6 max-xl:text-lg">
+              <div className="grid min-w-0 gap-0.5">
+                <strong className="truncate text-xl font-extrabold leading-6 text-foreground max-xl:text-lg">
                   {item.value}
                 </strong>
-                <span className="overview-kpi-secondary truncate text-sm font-medium">
+                <span className="truncate text-sm font-semibold leading-5 text-foreground/80">
                   {item.secondary}
                 </span>
               </div>
@@ -117,6 +111,7 @@ export function AdminOverview({
         <DashboardPanel title="Team usage over time" meta="Tokens left · API equivalent right" height="chart">
           <DashboardChart
             type="line"
+            fill
             ariaLabel="Team usage over time chart"
             labels={usageDays}
             datasets={[

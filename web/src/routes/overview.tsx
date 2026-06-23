@@ -1,9 +1,8 @@
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
-import { SignInButton, useAuth, useOrganization } from "@clerk/tanstack-react-start"
+import { useAuth, useOrganization } from "@clerk/tanstack-react-start"
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
 import { api } from "../../../convex/_generated/api"
 import {
   AdminDashboardPlaceholder,
@@ -16,6 +15,7 @@ import type { DashboardSourceState } from "../features/dashboard/dashboard"
 import type { MetricDateRangeInput } from "../lib/metrics"
 import { SetupStatusView } from "../features/setup/setup-status-view"
 import { AppShell } from "../features/shell/app-shell"
+import { SignInButton } from "../features/shell/sign-in-button"
 
 const setupQuery = convexQuery(api.setup.get, {})
 
@@ -61,13 +61,13 @@ function OverviewDashboard() {
   const localSeedOrigin = useLocalSeedOrigin()
 
   if (!auth.isLoaded) return <DashboardLoading />
-  if (!auth.isSignedIn) return <DashboardSignInRequired signInSlot={<DashboardSignInButton />} />
+  if (!auth.isSignedIn) return <DashboardSignInRequired signInSlot={<SignInButton />} />
   if (!auth.orgId) {
     return (
       <DashboardUnavailable
         state={{ status: "organization-required" } as DashboardSourceState}
         auth={auth}
-        signInSlot={<DashboardSignInButton />}
+        signInSlot={<SignInButton />}
       />
     )
   }
@@ -78,7 +78,7 @@ function OverviewDashboard() {
       state={dashboardState}
       now={Date.now()}
       auth={auth}
-      signInSlot={<DashboardSignInButton />}
+      signInSlot={<SignInButton />}
       onDateRangeChange={async (defaultDateRange: MetricDateRangeInput) => {
         const result = await updateDashboardSettings({ defaultDateRange })
         if (result.status !== "ok") {
@@ -160,14 +160,4 @@ function useDashboardAuth() {
     isSignedIn: isSignedIn === true,
     orgId: orgId ?? organization?.id ?? null,
   }
-}
-
-function DashboardSignInButton() {
-  return (
-    <SignInButton mode="modal">
-      <Button type="button">
-        Sign in
-      </Button>
-    </SignInButton>
-  )
 }

@@ -75,7 +75,7 @@ export function DashboardLoading() {
 export function DashboardSignInRequired({ signInSlot }: { signInSlot?: ReactNode }) {
   return (
     <PageState action={signInSlot} label="Sign in" title="Sign in required">
-      <p className="m-0">Sign in with Clerk to open the dashboard.</p>
+      <p className="m-0">Sign in to open the dashboard.</p>
     </PageState>
   )
 }

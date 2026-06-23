@@ -35,6 +35,7 @@ export function DashboardPanel({
   className?: string
 }) {
   const compact = height === "compact"
+  const chartPanel = height === "chart"
 
   return (
     <Card
@@ -48,14 +49,15 @@ export function DashboardPanel({
       role="region"
       aria-label={title}
     >
-      <CardContent className={cn("flex min-h-0 flex-1 flex-col", compact ? "gap-3" : "gap-4")}>
-        <div className="flex shrink-0 items-start justify-between gap-4">
-          <strong className="min-w-0 text-base text-foreground">{title}</strong>
-          <span className="max-w-[55%] break-words text-right text-sm text-muted-foreground">{meta}</span>
+      <CardContent className={cn("flex min-h-0 flex-1 flex-col", compact ? "gap-2" : "gap-3")}>
+        <div className="flex shrink-0 items-start justify-between gap-3">
+          <strong className="min-w-0 text-sm font-semibold text-foreground">{title}</strong>
+          <span className="max-w-[55%] break-words text-right text-xs text-muted-foreground">{meta}</span>
         </div>
         <div
           className={cn(
             "min-h-0 flex-1",
+            chartPanel && "flex flex-col",
             compact ? "overflow-visible" : "overflow-y-auto overscroll-contain pr-1"
           )}
         >

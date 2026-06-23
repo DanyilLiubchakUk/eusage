@@ -5,7 +5,7 @@ import {
   useOrganization,
 } from "@clerk/tanstack-react-start"
 import { Link } from "@tanstack/react-router"
-import type { ReactNode } from "react"
+import { useMemo, type ReactNode } from "react"
 import {
   Building2,
   LayoutDashboard,
@@ -16,6 +16,8 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { clerkPopoverAppearance } from "../../lib/clerk-appearance"
+import { useEusageTheme } from "../../lib/use-eusage-theme"
 import { ThemeToggle } from "./theme-toggle"
 import { BrandLogo } from "./brand-logo"
 
@@ -53,6 +55,8 @@ export type OrganizationShellState =
     }
 
 export function AppNav() {
+  const theme = useEusageTheme()
+  const clerkUiAppearance = useMemo(() => clerkPopoverAppearance(theme), [theme])
   const { isLoaded: authLoaded, isSignedIn } = useAuth()
   const {
     isLoaded: organizationLoaded,
@@ -67,12 +71,9 @@ export function AppNav() {
     organizationSlug: organization?.slug,
     role: membership?.roleName ?? membership?.role,
   })
-  const organizationSlot = authLoaded && isSignedIn === true ? (
-    <OrganizationSwitcher />
-  ) : null
 
   return (
-    <header className="app-nav sticky top-0 z-50 border-b border-[var(--surface-hairline)] bg-background/80 backdrop-blur-xl">
+    <header className="app-nav sticky top-0 z-50 border-b bg-background/90 backdrop-blur-md">
       <div className="mx-auto flex min-h-14 w-full max-w-6xl items-center gap-4 px-6 max-md:flex-wrap max-md:gap-2 max-md:px-5 max-md:py-2">
         <Link
           to="/"
@@ -107,17 +108,43 @@ export function AppNav() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2 max-md:order-2 max-sm:w-full max-sm:flex-wrap max-sm:justify-end">
-          <OrganizationShellStatus
+          <OrganizationNavControl
             state={organizationState}
-            organizationSlot={organizationSlot}
+            clerkUiAppearance={clerkUiAppearance}
           />
           <ThemeToggle />
           <div className="inline-flex min-w-7 items-center">
-            <UserButton />
+            <UserButton appearance={clerkUiAppearance} />
           </div>
         </div>
       </div>
     </header>
+  )
+}
+
+function OrganizationNavControl({
+  state,
+  clerkUiAppearance,
+}: {
+  state: OrganizationShellState
+  clerkUiAppearance: ReturnType<typeof clerkPopoverAppearance>
+}) {
+  if (state.status === "loading" || state.status === "signed-out") {
+    return <OrganizationShellStatus state={state} />
+  }
+
+  return (
+    <div className="org-switcher-shell min-w-0 max-sm:flex-1">
+      <OrganizationSwitcher
+        appearance={clerkUiAppearance}
+        hidePersonal
+        createOrganizationMode="modal"
+        organizationProfileMode="modal"
+        afterCreateOrganizationUrl="/overview"
+        afterSelectOrganizationUrl="/overview"
+        afterLeaveOrganizationUrl="/overview"
+      />
+    </div>
   )
 }
 

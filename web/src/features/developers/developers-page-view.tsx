@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { buildDeveloperConnectionString } from "../../../../convex/developerTokens"
+import { PageEyebrow } from "../shell/page-eyebrow"
 import { PageState } from "../shell/page-state"
 import {
   developerFormErrors,
@@ -152,7 +153,7 @@ export function DevelopersPageView({
   if (!auth.isSignedIn) {
     return (
       <PageState action={signInSlot} label="Sign in" title="Sign in required">
-        <p className="m-0">Sign in with Clerk before managing developers.</p>
+        <p className="m-0">Sign in before managing developers.</p>
       </PageState>
     )
   }
@@ -176,9 +177,7 @@ export function DevelopersPageView({
   return (
     <main className="mx-auto grid w-full max-w-6xl gap-5 px-6 py-8 pb-12 max-md:px-4">
       <section className="w-full max-w-3xl" aria-labelledby="developers-title">
-        <p className="mb-3 inline-flex items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-primary">
-          Admin Developers
-        </p>
+        <PageEyebrow>Admin Developers</PageEyebrow>
         <h1 id="developers-title" className="m-0 text-5xl font-extrabold leading-none text-foreground max-md:text-4xl">
           Developers
         </h1>

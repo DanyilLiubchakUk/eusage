@@ -8,15 +8,23 @@ A copy of eUsage deployed and operated by one customer team.
 
 - Use when: A team forks or deploys eUsage to its own Vercel and Convex projects.
 - Do not use for: A central eUsage SaaS shared by many teams.
-- Related terms: Admin, Developer, Dashboard.
+- Related terms: Organization, Admin, Developer, Dashboard.
+
+### Organization
+
+A customer workspace in the hosted eUsage SaaS.
+
+- Use when: Talking about the customer-owned SaaS boundary for members, developers, dashboards, TV displays, desktop connections, and shared usage data.
+- Do not use for: A legacy self-deployed Team Deployment or a provider account.
+- Related terms: Team, Owner, Admin, Developer.
 
 ### Team
 
-The group of developers tracked inside one team deployment.
+The group of developers working together inside one Organization or legacy Team Deployment.
 
-- Use when: Talking about the people, settings, tokens, and usage data owned by one deployment.
-- Do not use for: Multiple organizations inside one deployment.
-- Related terms: Team Deployment, Admin, Developer.
+- Use when: Talking about the people collaborating and sharing usage data.
+- Do not use for: The customer workspace boundary in the hosted SaaS; use Organization.
+- Related terms: Organization, Team Deployment, Admin, Developer.
 
 ### Setup Token
 
@@ -26,13 +34,21 @@ A deployment owner secret used only to claim the first admin during initial setu
 - Do not use for: Admin login after setup or developer desktop sync.
 - Related terms: Team Deployment, Admin.
 
+### Owner
+
+The Organization member with final control over setup and management.
+
+- Use when: Talking about the person who can manage Organization-level settings and all admin actions.
+- Do not use for: A regular Admin or a developer who only connects the desktop app.
+- Related terms: Organization, Admin, Developer.
+
 ### Admin
 
-The person who owns setup and team management for one team deployment.
+The person who manages Organization setup and team access.
 
-- Use when: Talking about inviting developers, configuring the deployment, and managing team access.
+- Use when: Talking about inviting developers, configuring the Organization, and managing team access.
 - Do not use for: A developer who only installs the desktop app.
-- Related terms: Developer, Team Deployment.
+- Related terms: Organization, Owner, Developer.
 
 ### Developer
 

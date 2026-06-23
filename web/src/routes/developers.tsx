@@ -1,17 +1,16 @@
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
 import {
-  SignInButton,
   useAuth,
   useOrganization,
 } from "@clerk/tanstack-react-start"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Button } from "@/components/ui/button"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { DevelopersPageView } from "../features/developers/developers-page-view"
 import { AppShell } from "../features/shell/app-shell"
 import { PageState } from "../features/shell/page-state"
+import { SignInButton } from "../features/shell/sign-in-button"
 
 export const Route = createFileRoute("/developers")({
   component: DevelopersRoute,
@@ -37,13 +36,7 @@ function DevelopersRoute() {
   const rotateDeveloperToken = useConvexMutation(api.developers.rotate)
   const revokeDeveloperToken = useConvexMutation(api.developers.revoke)
   const reenableDeveloper = useConvexMutation(api.developers.reenable)
-  const signInSlot = (
-    <SignInButton mode="modal">
-      <Button type="button">
-        Sign in
-      </Button>
-    </SignInButton>
-  )
+  const signInSlot = <SignInButton />
   const signedOutState = {
     status: "not-authenticated" as const,
     team: null,

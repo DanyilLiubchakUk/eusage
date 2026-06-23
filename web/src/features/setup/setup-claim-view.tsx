@@ -91,7 +91,7 @@ export function SetupClaimView({
   if (state.status === "setup-needed" && !auth.isSignedIn) {
     return (
       <PageState action={signInSlot} label="Sign in" title="Sign in required">
-        <p className="m-0">Sign in with Clerk before claiming this deployment.</p>
+        <p className="m-0">Sign in before claiming this deployment.</p>
       </PageState>
     )
   }
@@ -111,7 +111,7 @@ export function SetupClaimView({
       <Card className="w-full p-0" role="region" aria-label="Setup claim">
         <CardContent className="grid grid-cols-2 gap-px p-0 max-md:grid-cols-1">
           <InfoCell label="Backend state" value={state.status} />
-          <InfoCell label="Clerk user" value={auth.userLabel ?? "Signed out"} />
+          <InfoCell label="Account" value={auth.userLabel ?? "Signed out"} />
         </CardContent>
       </Card>
 
