@@ -1,5 +1,7 @@
 #[cfg(target_os = "macos")]
 use std::ffi::OsString;
+#[cfg(target_os = "macos")]
+use crate::plugin_engine::process::{CommandOutputExt, background_command};
 
 const TEAM_TOKEN_SERVICE: &str = "eUsage Developer Token";
 const TEAM_TOKEN_ACCOUNT: &str = "team-sync";
@@ -50,9 +52,9 @@ fn delete_os_token() -> Result<(), String> {
 
 #[cfg(target_os = "macos")]
 fn run_security_command(args: &[OsString]) -> Result<String, String> {
-    let output = std::process::Command::new("security")
+    let output = background_command("security")
         .args(args)
-        .output()
+        .output_with_timeout(std::time::Duration::from_secs(60))
         .map_err(|error| format!("Failed to run macOS Keychain command: {}", error))?;
 
     if output.status.success() {
