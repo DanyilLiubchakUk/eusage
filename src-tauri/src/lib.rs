@@ -13,7 +13,7 @@ mod webkit_config;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 
 use serde::Serialize;
 use tauri::{Emitter, Manager};
@@ -28,6 +28,47 @@ const MAX_CONCURRENT_PROBES: usize = 4;
 
 fn probe_worker_count(plugin_count: usize) -> usize {
     plugin_count.min(MAX_CONCURRENT_PROBES)
+}
+
+fn active_probes() -> &'static (Mutex<usize>, Condvar) {
+    static ACTIVE: OnceLock<(Mutex<usize>, Condvar)> = OnceLock::new();
+    ACTIVE.get_or_init(|| (Mutex::new(0), Condvar::new()))
+}
+
+struct ProbePermit;
+
+impl ProbePermit {
+    fn acquire() -> Self {
+        let (count, available) = active_probes();
+        let mut active = available
+            .wait_while(count.lock().expect("probe limit poisoned"), |active| {
+                *active >= MAX_CONCURRENT_PROBES
+            })
+            .expect("probe limit poisoned");
+        *active += 1;
+        Self
+    }
+}
+
+impl Drop for ProbePermit {
+    fn drop(&mut self) {
+        let (count, available) = active_probes();
+        *count.lock().expect("probe limit poisoned") -= 1;
+        available.notify_one();
+    }
+}
+
+fn run_probe_safely(
+    plugin: &plugin_engine::manifest::LoadedPlugin,
+    run: impl FnOnce() -> plugin_engine::runtime::PluginOutput,
+) -> plugin_engine::runtime::PluginOutput {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)) {
+        Ok(output) => output,
+        Err(_) => {
+            log::error!("probe {} panicked", plugin.manifest.id);
+            plugin_engine::runtime::error_output(plugin, "The plugin failed. Try again.".to_string())
+        }
+    }
 }
 
 #[cfg(desktop)]
@@ -321,37 +362,32 @@ async fn start_probe_batch(
                 };
 
                 let plugin_id = plugin.manifest.id.clone();
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let permit = ProbePermit::acquire();
+                let output = run_probe_safely(&plugin, || {
                     plugin_engine::runtime::run_probe(&plugin, &data_dir, &resources, &version)
-                }));
+                });
+                drop(permit);
 
-                match result {
-                    Ok(output) => {
-                        let has_error = output.lines.iter().any(|line| {
-                            matches!(line, plugin_engine::runtime::MetricLine::Badge { label, .. } if label == "Error")
-                        });
-                        if has_error {
-                            log::warn!("probe {} completed with error", plugin_id);
-                        } else {
-                            log::info!(
-                                "probe {} completed ok ({} lines)",
-                                plugin_id,
-                                output.lines.len()
-                            );
-                            local_http_api::cache_successful_output(&output);
-                        }
-                        let _ = handle.emit(
-                            "probe:result",
-                            ProbeResult {
-                                batch_id: bid.clone(),
-                                output,
-                            },
-                        );
-                    }
-                    Err(_) => {
-                        log::error!("probe {} panicked", plugin_id);
-                    }
+                let has_error = output.lines.iter().any(|line| {
+                    matches!(line, plugin_engine::runtime::MetricLine::Badge { label, .. } if label == "Error")
+                });
+                if has_error {
+                    log::warn!("probe {} completed with error", plugin_id);
+                } else {
+                    log::info!(
+                        "probe {} completed ok ({} lines)",
+                        plugin_id,
+                        output.lines.len()
+                    );
+                    local_http_api::cache_successful_output(&output);
                 }
+                let _ = handle.emit(
+                    "probe:result",
+                    ProbeResult {
+                        batch_id: bid.clone(),
+                        output,
+                    },
+                );
 
                 if counter.fetch_sub(1, Ordering::SeqCst) == 1 {
                     log::info!("probe batch {} complete", completion_bid);
@@ -631,7 +667,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{MAX_CONCURRENT_PROBES, probe_worker_count};
+    use super::*;
 
     #[test]
     fn probe_worker_count_is_bounded() {
@@ -645,5 +681,48 @@ mod tests {
             probe_worker_count(MAX_CONCURRENT_PROBES + 1),
             MAX_CONCURRENT_PROBES
         );
+    }
+
+    #[test]
+    fn probe_limit_is_shared_across_workers() {
+        let active = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+        let start = Arc::new(std::sync::Barrier::new(9));
+        let workers: Vec<_> = (0..8).map(|_| {
+            let active = active.clone();
+            let peak = peak.clone();
+            let start = start.clone();
+            std::thread::spawn(move || {
+                start.wait();
+                let _permit = ProbePermit::acquire();
+                let count = active.fetch_add(1, Ordering::SeqCst) + 1;
+                peak.fetch_max(count, Ordering::SeqCst);
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                active.fetch_sub(1, Ordering::SeqCst);
+            })
+        }).collect();
+        start.wait();
+        for worker in workers {
+            worker.join().unwrap();
+        }
+        assert!(peak.load(Ordering::SeqCst) <= MAX_CONCURRENT_PROBES);
+        assert_eq!(active.load(Ordering::SeqCst), 0);
+        assert_eq!(*active_probes().0.lock().unwrap(), 0);
+    }
+
+    #[test]
+    fn probe_panic_returns_error_for_the_same_provider() {
+        let plugin = plugin_engine::manifest::LoadedPlugin {
+            manifest: serde_json::from_value(serde_json::json!({
+                "schemaVersion": 1, "id": "test", "name": "Test", "version": "0.0.0",
+                "entry": "plugin.js", "icon": "icon.svg", "lines": [],
+            })).unwrap(),
+            plugin_dir: PathBuf::new(),
+            entry_script: String::new(),
+            icon_data_url: String::new(),
+        };
+        let output = run_probe_safely(&plugin, || panic!("synthetic probe panic"));
+        assert_eq!(output.provider_id, "test");
+        assert!(matches!(&output.lines[0], plugin_engine::runtime::MetricLine::Badge { label, .. } if label == "Error"));
     }
 }

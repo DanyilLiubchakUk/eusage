@@ -94,19 +94,65 @@ describe("useProbeEvents", () => {
     }
   })
 
-  it("starts batch after unmount without waiting for listeners", async () => {
-    invokeMock.mockImplementation(async (_cmd: string, args: any) => ({
-      batchId: args.batchId,
-      pluginIds: args.pluginIds ?? [],
-    }))
+  it("does not start a batch after unmount", async () => {
     const { result, unmount } = renderHook(() =>
       useProbeEvents({ onResult: vi.fn(), onBatchComplete: vi.fn() })
     )
     const start = result.current.startBatch
     unmount()
-    const ids = await act(() => start())
-    expect(ids).toEqual([])
-    expect(invokeMock).toHaveBeenCalled()
+    await expect(start()).rejects.toThrow("Probe listeners are not active")
+    expect(invokeMock).not.toHaveBeenCalled()
+  })
+
+  it.each([1, 2])("rejects batch startup if listener %i fails and removes partial listeners", async (failedListener) => {
+    const failure = new Error("Event registration failed")
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const unlisten = vi.fn()
+    if (failedListener === 2) listenMock.mockResolvedValueOnce(unlisten)
+    listenMock.mockRejectedValueOnce(failure)
+    const { result } = renderHook(() =>
+      useProbeEvents({ onResult: vi.fn(), onBatchComplete: vi.fn() })
+    )
+
+    await expect(result.current.startBatch(["a"])).rejects.toThrow(failure)
+    expect(invokeMock).not.toHaveBeenCalled()
+    expect(unlisten).toHaveBeenCalledTimes(failedListener - 1)
+    expect(errorSpy).toHaveBeenCalledWith("Failed to listen for probe events:", failure)
+  })
+
+  it("rejects a waiting batch on unmount before listener registration finishes", async () => {
+    listenMock.mockImplementationOnce(() => new Promise(() => {}))
+    const { result, unmount } = renderHook(() =>
+      useProbeEvents({ onResult: vi.fn(), onBatchComplete: vi.fn() })
+    )
+    const pending = expect(result.current.startBatch(["a"])).rejects.toThrow("Probe listeners stopped")
+
+    unmount()
+
+    await pending
+    expect(invokeMock).not.toHaveBeenCalled()
+  })
+
+  it("updates callbacks without replacing listeners during a running batch", async () => {
+    invokeMock.mockImplementation(async (_cmd: string, args: any) => ({
+      batchId: args.batchId,
+      pluginIds: args.pluginIds,
+    }))
+    const firstResult = vi.fn()
+    const nextResult = vi.fn()
+    const { result, rerender } = renderHook(
+      ({ onResult }) => useProbeEvents({ onResult, onBatchComplete: vi.fn() }),
+      { initialProps: { onResult: firstResult } }
+    )
+    await act(() => result.current.startBatch(["a"]))
+    rerender({ onResult: nextResult })
+
+    const output = { providerId: "a", displayName: "A", lines: [], iconUrl: "" } satisfies PluginOutput
+    listeners.get("probe:result")?.({ payload: { batchId: invokeMock.mock.calls[0][1].batchId, output } })
+
+    expect(listenMock).toHaveBeenCalledTimes(2)
+    expect(firstResult).not.toHaveBeenCalled()
+    expect(nextResult).toHaveBeenCalledWith(output)
   })
 
   it("routes probe events to active batch", async () => {

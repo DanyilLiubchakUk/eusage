@@ -76,12 +76,14 @@ export function useProbeRefreshActions({
 
   const handleForceRefreshAll = useCallback(() => {
     if (!pluginSettings) return
-    const enabledIds = getEnabledPluginIds(pluginSettings)
-    if (enabledIds.length === 0) return
+    const idleIds = getEnabledPluginIds(pluginSettings).filter((id) =>
+      !pluginStatesRef.current[id]?.loading && !manualRefreshIdsRef.current.has(id)
+    )
+    if (idleIds.length === 0) return
 
     resetAutoUpdateSchedule()
-    startManualRefresh(enabledIds, "Failed to start refresh batch:")
-  }, [pluginSettings, resetAutoUpdateSchedule, startManualRefresh])
+    startManualRefresh(idleIds, "Failed to start refresh batch:")
+  }, [pluginSettings, pluginStatesRef, manualRefreshIdsRef, resetAutoUpdateSchedule, startManualRefresh])
 
   return {
     handleRetryPlugin,
