@@ -42,6 +42,7 @@ export function usePanel({
   const [canScrollDown, setCanScrollDown] = useState(false)
   const [maxPanelHeightPx, setMaxPanelHeightPx] = useState<number | null>(null)
   const maxPanelHeightPxRef = useRef<number | null>(null)
+  const resizeQueueRef = useRef(Promise.resolve())
   const focusContainer = useCallback(() => {
     window.requestAnimationFrame(() => {
       containerRef.current?.focus({ preventScroll: true })
@@ -110,11 +111,14 @@ export function usePanel({
       unlisteners.push(u2)
     }
 
-    void setup()
+    void setup().catch((error) => {
+      console.error("Failed to listen for tray events:", error)
+      for (const fn of unlisteners.splice(0)) fn()
+    })
 
     return () => {
       cancelled = true
-      for (const fn of unlisteners) fn()
+      for (const fn of unlisteners.splice(0)) fn()
     }
   }, [focusContainer, setActiveView, setShowAbout])
 
@@ -155,23 +159,39 @@ export function usePanel({
     if (!isTauri()) return
     const container = containerRef.current
     if (!container) return
+    const currentWindow = getCurrentWindow()
+    let cancelled = false
+    let resizeRequest = 0
+    let unlistenScale: (() => void) | undefined
 
-    const resizeWindow = async () => {
-      const factor = window.devicePixelRatio
-      const width = Math.ceil(PANEL_WIDTH * factor)
+    const resizeWindow = async (scaleFactor?: number) => {
+      const request = ++resizeRequest
       const desiredHeightLogical = Math.max(1, container.scrollHeight)
 
       let maxHeightPhysical: number | null = null
       let maxHeightLogical: number | null = null
+      let maxWidthPhysical: number | null = null
+      let monitorScaleFactor: number | undefined
 
       try {
         const monitor = await currentMonitor()
         if (monitor) {
-          maxHeightPhysical = Math.floor(monitor.size.height * MAX_HEIGHT_FRACTION_OF_MONITOR)
-          maxHeightLogical = Math.floor(maxHeightPhysical / factor)
+          const availableHeight = isWindows ? monitor.workArea.size.height : monitor.size.height
+          maxHeightPhysical = Math.floor(availableHeight * MAX_HEIGHT_FRACTION_OF_MONITOR)
+          if (isWindows) {
+            maxWidthPhysical = monitor.workArea.size.width
+            monitorScaleFactor = monitor.scaleFactor
+          }
         }
-      } catch {
-        // fall through to fallback
+      } catch (error) {
+        console.error("Failed to read panel monitor:", error)
+      }
+
+      if (cancelled || request !== resizeRequest) return
+      const factor = scaleFactor ?? monitorScaleFactor ?? window.devicePixelRatio
+      const width = Math.min(Math.ceil(PANEL_WIDTH * factor), maxWidthPhysical ?? Infinity)
+      if (maxHeightPhysical !== null) {
+        maxHeightLogical = Math.floor(maxHeightPhysical / factor)
       }
 
       if (maxHeightLogical === null) {
@@ -189,22 +209,43 @@ export function usePanel({
       const contentHeight = Math.ceil(Math.min(desiredHeightPhysical, maxHeightPhysical!))
       const height = isWindows ? maxHeightPhysical! : contentHeight
 
-      try {
-        const currentWindow = getCurrentWindow()
-        await currentWindow.setSize(new PhysicalSize(width, height))
-      } catch (e) {
-        console.error("Failed to resize window:", e)
-      }
+      resizeQueueRef.current = resizeQueueRef.current.then(async () => {
+        if (cancelled || request !== resizeRequest) return
+        try {
+          await currentWindow.setSize(new PhysicalSize(width, height))
+        } catch (e) {
+          console.error("Failed to resize window:", e)
+        }
+      })
+      await resizeQueueRef.current
     }
 
-    resizeWindow()
+    void resizeWindow()
+
+    const handleFocus = () => { void resizeWindow() }
+    if (isWindows) {
+      window.addEventListener("focus", handleFocus)
+      currentWindow.onScaleChanged(({ payload }) => {
+        void resizeWindow(payload.scaleFactor)
+      }).then((unlisten) => {
+        if (cancelled) unlisten()
+        else unlistenScale = unlisten
+      }).catch((error) => {
+        console.error("Failed to listen for panel scale changes:", error)
+      })
+    }
 
     const observer = new ResizeObserver(() => {
-      resizeWindow()
+      void resizeWindow()
     })
     observer.observe(container)
 
-    return () => observer.disconnect()
+    return () => {
+      cancelled = true
+      observer.disconnect()
+      window.removeEventListener("focus", handleFocus)
+      unlistenScale?.()
+    }
   }, [activeView, displayPlugins, isWindows])
 
   useEffect(() => {
