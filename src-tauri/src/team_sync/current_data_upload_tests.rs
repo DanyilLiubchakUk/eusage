@@ -66,9 +66,9 @@ fn write_settings(dir: &Path, shared: bool) -> String {
     } else {
         json!([])
     };
-    std::fs::write(
-        dir.join(super::super::settings::SETTINGS_FILE_NAME),
-        serde_json::to_string_pretty(&json!({
+    crate::app_settings::set_test_settings(
+        dir,
+        json!({
             "teamConnection": {
                 "teamUrl": "https://team.example.com",
                 "teamName": "Acme Team",
@@ -104,10 +104,8 @@ fn write_settings(dir: &Path, shared: bool) -> String {
                 "teamFingerprint": "team-fingerprint",
                 "sharedLocalAccountFingerprints": shared_fingerprints
             }
-        }))
-        .unwrap(),
-    )
-    .unwrap();
+        }),
+    );
     local_fingerprint
 }
 
@@ -152,7 +150,7 @@ fn queues_current_cached_provider_data_for_shared_account() {
         enqueue,
         CurrentSharedProviderAccountEnqueue {
             current_data_queued: true,
-            should_start_worker: true,
+            worker_connection_key: Some(connection_key(&load_connection(&dir).unwrap())),
         }
     );
     let state = super::super::team_sync_state().lock().unwrap();
@@ -193,7 +191,7 @@ fn missing_current_cached_provider_data_waits_for_next_probe() {
         enqueue,
         CurrentSharedProviderAccountEnqueue {
             current_data_queued: false,
-            should_start_worker: false,
+            worker_connection_key: None,
         }
     );
     assert!(
@@ -225,7 +223,7 @@ fn unshared_account_does_not_queue_current_data() {
         enqueue,
         CurrentSharedProviderAccountEnqueue {
             current_data_queued: false,
-            should_start_worker: false,
+            worker_connection_key: None,
         }
     );
     assert!(
@@ -261,12 +259,12 @@ fn reports_current_data_queued_when_worker_already_exists() {
     )
     .unwrap();
 
-    assert!(first.should_start_worker);
+    assert!(first.worker_connection_key.is_some());
     assert_eq!(
         second,
         CurrentSharedProviderAccountEnqueue {
             current_data_queued: true,
-            should_start_worker: false,
+            worker_connection_key: None,
         }
     );
 }

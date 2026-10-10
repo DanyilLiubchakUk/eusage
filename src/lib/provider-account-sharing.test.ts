@@ -4,7 +4,6 @@ import {
   normalizeProviderAccountSharingSettings,
   pruneProviderAccountSharing,
   updateProviderAccountSharing,
-  withProviderAccountSharingTeamFingerprint,
 } from "@/lib/provider-account-sharing"
 
 describe("provider account sharing", () => {
@@ -73,16 +72,10 @@ describe("provider account sharing", () => {
     ).toBe(false)
   })
 
-  it("stores sharing settings with the active team fingerprint", () => {
-    expect(
-      withProviderAccountSharingTeamFingerprint(
-        { sharedLocalAccountFingerprints: ["fp-work"] },
-        " team-a "
-      )
-    ).toEqual({
-      teamFingerprint: "team-a",
-      sharedLocalAccountFingerprints: ["fp-work"],
-    })
+  it("accepts saved sharing only for the matching connection", () => {
+    const stored = { teamFingerprint: "team-a", connectionId: "current", sharedLocalAccountFingerprints: ["fp-work"] }
+    expect(normalizeProviderAccountSharingSettings(stored, "team-a", "current")).toEqual({ sharedLocalAccountFingerprints: ["fp-work"] })
+    expect(normalizeProviderAccountSharingSettings(stored, "team-a", "different")).toBeNull()
   })
 })
 

@@ -3,8 +3,8 @@ use super::client::{
 };
 use super::provider_accounts::shared_provider_account_for_label_update;
 use super::settings::{
-    TeamConnectionSettings, clear_team_connection, load_connection, mark_connection_error,
-    mark_connection_success, valid_connection,
+    TeamConnectionSettings, clear_connection_with, connection_key, load_connection,
+    mark_connection_error, mark_connection_success, read_connection_with_token, valid_connection,
 };
 use std::path::Path;
 use std::time::Duration;
@@ -66,18 +66,24 @@ where
         local_account_fingerprint,
         label,
     )?;
-    let token = match read_team_token() {
-        Ok(Some(token)) if !token.trim().is_empty() => token,
-        Ok(_) => {
-            let message = "Team token is missing. Paste a connection string again.".to_string();
-            mark_connection_error(app_data_dir, &message);
-            return Err(message);
-        }
-        Err(error) => {
-            mark_connection_error(app_data_dir, &error);
-            return Err(error);
-        }
-    };
+    let (connection, token) =
+        match read_connection_with_token(app_data_dir, Some(&connection_key(&connection)), || {
+            shared_provider_account_for_label_update(
+                app_data_dir,
+                &connection.team_fingerprint,
+                &snapshot,
+                local_account_fingerprint,
+                label,
+            )?;
+            read_team_token()
+        }) {
+            Ok(Some(snapshot)) => snapshot,
+            Ok(None) => return Err("Team connection changed before updating metadata.".to_string()),
+            Err(error) => {
+                mark_connection_error(app_data_dir, &connection, &error);
+                return Err(error);
+            }
+        };
 
     let request = ProviderAccountUpdateRequest {
         provider_id: snapshot.provider_id,
@@ -88,23 +94,24 @@ where
 
     match send_update(&connection, &token, &request, timeout) {
         ProviderAccountUpdateResult::Success { server_time } => {
-            mark_connection_success(app_data_dir, &server_time);
+            mark_connection_success(app_data_dir, &connection, &server_time);
             Ok(())
         }
         ProviderAccountUpdateResult::Retryable { message } => {
-            mark_connection_error(app_data_dir, &message);
+            mark_connection_error(app_data_dir, &connection, &message);
             log::warn!("provider account metadata update failed: {}", message);
             Err(message)
         }
         ProviderAccountUpdateResult::InvalidToken { message } => {
-            if let Err(error) = delete_team_token() {
-                log::warn!(
+            if let Err(error) =
+                clear_connection_with(app_data_dir, &connection, &token, delete_team_token)
+            {
+                log::error!(
                     "provider account metadata invalid-token cleanup failed: {}",
                     error
                 );
             }
-            clear_team_connection(app_data_dir);
-            super::clear_pending_uploads();
+            super::drop_pending_if_connection_matches(Some(&connection_key(&connection)));
             log::warn!("provider account metadata update stopped: {}", message);
             Err(message)
         }

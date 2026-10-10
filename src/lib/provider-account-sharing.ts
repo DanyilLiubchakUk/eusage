@@ -1,11 +1,7 @@
 export type ProviderAccountSharingSettings = {
+  connectionId?: string | null
   sharedLocalAccountFingerprints: string[]
 }
-
-export type StoredProviderAccountSharingSettings =
-  ProviderAccountSharingSettings & {
-    teamFingerprint: string
-  }
 
 export type ProviderAccountSharingSyncNotice = {
   tone: "info" | "error"
@@ -25,11 +21,13 @@ export const DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS: ProviderAccountSharingSe
 
 export function normalizeProviderAccountSharingSettings(
   value: unknown,
-  activeTeamFingerprint?: string | null
+  activeTeamFingerprint?: string | null,
+  activeConnectionId?: string | null
 ): ProviderAccountSharingSettings | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
   const row = value as Record<string, unknown>
   if (!Array.isArray(row.sharedLocalAccountFingerprints)) return null
+  if (activeConnectionId !== undefined && (row.connectionId ?? null) !== activeConnectionId) return null
   if (activeTeamFingerprint !== undefined) {
     const activeTeam = (activeTeamFingerprint ?? "").trim()
     const teamFingerprint = stringField(row.teamFingerprint)
@@ -67,18 +65,9 @@ export function updateProviderAccountSharing(
   return {
     ok: true,
     value: {
+      ...settings,
       sharedLocalAccountFingerprints: [...fingerprints],
     },
-  }
-}
-
-export function withProviderAccountSharingTeamFingerprint(
-  settings: ProviderAccountSharingSettings,
-  teamFingerprint: string
-): StoredProviderAccountSharingSettings {
-  return {
-    teamFingerprint: teamFingerprint.trim(),
-    sharedLocalAccountFingerprints: settings.sharedLocalAccountFingerprints,
   }
 }
 
@@ -88,6 +77,7 @@ export function pruneProviderAccountSharing(
 ): ProviderAccountSharingSettings {
   const shareable = new Set([...shareableLocalAccountFingerprints].map(trimString))
   return {
+    ...settings,
     sharedLocalAccountFingerprints: settings.sharedLocalAccountFingerprints.filter(
       (fingerprint) => shareable.has(fingerprint)
     ),

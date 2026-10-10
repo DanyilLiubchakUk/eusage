@@ -1,9 +1,10 @@
 mod client;
 mod current_data_upload;
 mod payload;
+mod pending_upload;
 mod provider_account_updates;
 mod provider_accounts;
-mod settings;
+pub(crate) mod settings;
 
 #[cfg(test)]
 mod tests;
@@ -11,12 +12,11 @@ mod tests;
 use crate::local_http_api::cache::CachedPluginSnapshot;
 use client::{TeamUploadResult, send_usage_batch_http};
 use payload::{TeamUsageProvider, build_provider_upload};
-use provider_accounts::{
-    local_provider_account_is_shareable, shared_provider_account_for_snapshot,
-};
+use pending_upload::prepare_pending_upload;
+use provider_accounts::shared_provider_account_for_snapshot;
 use serde::Serialize;
 use settings::{
-    TeamConnectionSettings, clear_team_connection, connection_key, load_connection,
+    TeamConnectionSettings, clear_connection_with, connection_key, load_connection,
     mark_connection_error, mark_connection_success, valid_connection,
 };
 use std::collections::BTreeMap;
@@ -53,6 +53,7 @@ struct TeamUsageBatch {
 #[derive(Debug, Clone)]
 struct SentProvider {
     upload_key: String,
+    local_account_fingerprint: String,
     generation: u64,
 }
 
@@ -93,6 +94,7 @@ pub fn upload_snapshot(app_data_dir: &Path, snapshot: &CachedPluginSnapshot) {
 
 pub fn flush_pending_uploads() {
     let _ = upload_pending_once_with(
+        None,
         QUIT_FLUSH_TIMEOUT,
         || crate::team_credentials::read_team_token(),
         send_usage_batch_http,
@@ -108,12 +110,10 @@ fn enqueue_snapshot_with_debounce(
     let Some(connection) = load_connection(app_data_dir) else {
         return;
     };
-
     if !valid_connection(&connection) {
         log::warn!("team sync disabled: saved Team connection is incomplete");
         return;
     }
-
     let Some(shared_account) =
         shared_provider_account_for_snapshot(app_data_dir, &connection.team_fingerprint, snapshot)
     else {
@@ -123,15 +123,16 @@ fn enqueue_snapshot_with_debounce(
         &shared_account.team_account_fingerprint,
         &shared_account.label,
     );
+    let worker_connection_key = connection_key(&connection);
     let should_start_worker = enqueue_provider_upload(
         app_data_dir.to_path_buf(),
-        connection_key(&connection),
+        worker_connection_key.clone(),
         shared_account.local_account_fingerprint,
         provider,
     );
 
     if should_start_worker {
-        std::thread::spawn(move || debounced_upload_worker(debounce));
+        std::thread::spawn(move || debounced_upload_worker(worker_connection_key, debounce));
     }
 }
 
@@ -142,10 +143,20 @@ fn enqueue_provider_upload(
     provider: TeamUsageProvider,
 ) -> bool {
     let mut state = team_sync_state().lock().expect("team sync state poisoned");
+    // A scan prepared before reconnect must not replace the new connection's queue.
+    if load_connection(&app_data_dir)
+        .is_none_or(|current| settings::connection_key(&current) != connection_key)
+    {
+        return false;
+    }
     let next_generation = state.generation.wrapping_add(1);
     let upload_key = provider.upload_key();
     state.generation = next_generation;
     state.app_data_dir = app_data_dir;
+    if state.connection_key.as_deref() != Some(connection_key.as_str()) {
+        state.pending.clear();
+        state.upload_scheduled = false;
+    }
     state.connection_key = Some(connection_key);
     state.pending.insert(
         upload_key,
@@ -164,9 +175,10 @@ fn enqueue_provider_upload(
     }
 }
 
-fn debounced_upload_worker(debounce: Duration) {
+fn debounced_upload_worker(worker_connection_key: String, debounce: Duration) {
     wait_for_upload_window(debounce, TEAM_SYNC_MAX_PENDING_AGE);
     let _ = upload_pending_once_with(
+        Some(&worker_connection_key),
         REQUEST_TIMEOUT,
         || crate::team_credentials::read_team_token(),
         send_usage_batch_http,
@@ -222,6 +234,7 @@ fn should_upload_after_wait(
 }
 
 fn upload_pending_once_with<R, F, D>(
+    worker_connection_key: Option<&str>,
     timeout: Duration,
     read_team_token: R,
     send_usage_batch: F,
@@ -232,7 +245,7 @@ where
     F: Fn(&TeamConnectionSettings, &str, &TeamUsageBatch, Duration) -> TeamUploadResult,
     D: Fn() -> Result<(), String>,
 {
-    let Some(upload) = prepare_pending_upload(&read_team_token) else {
+    let Some(upload) = prepare_pending_upload(worker_connection_key, &read_team_token) else {
         return TeamSyncAttempt::Idle;
     };
 
@@ -242,9 +255,9 @@ where
             rejected_provider_ids,
             ..
         } => {
-            mark_connection_success(&upload.app_data_dir, &server_time);
-            finish_sent_providers(&upload.sent_providers);
-            mark_upload_finished(true);
+            mark_connection_success(&upload.app_data_dir, &upload.connection, &server_time);
+            finish_sent_providers(&connection_key(&upload.connection), &upload.sent_providers);
+            mark_upload_finished(Some(&connection_key(&upload.connection)), true);
             if !rejected_provider_ids.is_empty() {
                 log::warn!(
                     "team sync accepted batch with rejected providers: {:?}",
@@ -254,109 +267,32 @@ where
             TeamSyncAttempt::Sent
         }
         TeamUploadResult::Retryable { message } => {
-            mark_connection_error(&upload.app_data_dir, &message);
-            mark_upload_finished(false);
+            mark_connection_error(&upload.app_data_dir, &upload.connection, &message);
+            mark_upload_finished(Some(&connection_key(&upload.connection)), false);
             log::warn!("team sync upload failed: {}", message);
             TeamSyncAttempt::RetryableFailure
         }
         TeamUploadResult::InvalidToken { message } => {
-            if let Err(error) = delete_team_token() {
-                log::warn!("team sync invalid-token cleanup failed: {}", error);
+            if let Err(error) = clear_connection_with(
+                &upload.app_data_dir,
+                &upload.connection,
+                &upload.token,
+                delete_team_token,
+            ) {
+                log::error!("team sync invalid-token cleanup failed: {}", error);
             }
-            clear_team_connection(&upload.app_data_dir);
-            clear_pending_uploads();
+            drop_pending_if_connection_matches(Some(&connection_key(&upload.connection)));
             log::warn!("team sync stopped: {}", message);
             TeamSyncAttempt::InvalidToken
         }
     }
 }
 
-fn prepare_pending_upload<R>(read_team_token: &R) -> Option<PendingUpload>
-where
-    R: Fn() -> Result<Option<String>, String>,
-{
-    let (app_data_dir, expected_connection_key, sent_providers, providers) = {
-        let mut state = team_sync_state().lock().expect("team sync state poisoned");
-        if state.pending.is_empty() {
-            state.upload_scheduled = false;
-            return None;
-        }
-
-        let mut sent_providers = Vec::with_capacity(state.pending.len());
-        let mut providers = Vec::with_capacity(state.pending.len());
-        let mut stale_upload_keys = Vec::new();
-        for (upload_key, pending) in state.pending.iter() {
-            if !local_provider_account_is_shareable(
-                &state.app_data_dir,
-                &pending.local_account_fingerprint,
-            ) {
-                stale_upload_keys.push(upload_key.clone());
-                continue;
-            }
-            sent_providers.push(SentProvider {
-                upload_key: upload_key.clone(),
-                generation: pending.generation,
-            });
-            providers.push(pending.upload.clone());
-        }
-        for upload_key in stale_upload_keys {
-            state.pending.remove(&upload_key);
-        }
-        if providers.is_empty() {
-            state.upload_scheduled = false;
-            return None;
-        }
-
-        (
-            state.app_data_dir.clone(),
-            state.connection_key.clone(),
-            sent_providers,
-            providers,
-        )
-    };
-
-    let Some(connection) = load_connection(&app_data_dir) else {
-        drop_pending_if_connection_matches(expected_connection_key.as_deref());
-        return None;
-    };
-
-    if expected_connection_key.as_deref() != Some(connection_key(&connection).as_str()) {
-        drop_pending_if_connection_matches(expected_connection_key.as_deref());
-        return None;
-    }
-
-    let token = match read_team_token() {
-        Ok(Some(token)) if !token.trim().is_empty() => token,
-        Ok(_) => {
-            mark_connection_error(
-                &app_data_dir,
-                "Team token is missing. Paste a connection string again.",
-            );
-            mark_upload_finished(false);
-            return None;
-        }
-        Err(error) => {
-            mark_connection_error(&app_data_dir, &error);
-            mark_upload_finished(false);
-            return None;
-        }
-    };
-
-    Some(PendingUpload {
-        app_data_dir,
-        batch: TeamUsageBatch {
-            upload_schema_version: UPLOAD_SCHEMA_VERSION,
-            device_id: connection.device_id.clone(),
-            providers,
-        },
-        connection,
-        token,
-        sent_providers,
-    })
-}
-
-fn finish_sent_providers(sent_providers: &[SentProvider]) {
+fn finish_sent_providers(expected_key: &str, sent_providers: &[SentProvider]) {
     let mut state = team_sync_state().lock().expect("team sync state poisoned");
+    if state.connection_key.as_deref() != Some(expected_key) {
+        return;
+    }
     for sent in sent_providers {
         let should_remove = state
             .pending
@@ -367,12 +303,14 @@ fn finish_sent_providers(sent_providers: &[SentProvider]) {
             state.pending.remove(&sent.upload_key);
         }
     }
-    state.upload_scheduled = false;
 }
 
-fn mark_upload_finished(allow_reschedule: bool) {
+fn mark_upload_finished(expected_key: Option<&str>, allow_reschedule: bool) {
     let should_reschedule = {
         let mut state = team_sync_state().lock().expect("team sync state poisoned");
+        if state.connection_key.as_deref() != expected_key {
+            return;
+        }
         state.upload_scheduled = false;
         let should_reschedule = allow_reschedule && !state.pending.is_empty();
         if should_reschedule {
@@ -382,7 +320,12 @@ fn mark_upload_finished(allow_reschedule: bool) {
     };
 
     if should_reschedule {
-        std::thread::spawn(move || debounced_upload_worker(TEAM_SYNC_DEBOUNCE_WINDOW));
+        let worker_connection_key = expected_key
+            .expect("pending uploads have a connection")
+            .to_owned();
+        std::thread::spawn(move || {
+            debounced_upload_worker(worker_connection_key, TEAM_SYNC_DEBOUNCE_WINDOW)
+        });
     }
 }
 

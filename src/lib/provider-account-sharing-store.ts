@@ -1,61 +1,47 @@
-import { LazyStore } from "@tauri-apps/plugin-store"
+import { invoke } from "@tauri-apps/api/core"
+import { readTeamSettings } from "@/lib/team-settings"
 import {
   DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS,
   normalizeProviderAccountSharingSettings,
-  withProviderAccountSharingTeamFingerprint,
   type ProviderAccountSharingSettings,
 } from "@/lib/provider-account-sharing"
 
-const SETTINGS_STORE_PATH = "settings.json"
-const TEAM_CONNECTION_KEY = "teamConnection"
-const PROVIDER_ACCOUNT_SHARING_KEY = "providerAccountSharing"
+let sharingWrites = Promise.resolve()
 
-const store = new LazyStore(SETTINGS_STORE_PATH)
-
-type StoreWithDelete = {
-  delete?: (key: string) => Promise<void>
-}
-
-async function deleteStoreKey(key: string): Promise<void> {
-  const maybeDelete = (store as unknown as StoreWithDelete).delete
-  if (typeof maybeDelete === "function") {
-    await maybeDelete.call(store, key)
-    return
-  }
-  await store.set(key, null)
+function writeSharing(
+  settings: ProviderAccountSharingSettings | null,
+  expectedConnectionId: string | null
+): Promise<boolean> {
+  const result = sharingWrites.then(() => invoke<boolean>("save_provider_account_sharing", {
+    settings, expectedConnectionId,
+  }))
+  sharingWrites = result.then(() => undefined, () => undefined)
+  return result
 }
 
 export async function loadProviderAccountSharingSettings(): Promise<
   ProviderAccountSharingSettings
 > {
-  const teamFingerprint = activeTeamFingerprint(
-    await store.get<unknown>(TEAM_CONNECTION_KEY)
-  )
-  return normalizeProviderAccountSharingSettings(
-    await store.get<unknown>(PROVIDER_ACCOUNT_SHARING_KEY),
-    teamFingerprint
-  ) ?? { ...DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS }
+  await sharingWrites
+  const snapshot = await readTeamSettings()
+  const teamFingerprint = activeTeamFingerprint(snapshot.teamConnection)
+  const connectionId = snapshot.teamConnection?.connectionId ?? null
+  const settings = normalizeProviderAccountSharingSettings(
+    snapshot.providerAccountSharing,
+    teamFingerprint,
+    connectionId
+  ) ?? DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS
+  return { ...settings, connectionId }
 }
 
-export async function saveProviderAccountSharingSettings(
+export function saveProviderAccountSharingSettings(
   settings: ProviderAccountSharingSettings
-): Promise<void> {
-  const teamFingerprint = activeTeamFingerprint(
-    await store.get<unknown>(TEAM_CONNECTION_KEY)
-  )
-  if (!teamFingerprint) {
-    throw new Error("Team fingerprint is required for Provider Account sharing.")
-  }
-  await store.set(
-    PROVIDER_ACCOUNT_SHARING_KEY,
-    withProviderAccountSharingTeamFingerprint(settings, teamFingerprint)
-  )
-  await store.save()
+): Promise<boolean> {
+  return writeSharing(settings, settings.connectionId ?? null)
 }
 
-export async function clearProviderAccountSharingSettings(): Promise<void> {
-  await deleteStoreKey(PROVIDER_ACCOUNT_SHARING_KEY)
-  await store.save()
+export function clearProviderAccountSharingSettings(settings: ProviderAccountSharingSettings): Promise<boolean> {
+  return writeSharing(null, settings.connectionId ?? null)
 }
 
 function activeTeamFingerprint(value: unknown): string | null {

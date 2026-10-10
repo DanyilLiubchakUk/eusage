@@ -1,9 +1,5 @@
-import { LazyStore } from "@tauri-apps/plugin-store"
+import { invoke } from "@tauri-apps/api/core"
 import { normalizeDeviceName } from "@/lib/team-device-name"
-
-const SETTINGS_STORE_PATH = "settings.json"
-const TEAM_CONNECTION_KEY = "teamConnection"
-const TEAM_DEVICE_ID_KEY = "teamDeviceId"
 
 export type TeamDeviceStatus = "connected" | "stale" | "disconnected" | "archived"
 
@@ -18,6 +14,7 @@ export type TeamApiEndpoints = {
 }
 
 export type TeamConnectionSettings = {
+  connectionId?: string | null
   teamUrl: string
   teamName: string
   reportingTimeZone: string
@@ -34,49 +31,47 @@ export type TeamConnectionSettings = {
   lastError: string | null
 }
 
-const store = new LazyStore(SETTINGS_STORE_PATH)
 const DEFAULT_PROVIDER_ACCOUNT_UPDATE_ENDPOINT = "/api/v1/provider-account/update"
 
-type StoreWithDelete = {
-  delete?: (key: string) => Promise<void>
-}
-
-async function deleteStoreKey(key: string): Promise<void> {
-  const maybeDelete = (store as unknown as StoreWithDelete).delete
-  if (typeof maybeDelete === "function") {
-    await maybeDelete.call(store, key)
-    return
-  }
-  await store.set(key, null)
+export function readTeamSettings(): Promise<{
+  teamConnection?: TeamConnectionSettings | null
+  teamDeviceId?: unknown
+  providerAccountSharing?: unknown
+}> {
+  return invoke("read_team_settings")
 }
 
 export async function loadTeamConnectionSettings(): Promise<TeamConnectionSettings | null> {
-  const stored = await store.get<unknown>(TEAM_CONNECTION_KEY)
-  return normalizeTeamConnectionSettings(stored)
+  return normalizeTeamConnectionSettings((await readTeamSettings()).teamConnection)
 }
 
 export async function loadTeamDeviceId(): Promise<string | null> {
-  const deviceId = stringField(await store.get<unknown>(TEAM_DEVICE_ID_KEY)).trim()
+  const deviceId = stringField((await readTeamSettings()).teamDeviceId).trim()
   return deviceId || null
 }
 
 export async function saveTeamConnectionSettings(
   settings: TeamConnectionSettings
-): Promise<void> {
-  await store.set(TEAM_CONNECTION_KEY, settings)
-  await store.set(TEAM_DEVICE_ID_KEY, settings.deviceId)
-  await store.save()
+): Promise<boolean> {
+  return invoke("update_team_connection", {
+    settings,
+    expectedConnectionId: settings.connectionId ?? null,
+  })
 }
 
-export async function clearTeamConnectionSettings(): Promise<void> {
-  const existing = normalizeTeamConnectionSettings(
-    await store.get<unknown>(TEAM_CONNECTION_KEY)
-  )
-  if (existing) {
-    await store.set(TEAM_DEVICE_ID_KEY, existing.deviceId)
-  }
-  await deleteStoreKey(TEAM_CONNECTION_KEY)
-  await store.save()
+export async function replaceTeamConnectionSettings(
+  settings: TeamConnectionSettings,
+  token: string
+): Promise<void> {
+  await invoke("replace_team_connection", { settings, token })
+}
+
+export async function clearTeamConnectionSettings(
+  expected: TeamConnectionSettings
+): Promise<boolean> {
+  return invoke("clear_team_connection", {
+    expectedConnectionId: expected.connectionId ?? null,
+  })
 }
 
 export function normalizeTeamConnectionSettings(
@@ -102,6 +97,7 @@ export function normalizeTeamConnectionSettings(
   if (!teamUrl || !teamName || !reportingTimeZone || !tokenFingerprint || !deviceId || !endpoints) return null
 
   return {
+    ...(row.connectionId !== undefined ? { connectionId: nullableStringField(row.connectionId) } : {}),
     teamUrl,
     teamName,
     reportingTimeZone,

@@ -91,9 +91,9 @@ fn write_settings_for_team(
     for (key, value) in account_patch.as_object().unwrap() {
         account.insert(key.to_string(), value.clone());
     }
-    std::fs::write(
-        dir.join(SETTINGS_FILE_NAME),
-        serde_json::to_string_pretty(&serde_json::json!({
+    crate::app_settings::set_test_settings(
+        dir,
+        serde_json::json!({
             "teamConnection": { "teamFingerprint": active_team_fingerprint },
             "providerAccountLocalSalt": local_salt,
             "providerAccountRegistry": { "accounts": [serde_json::Value::Object(account)] },
@@ -101,10 +101,8 @@ fn write_settings_for_team(
                 "teamFingerprint": sharing_team_fingerprint,
                 "sharedLocalAccountFingerprints": shared_fingerprints,
             },
-        }))
-        .unwrap(),
-    )
-    .unwrap();
+        }),
+    );
     local_fingerprint
 }
 
@@ -125,6 +123,28 @@ fn shared_provider_account_requires_local_share_and_visible_detected_account() {
         &dir,
         &local_fingerprint
     ));
+}
+
+#[test]
+fn reconnecting_same_team_does_not_reuse_previous_connection_consent() {
+    let dir = temp_dir("sharing-identity");
+    let fingerprint = write_settings(&dir, serde_json::json!({}), true);
+    crate::app_settings::set_test_value(
+        &dir,
+        TEAM_CONNECTION_KEY,
+        serde_json::json!({"teamFingerprint": TEAM_FINGERPRINT, "connectionId": "new"}),
+    );
+    assert!(!local_provider_account_is_shareable(&dir, &fingerprint));
+    assert!(shared_provider_account_for_snapshot(&dir, TEAM_FINGERPRINT, &snapshot()).is_none());
+    crate::app_settings::set_test_value(
+        &dir,
+        SHARING_KEY,
+        serde_json::json!({
+            "teamFingerprint": TEAM_FINGERPRINT, "connectionId": "new",
+            "sharedLocalAccountFingerprints": [fingerprint]
+        }),
+    );
+    assert!(local_provider_account_is_shareable(&dir, &fingerprint));
 }
 
 #[test]

@@ -4,7 +4,6 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-const SETTINGS_FILE_NAME: &str = "settings.json";
 const TEAM_CONNECTION_KEY: &str = "teamConnection";
 const REGISTRY_KEY: &str = "providerAccountRegistry";
 const SHARING_KEY: &str = "providerAccountSharing";
@@ -154,8 +153,7 @@ pub(super) fn local_provider_account_is_shareable(
 }
 
 fn read_settings_value(app_data_dir: &Path) -> Option<serde_json::Value> {
-    let data = std::fs::read_to_string(app_data_dir.join(SETTINGS_FILE_NAME)).ok()?;
-    serde_json::from_str::<serde_json::Value>(&data).ok()
+    crate::app_settings::snapshot(app_data_dir)
 }
 
 fn current_team_fingerprint(settings: &serde_json::Value) -> Option<String> {
@@ -176,6 +174,13 @@ fn shared_local_account_fingerprints(
         .get(SHARING_KEY)
         .filter(|value| {
             string_field(value.get("teamFingerprint")).as_deref() == Some(active_team_fingerprint)
+                && value
+                    .get("connectionId")
+                    .and_then(serde_json::Value::as_str)
+                    == settings
+                        .get(TEAM_CONNECTION_KEY)
+                        .and_then(|connection| connection.get("connectionId"))
+                        .and_then(serde_json::Value::as_str)
         })
         .and_then(|value| value.get("sharedLocalAccountFingerprints"))
         .and_then(serde_json::Value::as_array)

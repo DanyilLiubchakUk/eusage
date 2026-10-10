@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   areProviderAccountSharingSettingsEqual,
   DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS,
@@ -26,6 +26,12 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
     })
   const [providerAccountSharingSyncNotice, setProviderAccountSharingSyncNotice] =
     useState<ProviderAccountSharingSyncNotice | null>(null)
+  const settingsRef = useRef(providerAccountSharingSettings)
+  const loadVersion = useRef(0)
+  const setSharingSettings = useCallback((next: ProviderAccountSharingSettings) => {
+    settingsRef.current = next
+    setProviderAccountSharingSettings(next)
+  }, [])
 
   const shareableAccounts = useMemo(() => getShareableAccounts(groups), [groups])
 
@@ -40,37 +46,43 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
   )
 
   const reloadProviderAccountSharingSettings = useCallback(async () => {
+    const version = ++loadVersion.current
+
     try {
       const loaded = await loadProviderAccountSharingSettings()
+      if (version !== loadVersion.current) return
+      setSharingSettings(loaded)
       const next = pruneProviderAccountSharing(loaded, shareableFingerprints)
-      setProviderAccountSharingSettings(next)
       if (!areProviderAccountSharingSettingsEqual(loaded, next)) {
-        void saveProviderAccountSharingSettings(next).catch((error) => {
-          console.error("Failed to prune provider account sharing settings:", error)
-        })
+        const saved = await saveProviderAccountSharingSettings(next)
+        if (version !== loadVersion.current) return
+        if (!saved) {
+          const current = await loadProviderAccountSharingSettings()
+          if (version === loadVersion.current) setSharingSettings(current)
+          return
+        }
+      }
+      if (version === loadVersion.current) {
+        setSharingSettings(next)
+        return next
       }
     } catch (error) {
       console.error("Failed to load provider account sharing settings:", error)
+      if (version === loadVersion.current) {
+        setProviderAccountSharingSyncNotice({ tone: "error", message: "Sharing settings could not be loaded or updated. Try again." })
+      }
     }
-  }, [shareableFingerprints])
+  }, [shareableFingerprints, setSharingSettings])
 
   useEffect(() => {
     void reloadProviderAccountSharingSettings()
+    return () => { loadVersion.current += 1 }
   }, [reloadProviderAccountSharingSettings])
 
-  useEffect(() => {
-    setProviderAccountSharingSettings((current) => {
-      const next = pruneProviderAccountSharing(current, shareableFingerprints)
-      if (areProviderAccountSharingSettingsEqual(current, next)) return current
-      void saveProviderAccountSharingSettings(next).catch((error) => {
-        console.error("Failed to prune provider account sharing settings:", error)
-      })
-      return next
-    })
-  }, [shareableFingerprints])
-
   const syncSharedProviderAccount = useCallback(async (account: LocalProviderAccount) => {
+    const connectionId = settingsRef.current.connectionId
     const result = await syncSharedProviderAccountWithTeam(account)
+    if (settingsRef.current.connectionId !== connectionId || !settingsRef.current.sharedLocalAccountFingerprints.includes(account.localAccountFingerprint)) return
     const notice = syncResultToNotice(result)
     if (notice) setProviderAccountSharingSyncNotice(notice)
     if (!result.ok) {
@@ -87,45 +99,66 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
     if (shared && !account) return
     setProviderAccountSharingSyncNotice(null)
 
-    setProviderAccountSharingSettings((current) => {
-      const result = updateProviderAccountSharing(
-        current,
-        fingerprint,
-        shared
-      )
-      if (!result.ok) {
-        console.error("Failed to update provider account sharing settings:", result)
-        return current
-      }
-      void saveProviderAccountSharingSettings(result.value)
-        .then(() => {
-          if (shared && account) return syncSharedProviderAccount(account)
-        })
-        .catch((error) => {
-          console.error("Failed to save provider account sharing settings:", error)
-        })
-      return result.value
-    })
-  }, [shareableAccounts, syncSharedProviderAccount])
+    const previous = settingsRef.current
+    const result = updateProviderAccountSharing(pruneProviderAccountSharing(previous, shareableFingerprints), fingerprint, shared)
+    if (!result.ok) {
+      console.error("Failed to update provider account sharing settings:", result)
+      return
+    }
+    const version = ++loadVersion.current
+    setSharingSettings(result.value)
+    void saveProviderAccountSharingSettings(result.value)
+      .then(async (saved) => {
+        if (!saved) {
+          if (version === loadVersion.current) {
+            setProviderAccountSharingSyncNotice({ tone: "error", message: "Team connection changed. Review sharing and try again." })
+            await reloadProviderAccountSharingSettings()
+          }
+          return
+        }
+        if (shared && account && settingsRef.current.connectionId === previous.connectionId && settingsRef.current.sharedLocalAccountFingerprints.includes(fingerprint)) {
+          return syncSharedProviderAccount(account)
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to save provider account sharing settings:", error)
+        if (version === loadVersion.current) {
+          setSharingSettings(previous)
+          setProviderAccountSharingSyncNotice({ tone: "error", message: "Sharing could not be saved. Try again." })
+          void reloadProviderAccountSharingSettings()
+        }
+      })
+  }, [shareableAccounts, shareableFingerprints, setSharingSettings, syncSharedProviderAccount, reloadProviderAccountSharingSettings])
 
   const resetProviderAccountSharing = useCallback(async () => {
+    const previous = settingsRef.current
+    const version = ++loadVersion.current
     setProviderAccountSharingSyncNotice(null)
-    setProviderAccountSharingSettings({ ...DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS })
+    setSharingSettings({ ...previous, ...DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS })
     try {
-      await clearProviderAccountSharingSettings()
+      if (!await clearProviderAccountSharingSettings(previous) && version === loadVersion.current) {
+        await reloadProviderAccountSharingSettings()
+      }
     } catch (error) {
       console.error("Failed to clear provider account sharing settings:", error)
+      if (version === loadVersion.current) {
+        setSharingSettings(previous)
+        setProviderAccountSharingSyncNotice({ tone: "error", message: "Sharing could not be cleared. Try again." })
+        await reloadProviderAccountSharingSettings()
+      }
     }
-  }, [])
+  }, [reloadProviderAccountSharingSettings, setSharingSettings])
 
-  const retryProviderAccountSharingSync = useCallback(() => {
+  const retryProviderAccountSharingSync = useCallback(async () => {
     setProviderAccountSharingSyncNotice(null)
-    for (const fingerprint of providerAccountSharingSettings.sharedLocalAccountFingerprints) {
+    const loaded = await reloadProviderAccountSharingSettings()
+    if (!loaded || settingsRef.current !== loaded) return
+    for (const fingerprint of loaded.sharedLocalAccountFingerprints) {
       const account = shareableAccounts.get(fingerprint)
       if (account) void syncSharedProviderAccount(account)
     }
   }, [
-    providerAccountSharingSettings.sharedLocalAccountFingerprints,
+    reloadProviderAccountSharingSettings,
     shareableAccounts,
     syncSharedProviderAccount,
   ])

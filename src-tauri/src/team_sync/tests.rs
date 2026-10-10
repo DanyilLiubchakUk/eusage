@@ -3,7 +3,7 @@ use crate::plugin_engine::runtime::{MetricLine, ProgressFormat};
 use payload::build_provider_upload;
 use serde_json::{Value, json};
 use serial_test::serial;
-use settings::{SETTINGS_FILE_NAME, load_connection};
+use settings::load_connection;
 use std::sync::{Arc, Mutex};
 
 const LOCAL_ACCOUNT_FINGERPRINT: &str = "local-account-fingerprint";
@@ -26,15 +26,15 @@ fn reset_state() {
 
 fn write_connection(dir: &Path) {
     std::fs::create_dir_all(dir).unwrap();
-    std::fs::write(
-        dir.join(SETTINGS_FILE_NAME),
-        serde_json::to_string_pretty(&json!({
+    crate::app_settings::set_test_settings(
+        dir,
+        json!({
             "themeMode": "system",
             "teamConnection": {
                 "teamUrl": "https://team.example.com",
                 "teamName": "Acme Team",
                 "teamFingerprint": "team-fingerprint",
-                "tokenFingerprint": "abcd1234...wxyz7890",
+                "tokenFingerprint": crate::team_settings_store::token_fingerprint("eusage_dev_secret"),
                 "deviceId": "device-1",
                 "endpoints": {
                     "teamConfig": "/api/v1/team-config",
@@ -64,10 +64,8 @@ fn write_connection(dir: &Path) {
                 "teamFingerprint": "team-fingerprint",
                 "sharedLocalAccountFingerprints": [LOCAL_ACCOUNT_FINGERPRINT]
             }
-        }))
-        .unwrap(),
-    )
-    .unwrap();
+        }),
+    );
 }
 
 fn make_snapshot(provider_id: &str, used: f64) -> CachedPluginSnapshot {
@@ -92,7 +90,7 @@ fn make_snapshot(provider_id: &str, used: f64) -> CachedPluginSnapshot {
 }
 
 fn read_settings(dir: &Path) -> Value {
-    serde_json::from_str(&std::fs::read_to_string(dir.join(SETTINGS_FILE_NAME)).unwrap()).unwrap()
+    crate::app_settings::snapshot(dir).unwrap()
 }
 
 #[test]
@@ -188,6 +186,7 @@ fn retryable_failure_keeps_pending_batch_in_memory() {
     );
 
     let attempt = upload_pending_once_with(
+        None,
         Duration::from_millis(20),
         || Ok(Some("eusage_dev_secret".to_string())),
         |_connection, _token, _batch, _timeout| TeamUploadResult::Retryable {
@@ -219,13 +218,10 @@ fn unsharing_before_send_drops_pending_provider_upload() {
 
     let mut settings = read_settings(&dir);
     settings["providerAccountSharing"]["sharedLocalAccountFingerprints"] = json!([]);
-    std::fs::write(
-        dir.join(SETTINGS_FILE_NAME),
-        serde_json::to_string_pretty(&settings).unwrap(),
-    )
-    .unwrap();
+    crate::app_settings::set_test_settings(&dir, settings);
 
     let attempt = upload_pending_once_with(
+        None,
         Duration::from_millis(20),
         || Ok(Some("eusage_dev_secret".to_string())),
         |_connection, _token, _batch, _timeout| panic!("unshared account must not upload"),
@@ -257,6 +253,7 @@ fn partial_acceptance_response_clears_sent_providers() {
     );
 
     let attempt = upload_pending_once_with(
+        None,
         Duration::from_millis(20),
         || Ok(Some("eusage_dev_secret".to_string())),
         |_connection, _token, batch, _timeout| {
@@ -298,6 +295,7 @@ fn invalid_token_clears_team_connection_sharing_and_pending_uploads() {
     let deleted_for_closure = Arc::clone(&deleted);
 
     let attempt = upload_pending_once_with(
+        None,
         Duration::from_millis(20),
         || Ok(Some("eusage_dev_secret".to_string())),
         |_connection, _token, _batch, _timeout| TeamUploadResult::InvalidToken {
@@ -343,6 +341,7 @@ fn quit_flush_uses_bounded_timeout() {
     let seen_timeout = Arc::new(Mutex::new(None));
     let seen_timeout_for_closure = Arc::clone(&seen_timeout);
     let attempt = upload_pending_once_with(
+        None,
         QUIT_FLUSH_TIMEOUT,
         || Ok(Some("eusage_dev_secret".to_string())),
         move |_connection, _token, _batch, timeout| {
@@ -359,3 +358,6 @@ fn quit_flush_uses_bounded_timeout() {
     assert_eq!(attempt, TeamSyncAttempt::Sent);
     assert_eq!(*seen_timeout.lock().unwrap(), Some(QUIT_FLUSH_TIMEOUT));
 }
+
+#[path = "connection_tests.rs"]
+mod connection_tests;

@@ -754,8 +754,7 @@ pub(crate) fn inject_host_api_with_deadline<'js>(
 }
 
 fn read_reporting_time_zone(app_data_dir: &Path) -> Option<String> {
-    let data = std::fs::read_to_string(app_data_dir.join("settings.json")).ok()?;
-    let value = serde_json::from_str::<serde_json::Value>(&data).ok()?;
+    let value = crate::app_settings::snapshot(app_data_dir)?;
     let reporting_time_zone = value
         .get("teamConnection")
         .and_then(|connection| connection.get("reportingTimeZone"))
@@ -3326,11 +3325,9 @@ mod tests {
         );
         let dir = std::env::temp_dir().join(test_id);
         std::fs::create_dir_all(&dir).expect("create temp dir");
-        std::fs::write(
-            dir.join("settings.json"),
-            r#"{"teamConnection":{"reportingTimeZone":"America/New_York"}}"#,
-        )
-        .expect("write settings");
+        crate::app_settings::set_test_settings(&dir, serde_json::json!({
+            "teamConnection": {"reportingTimeZone": "America/New_York"}
+        }));
 
         let rt = Runtime::new().expect("runtime");
         let ctx = Context::full(&rt).expect("context");

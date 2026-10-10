@@ -67,6 +67,7 @@ describe("team connection parser", () => {
   })
 
   it("computes the hash-backed developer token fingerprint", async () => {
+    await expect(fingerprintDeveloperToken("test")).resolves.toBe("9f86d081...b0f00a08")
     await expect(fingerprintDeveloperToken("eusage_dev_secret")).resolves.toMatch(
       /^[a-f0-9]{8}\.\.\.[a-f0-9]{8}$/
     )

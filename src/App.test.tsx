@@ -373,8 +373,8 @@ describe("App", () => {
     state.loadProviderAccountSharingSettingsMock.mockResolvedValue({
       sharedLocalAccountFingerprints: [],
     })
-    state.saveProviderAccountSharingSettingsMock.mockResolvedValue(undefined)
-    state.clearProviderAccountSharingSettingsMock.mockResolvedValue(undefined)
+    state.saveProviderAccountSharingSettingsMock.mockResolvedValue(true)
+    state.clearProviderAccountSharingSettingsMock.mockResolvedValue(true)
     state.autostartEnableMock.mockResolvedValue(undefined)
     state.autostartDisableMock.mockResolvedValue(undefined)
     state.autostartIsEnabledMock.mockResolvedValue(false)

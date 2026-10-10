@@ -1,9 +1,12 @@
 #[cfg(target_os = "macos")]
 mod app_nap;
 mod config;
+mod app_settings;
+mod team_settings_store;
 mod local_http_api;
 mod panel;
 mod plugin_engine;
+mod team_commands;
 mod team_credentials;
 mod team_sync;
 mod tray;
@@ -195,59 +198,6 @@ fn open_devtools(#[allow(unused)] app_handle: tauri::AppHandle) {
             window.open_devtools();
         }
     }
-}
-
-#[tauri::command]
-fn save_team_token(token: String) -> Result<(), String> {
-    team_credentials::save_team_token(&token)
-}
-
-#[tauri::command]
-fn read_team_token() -> Result<Option<String>, String> {
-    team_credentials::read_team_token()
-}
-
-#[tauri::command]
-fn delete_team_token() -> Result<(), String> {
-    team_credentials::delete_team_token()
-}
-
-#[tauri::command]
-fn update_shared_provider_account_label(
-    state: tauri::State<'_, Mutex<AppState>>,
-    provider_id: String,
-    local_account_fingerprint: String,
-    label: String,
-) -> Result<(), String> {
-    let app_data_dir = {
-        let locked = state.lock().map_err(|e| e.to_string())?;
-        locked.app_data_dir.clone()
-    };
-    team_sync::update_shared_provider_account_label(
-        &app_data_dir,
-        &provider_id,
-        &local_account_fingerprint,
-        &label,
-    )
-}
-
-#[tauri::command]
-fn upload_shared_provider_account_current_data(
-    state: tauri::State<'_, Mutex<AppState>>,
-    provider_id: String,
-    local_account_fingerprint: String,
-    label: String,
-) -> Result<team_sync::CurrentSharedProviderAccountUploadResult, String> {
-    let app_data_dir = {
-        let locked = state.lock().map_err(|e| e.to_string())?;
-        locked.app_data_dir.clone()
-    };
-    team_sync::upload_current_shared_provider_account_data(
-        &app_data_dir,
-        &provider_id,
-        &local_account_fingerprint,
-        &label,
-    )
 }
 
 #[tauri::command]
@@ -562,11 +512,14 @@ pub fn run() {
             get_desktop_platform,
             get_detected_device_name,
             open_devtools,
-            save_team_token,
-            read_team_token,
-            delete_team_token,
-            update_shared_provider_account_label,
-            upload_shared_provider_account_current_data,
+            team_commands::read_team_token,
+            team_commands::read_team_settings,
+            team_commands::replace_team_connection,
+            team_commands::update_team_connection,
+            team_commands::clear_team_connection,
+            team_commands::save_provider_account_sharing,
+            team_commands::update_shared_provider_account_label,
+            team_commands::upload_shared_provider_account_current_data,
             start_probe_batch,
             list_plugins,
             get_log_path,
@@ -590,6 +543,8 @@ pub fn run() {
 
             let app_data_dir = app.path().app_data_dir().expect("no app data dir");
             let resource_dir = app.path().resource_dir().expect("no resource dir");
+            #[cfg(not(test))]
+            app_settings::init(app.handle(), &app_data_dir).map_err(std::io::Error::other)?;
             let app_data_dir_tail = app_data_dir
                 .file_name()
                 .and_then(|value| value.to_str())
