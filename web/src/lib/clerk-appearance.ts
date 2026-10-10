@@ -1,5 +1,7 @@
-import type { Appearance } from "@clerk/types"
+import type { TanstackStartClerkProviderProps } from "@clerk/tanstack-react-start/types"
 import type { Theme } from "./theme"
+
+type Appearance = NonNullable<TanstackStartClerkProviderProps["appearance"]>
 
 const LIGHT = {
   primary: "#0f766e",
