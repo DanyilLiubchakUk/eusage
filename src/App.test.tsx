@@ -267,7 +267,11 @@ vi.mock("@/lib/settings", async () => {
 
 vi.mock("@/lib/provider-account-registry-store", () => ({
   loadProviderAccountRegistry: state.loadProviderAccountRegistryMock,
-  saveProviderAccountRegistry: state.saveProviderAccountRegistryMock,
+  updateSavedProviderAccountRegistry: vi.fn(async (update) => {
+    const result = await update(await state.loadProviderAccountRegistryMock())
+    if (result.ok) await state.saveProviderAccountRegistryMock(result.value)
+    return result
+  }),
   getOrCreateProviderAccountLocalSalt: vi.fn(async () => "test-provider-account-salt"),
   syncSavedProviderAccountRegistry: vi.fn(async () => ({ ok: true, value: { accounts: [] } })),
 }))

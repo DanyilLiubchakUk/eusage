@@ -16,8 +16,8 @@ import {
 import {
   getOrCreateProviderAccountLocalSalt,
   loadProviderAccountRegistry,
-  saveProviderAccountRegistry,
   syncSavedProviderAccountRegistry,
+  updateSavedProviderAccountRegistry,
 } from "@/lib/provider-account-registry-store"
 
 const storeState = new Map<string, unknown>()
@@ -244,7 +244,7 @@ describe("provider account registry", () => {
   it("persists the local registry", async () => {
     const registry = await syncedRegistry([detection({ label: "Work Claude" })])
 
-    await saveProviderAccountRegistry(registry)
+    await updateSavedProviderAccountRegistry(() => ({ ok: true, value: registry }))
 
     expect(storeState.get("providerAccountRegistry")).toEqual(registry)
     await expect(loadProviderAccountRegistry()).resolves.toEqual(registry)
