@@ -198,6 +198,16 @@ Official v1 path:
 
 See [Decision 0001](docs/architecture-decision-0001-self-deployed-vercel-convex.md).
 
+## Linux desktop
+
+- The release workflow includes Ubuntu 22.04 x64 builds for `.deb` and AppImage in the existing GitHub Releases. Desktop and package smoke tests are still required before release. Linux ARM64 is not included.
+- Team connection/sync requires a desktop Secret Service provider, such as GNOME Keyring or a compatible KWallet, with an unlocked persistent default keyring. eUsage does not create or unlock keyrings, use session-only storage, or fall back to plaintext. Missing/locked storage leaves the saved connection intact and shows a retry message. Unlock/setup is a user-only step in the desktop keyring manager.
+- Keyring requests time out after 15 seconds. A provider may ask the user to approve access. Retry after resolving the prompt; a request already sent to the service may finish after the local timeout.
+- The DEB requires the system `sqlite3` package. AppImage bundling includes SQLite and its libraries through linuxdeploy. Provider app/CLI installation and sign-in remain user prerequisites; provider-specific Linux behavior needs smoke testing.
+- A desktop session with a tray/status notifier is needed for the tray menu. On Linux, use its **Show Stats** or **Go to Settings** entry; tray click behavior varies by desktop. Validate Wayland/X11, scaling, keyboard access and updates on the target desktop.
+
+Linux native development needs the [official Tauri prerequisites](https://v2.tauri.app/start/prerequisites/), plus `libclang-dev` for QuickJS bindings and `libxdo-dev` for desktop integration. Packaging also needs `patchelf`, `xdg-utils`, and `sqlite3`. Build on the oldest supported compatible Linux baseline; newer glibc builds may not run on older distributions. See [the Linux audit](/docs/desktop-audit-linux-2026-10-10.md) for validation limits.
+
 ## Local Development
 
 Local dev uses two commands:

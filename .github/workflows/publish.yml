@@ -24,6 +24,9 @@ jobs:
           - platform: windows-latest
             rustTargets: "x86_64-pc-windows-msvc"
             args: "--target x86_64-pc-windows-msvc"
+          - platform: ubuntu-22.04
+            rustTargets: "x86_64-unknown-linux-gnu"
+            args: "--target x86_64-unknown-linux-gnu --bundles deb,appimage -- --locked"
     runs-on: ${{ matrix.platform }}
     defaults:
       run:
@@ -34,6 +37,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.RELEASE_TAG }}
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libssl-dev libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev librsvg2-dev libxdo-dev libclang-dev \
+            patchelf xdg-utils sqlite3
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -66,6 +78,10 @@ jobs:
             echo "Invalid RELEASE_TAG: $RELEASE_TAG (expected vMAJOR.MINOR.PATCH)"
             exit 1
           fi
+
+      - name: Test Linux Team credential storage
+        if: runner.os == 'Linux'
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml --target x86_64-unknown-linux-gnu team_credentials
 
       - name: Validate app version matches tag
         run: |
@@ -110,6 +126,17 @@ jobs:
 
           printf '%s\n' "$ASSETS" | grep -Fxq 'latest.json' || { echo "Missing updater manifest: latest.json"; exit 1; }
           printf '%s\n' "$ASSETS" | grep -Eq '\.sig$' || { echo "Missing updater signatures (.sig)"; exit 1; }
+
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            for EXTENSION in deb AppImage; do
+              printf '%s\n' "$ASSETS" | grep -Eq "\\.${EXTENSION}$" || { echo "Missing Linux installer: $EXTENSION"; exit 1; }
+              printf '%s\n' "$ASSETS" | grep -Eq "\\.${EXTENSION}\\.sig$" || { echo "Missing Linux signature: $EXTENSION"; exit 1; }
+            done
+            gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+              --pattern latest.json --output "$RUNNER_TEMP/eusage-latest.json"
+            jq -e '[.platforms["linux-x86_64-deb"], .platforms["linux-x86_64-appimage"]] | all(.url and .signature)' \
+              "$RUNNER_TEMP/eusage-latest.json"
+          fi
 
   update-package-managers:
     needs: publish
