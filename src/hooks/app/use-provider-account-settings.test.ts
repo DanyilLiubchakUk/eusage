@@ -186,7 +186,7 @@ describe("useProviderAccountSettings", () => {
 
   it("keeps a concurrent probe and queued UI edits in the saved registry", async () => {
     const { result } = renderHook(() => useProviderAccountSettings())
-    await waitFor(() => expect(result.current.providerAccountRegistry.accounts).toHaveLength(2))
+    await waitFor(() => expect(result.current.providerAccountRegistryLoaded).toBe(true))
 
     await act(async () => {
       await Promise.all([
@@ -224,7 +224,7 @@ describe("useProviderAccountSettings", () => {
     const { result } = renderHook(() => useProviderAccountSettings(), {
       wrapper: ({ children }: PropsWithChildren) => createElement(StrictMode, null, children),
     })
-    await waitFor(() => expect(result.current.providerAccountRegistry.accounts).toHaveLength(2))
+    await waitFor(() => expect(result.current.providerAccountRegistryLoaded).toBe(true))
 
     await act(async () => {
       await result.current.handleProviderAccountRename("fp-work", "Main Claude")
@@ -243,7 +243,7 @@ describe("useProviderAccountSettings", () => {
       sharedLocalAccountFingerprints: ["fp-work"],
     })
     const { result } = renderHook(() => useProviderAccountSettings())
-    await waitFor(() => expect(result.current.providerAccountRegistry.accounts).toHaveLength(2))
+    await waitFor(() => expect(result.current.providerAccountRegistryLoaded).toBe(true))
 
     await act(async () => {
       await result.current.handleProviderAccountRename("fp-work", "Main Claude")
@@ -272,17 +272,19 @@ describe("useProviderAccountSettings", () => {
     await waitFor(() => {
       expect(result.current.providerAccountLabelSyncError).toBe("settings unavailable")
     })
+    expect(result.current.providerAccountRegistryLoaded).toBe(false)
     expect(consoleError).toHaveBeenCalledWith("Failed to load provider account registry:", error)
 
     await act(async () => { await result.current.reloadProviderAccountRegistry() })
     expect(result.current.providerAccountRegistry).toEqual(registry)
+    expect(result.current.providerAccountRegistryLoaded).toBe(true)
     expect(result.current.providerAccountLabelSyncError).toBeNull()
   })
 
   it("shows expected edit validation errors without saving or syncing", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {})
     const { result } = renderHook(() => useProviderAccountSettings())
-    await waitFor(() => expect(result.current.providerAccountRegistry.accounts).toHaveLength(2))
+    await waitFor(() => expect(result.current.providerAccountRegistryLoaded).toBe(true))
 
     await act(async () => { await result.current.handleProviderAccountRename("fp-work", " ") })
 

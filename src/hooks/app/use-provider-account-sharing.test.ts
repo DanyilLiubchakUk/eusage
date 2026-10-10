@@ -88,6 +88,36 @@ describe("useProviderAccountSharing", () => {
     })
   })
 
+  it("waits for Provider Accounts to load before pruning saved sharing", async () => {
+    store.loadProviderAccountSharingSettings.mockResolvedValue({
+      sharedLocalAccountFingerprints: ["fp-work"],
+    })
+
+    const { result, rerender } = renderHook(
+      ({ groups, providerAccountsLoaded }) =>
+        useProviderAccountSharing(groups, providerAccountsLoaded),
+      { initialProps: { groups: [], providerAccountsLoaded: false } }
+    )
+
+    expect(result.current.providerAccountSharingSettings).toEqual({
+      sharedLocalAccountFingerprints: [],
+    })
+    expect(store.loadProviderAccountSharingSettings).not.toHaveBeenCalled()
+    expect(store.saveProviderAccountSharingSettings).not.toHaveBeenCalled()
+
+    rerender({
+      groups: [providerGroup()],
+      providerAccountsLoaded: true,
+    })
+
+    await waitFor(() => {
+      expect(result.current.providerAccountSharingSettings).toEqual({
+        sharedLocalAccountFingerprints: ["fp-work"],
+      })
+    })
+    expect(store.saveProviderAccountSharingSettings).not.toHaveBeenCalled()
+  })
+
   it("does not restore hidden sharing when toggling during a pending prune", async () => {
     store.loadProviderAccountSharingSettings.mockResolvedValue({ sharedLocalAccountFingerprints: ["fp-hidden"] })
     let finish!: (saved: boolean) => void

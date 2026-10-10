@@ -19,7 +19,10 @@ import {
 import type { LocalProviderAccount } from "@/lib/provider-account-registry"
 import type { ProviderAccountSettingsGroup } from "@/lib/provider-account-settings"
 
-export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]) {
+export function useProviderAccountSharing(
+  groups: ProviderAccountSettingsGroup[],
+  providerAccountsLoaded = true
+) {
   const [providerAccountSharingSettings, setProviderAccountSharingSettings] =
     useState<ProviderAccountSharingSettings>({
       ...DEFAULT_PROVIDER_ACCOUNT_SHARING_SETTINGS,
@@ -46,6 +49,7 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
   )
 
   const reloadProviderAccountSharingSettings = useCallback(async () => {
+    if (!providerAccountsLoaded) return
     const version = ++loadVersion.current
 
     try {
@@ -72,7 +76,7 @@ export function useProviderAccountSharing(groups: ProviderAccountSettingsGroup[]
         setProviderAccountSharingSyncNotice({ tone: "error", message: "Sharing settings could not be loaded or updated. Try again." })
       }
     }
-  }, [shareableFingerprints, setSharingSettings])
+  }, [providerAccountsLoaded, shareableFingerprints, setSharingSettings])
 
   useEffect(() => {
     void reloadProviderAccountSharingSettings()

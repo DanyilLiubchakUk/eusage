@@ -24,6 +24,8 @@ function errorMessage(error: unknown, fallback: string): string {
 export function useProviderAccountSettings() {
   const [providerAccountRegistry, setProviderAccountRegistry] =
     useState<ProviderAccountRegistry>({ accounts: [] })
+  const [providerAccountRegistryLoaded, setProviderAccountRegistryLoaded] =
+    useState(false)
   const [providerAccountLabelSyncError, setProviderAccountLabelSyncError] =
     useState<string | null>(null)
   const loadVersion = useRef(0)
@@ -35,6 +37,7 @@ export function useProviderAccountSettings() {
       const registry = await loadProviderAccountRegistry()
       if (version !== loadVersion.current) return
       setProviderAccountRegistry(registry)
+      setProviderAccountRegistryLoaded(true)
     } catch (error) {
       console.error("Failed to load provider account registry:", error)
       if (version === loadVersion.current) {
@@ -66,6 +69,7 @@ export function useProviderAccountSettings() {
       }
 
       setProviderAccountRegistry(result.value)
+      setProviderAccountRegistryLoaded(true)
       setProviderAccountLabelSyncError(null)
       return result.value
     } catch (error) {
@@ -155,6 +159,7 @@ export function useProviderAccountSettings() {
 
   return {
     providerAccountRegistry,
+    providerAccountRegistryLoaded,
     providerAccountLabelSyncError,
     reloadProviderAccountRegistry,
     handleProviderAccountRename,
