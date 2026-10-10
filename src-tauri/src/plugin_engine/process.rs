@@ -7,6 +7,17 @@ use std::time::{Duration, Instant};
 const OUTPUT_LIMIT: u64 = 16 * 1024 * 1024;
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+#[cfg(windows)]
+#[path = "process_windows_job.rs"]
+mod windows_job;
+
+#[cfg(all(test, windows))]
+#[path = "process_windows_tests.rs"]
+mod windows_tests;
+
 pub(crate) trait CommandOutputExt {
     fn output_with_timeout(&mut self, timeout: Duration) -> io::Result<Output>;
 }
@@ -24,7 +35,7 @@ pub(crate) fn background_command(program: impl AsRef<OsStr>) -> Command {
     {
         use std::os::windows::process::CommandExt;
         // CREATE_NO_WINDOW: background helpers must not open a console in a GUI app.
-        command.creation_flags(0x0800_0000);
+        command.creation_flags(CREATE_NO_WINDOW);
     }
     command
 }
@@ -62,8 +73,7 @@ fn terminate(child: &mut Child) {
         // Every bounded command starts in its own group, including descendants.
         unsafe { libc::kill(-pgid, libc::SIGKILL) };
     }
-    // Windows currently terminates the direct child. Do not join readers here: a
-    // descendant can retain an inherited pipe after the direct child exits.
+    // On Windows, the invocation's job is closed before this direct-child wait.
     let _ = child.kill();
     let _ = child.wait();
 }
@@ -86,7 +96,26 @@ pub(crate) fn output(command: &mut Command, timeout: Duration) -> io::Result<Out
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let started = Instant::now();
-    let mut child = command.spawn()?;
+    #[cfg(windows)]
+    let job = {
+        use std::os::windows::process::CommandExt;
+        let job = windows_job::ProcessJob::new()?;
+        command.creation_flags(CREATE_NO_WINDOW | 0x0000_0004); // CREATE_SUSPENDED
+        job
+    };
+    let spawned = command.spawn();
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    let mut child = spawned?;
+    #[cfg(windows)]
+    if let Err(error) = job.assign_and_resume(&child) {
+        drop(job);
+        terminate(&mut child);
+        return Err(error);
+    }
     let stdout_receiver = capture(child.stdout.take().expect("stdout is piped"));
     let stderr_receiver = capture(child.stderr.take().expect("stderr is piped"));
     let mut stdout = None;
@@ -120,6 +149,9 @@ pub(crate) fn output(command: &mut Command, timeout: Duration) -> io::Result<Out
         }
         std::thread::sleep(POLL_INTERVAL.min(timeout.saturating_sub(started.elapsed())));
     })();
+    // Also close on success: a helper may exit after detaching its descendants.
+    #[cfg(windows)]
+    drop(job);
     if result.is_err() {
         terminate(&mut child);
     }
