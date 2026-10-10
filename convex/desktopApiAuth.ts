@@ -41,6 +41,7 @@ export type DesktopApiErrorCode =
   | "device-os-required"
   | "device-app-version-required"
   | "device-not-found"
+  | "device-owner-conflict"
 
 export type DesktopApiError = {
   ok: false

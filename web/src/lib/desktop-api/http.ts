@@ -146,6 +146,8 @@ export function optionalStringField(body: Record<string, unknown>, field: string
 
 export function statusForDesktopApiError(code: DesktopApiError["code"]) {
   switch (code) {
+    case "device-owner-conflict":
+      return 409
     case "missing-bearer-auth":
     case "invalid-token":
     case "revoked-token":

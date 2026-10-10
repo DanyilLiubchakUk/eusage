@@ -29,7 +29,7 @@ export async function ingestUsageBatch(args: {
     auth.team._id,
     batch.deviceId
   )
-  if (!device) {
+  if (!device || device.developerId !== auth.developer._id) {
     return {
       ok: false,
       status: "error",

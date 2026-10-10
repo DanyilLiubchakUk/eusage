@@ -150,6 +150,12 @@ export async function checkInDevice(args: {
     auth.team._id,
     deviceInput.deviceId
   )
+  if (existingDevice && existingDevice.developerId !== auth.developer._id) {
+    return desktopError(
+      "device-owner-conflict",
+      "Device belongs to another developer. Connect with a new device ID."
+    )
+  }
   const devicePatch = {
     developerId: auth.developer._id,
     deviceName: deviceInput.deviceName,
@@ -202,7 +208,7 @@ export async function disconnectDevice(args: {
   }
 
   const device = await args.store.getDeviceByTeamAndDeviceId(auth.team._id, deviceId)
-  if (!device) {
+  if (!device || device.developerId !== auth.developer._id) {
     return desktopError("device-not-found", "Device was not found.")
   }
 

@@ -223,6 +223,7 @@ function isKnownErrorCode(code: string): code is TeamConnectionErrorCode {
     "device-os-required",
     "device-app-version-required",
     "device-not-found",
+    "device-owner-conflict",
     "setup-state-invalid",
   ].includes(code)
 }
