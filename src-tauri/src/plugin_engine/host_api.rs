@@ -1089,9 +1089,9 @@ fn inject_http<'js>(
                 if req.dangerously_ignore_tls.unwrap_or(false) {
                     builder = builder.danger_accept_invalid_certs(true);
                 }
-                let client = builder
-                    .build()
-                    .map_err(|e| Exception::throw_message(&ctx_inner, &e.to_string()))?;
+                let client = builder.build().map_err(|e| {
+                    Exception::throw_message(&ctx_inner, &e.without_url().to_string())
+                })?;
 
                 let method = req.method.as_deref().unwrap_or("GET");
                 let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|e| {
@@ -1106,9 +1106,9 @@ fn inject_http<'js>(
                     builder = builder.body(body);
                 }
 
-                let response = builder
-                    .send()
-                    .map_err(|e| Exception::throw_message(&ctx_inner, &e.to_string()))?;
+                let response = builder.send().map_err(|e| {
+                    Exception::throw_message(&ctx_inner, &e.without_url().to_string())
+                })?;
 
                 let status = response.status().as_u16();
                 let mut resp_headers = std::collections::HashMap::new();
@@ -1121,9 +1121,9 @@ fn inject_http<'js>(
                     })?;
                     resp_headers.insert(key.to_string(), header_value.to_string());
                 }
-                let body = response
-                    .text()
-                    .map_err(|e| Exception::throw_message(&ctx_inner, &e.to_string()))?;
+                let body = response.text().map_err(|e| {
+                    Exception::throw_message(&ctx_inner, &e.without_url().to_string())
+                })?;
 
                 // Redact BEFORE truncation to ensure sensitive values are caught while intact
                 let redacted_body = redact_body(&body);
