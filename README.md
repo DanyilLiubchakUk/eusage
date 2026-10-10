@@ -172,7 +172,7 @@ Official v1 path:
 - Token rotation revokes the old developer token immediately.
 - Raw developer tokens are shown once on create/rotate. Later UI shows hash-backed fingerprint and metadata only.
 - Developer token hashes use SHA-256 of long random raw tokens.
-- Desktop stores the raw developer token in OS credential storage: macOS Keychain or Windows Credential Manager.
+- Desktop stores the raw developer token in OS credential storage: macOS Keychain, Windows Credential Manager, or the default Secret Service keyring on Linux.
 - Desktop stores non-secret team URL, team name, and token fingerprint in normal app config.
 - Desktop sends the developer token to backend HTTP endpoints with an `Authorization: Bearer ...` header.
 - If the backend rejects the developer token as invalid, revoked, or inactive, desktop stops team sync, removes the stored raw token, and requires a new connection string.

@@ -6,6 +6,12 @@ use crate::plugin_engine::process::{CommandOutputExt, background_command};
 const TEAM_TOKEN_SERVICE: &str = "eUsage Developer Token";
 const TEAM_TOKEN_ACCOUNT: &str = "team-sync";
 
+#[cfg(target_os = "linux")]
+#[path = "team_credentials_linux.rs"]
+mod linux;
+#[cfg(target_os = "linux")]
+use linux::{delete as delete_os_token, read as read_os_token, save as save_os_token};
+
 pub fn save_team_token(token: &str) -> Result<(), String> {
     let token = normalize_token(token)?;
     save_os_token(&token)
@@ -291,19 +297,19 @@ fn delete_os_token() -> Result<(), String> {
     windows_credentials::delete()
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 fn save_os_token(_token: &str) -> Result<(), String> {
-    Err("Team token credentials are supported on macOS and Windows only.".to_string())
+    Err("Team token credentials are unsupported on this platform.".to_string())
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 fn read_os_token() -> Result<Option<String>, String> {
-    Err("Team token credentials are supported on macOS and Windows only.".to_string())
+    Err("Team token credentials are unsupported on this platform.".to_string())
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 fn delete_os_token() -> Result<(), String> {
-    Err("Team token credentials are supported on macOS and Windows only.".to_string())
+    Err("Team token credentials are unsupported on this platform.".to_string())
 }
 
 #[cfg(test)]
