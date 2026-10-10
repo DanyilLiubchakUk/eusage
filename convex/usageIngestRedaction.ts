@@ -10,9 +10,12 @@ const exactSecretNames = new Set([
   "secretkey",
   "key",
   "cookie",
+  "cookies",
+  "csrf",
   "authorization",
   "password",
   "credential",
+  "credentials",
 ])
 const secretSuffixes = [
   "token",
@@ -60,8 +63,8 @@ function isSecretFieldName(key: string) {
 
 function isRedactedSecretValue(value: unknown) {
   if (value === null) return true
-  if (typeof value === "string") return value.toLowerCase().includes("redacted")
-  return isRecord(value) && value.redacted === true
+  if (typeof value === "string") return value.trim().toLowerCase() === "[redacted]"
+  return isRecord(value) && value.redacted === true && Object.keys(value).length === 1
 }
 
 function isRecord(value: unknown): value is JsonObject {

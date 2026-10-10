@@ -77,6 +77,7 @@ pub(super) fn build_provider_upload(snapshot: &CachedPluginSnapshot) -> TeamUsag
     let summary = source_facts
         .map(|facts| facts.summary.clone())
         .unwrap_or_else(|| summary_for_snapshot(snapshot));
+    let summary = redact_json_value(summary);
     let payload = snapshot
         .raw_payload
         .clone()
@@ -264,7 +265,7 @@ impl From<ProviderMetricSample> for TeamUsageMetricSample {
                 start_ms: bucket.start_ms,
                 end_ms: bucket.end_ms,
             }),
-            coverage: sample.coverage,
+            coverage: sample.coverage.map(redact_json_value),
         }
     }
 }
@@ -357,10 +358,17 @@ fn is_sensitive_key(key: &str) -> bool {
             | "accesskey"
             | "key"
             | "cookie"
+            | "cookies"
+            | "csrf"
             | "authorization"
             | "password"
             | "credential"
+            | "credentials"
     ) || normalized.ends_with("token")
+        || normalized.ends_with("apikey")
+        || normalized.ends_with("accesskey")
+        || normalized.ends_with("secretkey")
+        || normalized.ends_with("cookie")
         || normalized.ends_with("password")
         || normalized.ends_with("secret")
         || normalized.ends_with("credential")

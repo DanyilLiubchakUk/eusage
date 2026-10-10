@@ -333,39 +333,123 @@ fn redact_url(url: &str) -> String {
         "profile_arn",
         "email",
         "login",
+        "csrf",
+        "cookie",
     ];
 
-    if let Some(query_start) = url.find('?') {
-        let (base, query) = url.split_at(query_start + 1);
-        let redacted_params: Vec<String> = query
-            .split('&')
-            .map(|param| {
-                if let Some(eq_pos) = param.find('=') {
-                    let (name, value) = param.split_at(eq_pos);
-                    let value = &value[1..]; // skip '='
-                    let name_lower = name.to_lowercase();
-                    if sensitive_params.iter().any(|s| name_lower.contains(s)) && !value.is_empty()
-                    {
-                        format!("{}={}", name, redact_value(value))
-                    } else {
-                        param.to_string()
-                    }
+    let Ok(mut parsed) = reqwest::Url::parse(url) else {
+        return "[INVALID URL]".to_string();
+    };
+    if !parsed.username().is_empty() {
+        let _ = parsed.set_username("REDACTED");
+    }
+    if parsed.password().is_some() {
+        let _ = parsed.set_password(Some("REDACTED"));
+    }
+    // Fragments can contain OAuth tokens and are never sent to the server.
+    parsed.set_fragment(None);
+    if parsed.query().is_some() {
+        let redacted_params: Vec<(String, String)> = parsed
+            .query_pairs()
+            .map(|(name, value)| {
+                let name_lower = name.to_lowercase();
+                let value = if sensitive_params.iter().any(|s| name_lower.contains(s))
+                    && !value.is_empty()
+                {
+                    redact_value(&value)
                 } else {
-                    param.to_string()
-                }
+                    value.into_owned()
+                };
+                (name.into_owned(), value)
             })
             .collect();
-        format!("{}{}", base, redacted_params.join("&"))
-    } else {
-        url.to_string()
+        parsed
+            .query_pairs_mut()
+            .clear()
+            .extend_pairs(redacted_params);
     }
+    parsed.to_string()
 }
 
 /// Redact sensitive patterns in response body for logging
 fn redact_body(body: &str) -> String {
-    let mut result = body.to_string();
-
-    // Redact JWTs (eyJ... pattern with dots)
+    // Parse before redacting: JSON strings can contain escaped quotes and secrets
+    // can be nested objects, arrays, or numeric identifiers.
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(body) else {
+        return "[non-JSON response omitted]".to_string();
+    };
+    // Redact JSON values for sensitive keys
+    let sensitive_keys = [
+        "name",
+        "password",
+        "token",
+        "accesstoken",
+        "refreshtoken",
+        "secret",
+        "apikey",
+        "authorization",
+        "bearer",
+        "credential",
+        "credentials",
+        "sessiontoken",
+        "authtoken",
+        "idtoken",
+        "userid",
+        "accountid",
+        "provideraccountid",
+        "provideruserid",
+        "provideremail",
+        "localprofilepath",
+        "identityvalue",
+        "teamid",
+        "paymentid",
+        "profilearn",
+        "email",
+        "login",
+        "analyticstrackingid",
+        "clientsecret",
+        "csrftoken",
+        "csrf",
+        "oauthtoken",
+        "workoscursorsessiontoken",
+        "xcodeiumcsrftoken",
+        "xapikey",
+        "setcookie",
+        "secretkey",
+        "accesskey",
+        "cookie",
+        "cookies",
+        "deviceid",
+        "customerid",
+    ];
+    fn redact_json(value: &mut serde_json::Value, sensitive_keys: &[&str]) {
+        match value {
+            serde_json::Value::Object(map) => {
+                for (key, value) in map {
+                    let mut normalized_key = key.replace(['-', '_'], "");
+                    normalized_key.make_ascii_lowercase();
+                    if sensitive_keys.contains(&normalized_key.as_str()) {
+                        *value = serde_json::Value::String(
+                            value
+                                .as_str()
+                                .map(redact_value)
+                                .unwrap_or_else(|| "[REDACTED]".to_string()),
+                        );
+                    } else {
+                        redact_json(value, sensitive_keys);
+                    }
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    redact_json(item, sensitive_keys);
+                }
+            }
+            _ => {}
+        }
+    }
+    redact_json(&mut value, &sensitive_keys);
+    let mut result = serde_json::to_string_pretty(&value).expect("JSON value serializes");
     let jwt_pattern =
         regex_lite::Regex::new(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+").unwrap();
     result = jwt_pattern
@@ -373,75 +457,13 @@ fn redact_body(body: &str) -> String {
             redact_value(&caps[0])
         })
         .to_string();
-
-    // Redact common API key patterns (sk-xxx, pk-xxx, api_xxx, etc.)
     let api_key_pattern =
-        regex_lite::Regex::new(r#"["']?(sk-|pk-|api_|key_|secret_)[A-Za-z0-9_-]{12,}["']?"#)
-            .unwrap();
+        regex_lite::Regex::new(r"(sk-|pk-|api_|key_|secret_)[A-Za-z0-9_-]{12,}").unwrap();
     result = api_key_pattern
         .replace_all(&result, |caps: &regex_lite::Captures| {
-            let key = caps[0].trim_matches(|c| c == '"' || c == '\'');
-            redact_value(key)
+            redact_value(&caps[0])
         })
         .to_string();
-
-    // Redact JSON values for sensitive keys
-    let sensitive_keys = [
-        "name",
-        "password",
-        "token",
-        "access_token",
-        "refresh_token",
-        "secret",
-        "api_key",
-        "apiKey",
-        "authorization",
-        "bearer",
-        "credential",
-        "session_token",
-        "sessionToken",
-        "auth_token",
-        "authToken",
-        "id_token",
-        "idToken",
-        "accessToken",
-        "refreshToken",
-        "user_id",
-        "userId",
-        "account_id",
-        "accountId",
-        "provider_account_id",
-        "providerAccountId",
-        "provider_user_id",
-        "providerUserId",
-        "provider_email",
-        "providerEmail",
-        "local_profile_path",
-        "localProfilePath",
-        "identity_value",
-        "identityValue",
-        "team_id",
-        "teamId",
-        "payment_id",
-        "paymentId",
-        "profile_arn",
-        "profileArn",
-        "email",
-        "login",
-        "analytics_tracking_id",
-    ];
-    for key in sensitive_keys {
-        // Match "key": "value" or "key":"value"
-        let pattern = format!(r#""{}":\s*"([^"]+)""#, key);
-        if let Ok(re) = regex_lite::Regex::new(&pattern) {
-            result = re
-                .replace_all(&result, |caps: &regex_lite::Captures| {
-                    let value = &caps[1];
-                    format!("\"{}\": \"{}\"", key, redact_value(value))
-                })
-                .to_string();
-        }
-    }
 
     if let Ok(path_re) =
         regex_lite::Regex::new(r#"(/(?:Users|home|opt|private|var|tmp|Applications)/[^\s"')]+)"#)
@@ -454,7 +476,33 @@ fn redact_body(body: &str) -> String {
 
 /// Lightweight redaction for log messages.
 pub(crate) fn redact_log_message(msg: &str) -> String {
-    let mut result = msg.to_string();
+    let mut result = if serde_json::from_str::<serde_json::Value>(msg).is_ok() {
+        redact_body(msg)
+    } else {
+        msg.to_string()
+    };
+    if let Ok(secret_re) = regex_lite::Regex::new(
+        r#"(?i)(["']?(?:access[_-]?token|refresh[_-]?token|api[_-]?key|client[_-]?secret|csrf(?:[_-]?token)?|password|token|secret|credentials?|cookies?|authorization)["']?\s*[:=]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|(?:Bearer\s+)?[^\s,;]+)"#,
+    ) {
+        let mut omit_message = false;
+        result = secret_re
+            .replace_all(&result, |caps: &regex_lite::Captures| {
+                // Free-text objects and cookie lists have no reliable scalar boundary.
+                if caps[2].starts_with(['{', '[']) || caps[1].to_ascii_lowercase().contains("cookie") {
+                    omit_message = true;
+                }
+                format!("{}[REDACTED]", &caps[1])
+            })
+            .to_string();
+        if omit_message {
+            return "[sensitive log message omitted]".to_string();
+        }
+    }
+    if let Ok(bearer_re) = regex_lite::Regex::new(r"(?i)Bearer\s+[^\s,;]+") {
+        result = bearer_re
+            .replace_all(&result, "Bearer [REDACTED]")
+            .to_string();
+    }
     if let Ok(jwt_re) = regex_lite::Regex::new(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
     {
         result = jwt_re
@@ -3666,6 +3714,103 @@ mod tests {
     fn redact_value_shows_first_and_last_four() {
         assert_eq!(redact_value("sk-1234567890abcdef"), "sk-1...cdef");
         assert_eq!(redact_value("short"), "[REDACTED]");
+    }
+
+    #[test]
+    fn redact_body_handles_escaped_and_nested_secrets() {
+        let body = r#"{"PASSWORD":"head\"hidden-secret-tail","credential":{"value":"opaque-credential"},"accountId":123456789,"items":[{"CLIENT_SECRET":"private-client-value"}],"used":42}"#;
+        let redacted = redact_body(body);
+        let parsed: serde_json::Value = serde_json::from_str(&redacted).unwrap();
+        assert!(!redacted.contains("hidden-secret"));
+        assert!(!redacted.contains("opaque-credential"));
+        assert!(!redacted.contains("123456789"));
+        assert!(!redacted.contains("private-client-value"));
+        assert_eq!(parsed["credential"], "[REDACTED]");
+        assert_eq!(parsed["used"], 42);
+    }
+
+    #[test]
+    fn redact_body_covers_plugin_tokens_cookies_and_identity_aliases() {
+        for key in [
+            "credentials", "csrf", "oauthToken", "WorkosCursorSessionToken",
+            "X-Codeium-CSRF-Token", "X-API-Key", "Set-Cookie", "SecretKey",
+            "access_key", "Account-Id", "provider_email", "PROFILE-ARN",
+            "api_key", "apiKey", "API-KEY",
+        ] {
+            let body = serde_json::json!({(key): "opaque-sensitive-provider-value", "used": 42});
+            let redacted = redact_body(&body.to_string());
+            assert!(!redacted.contains("opaque-sensitive-provider-value"), "leaked {key}");
+            let parsed: serde_json::Value = serde_json::from_str(&redacted).unwrap();
+            assert_eq!(parsed["used"], 42);
+        }
+    }
+
+    #[test]
+    fn redact_body_omits_non_json_responses() {
+        assert_eq!(
+            redact_body("credential=opaque-response-secret"),
+            "[non-JSON response omitted]"
+        );
+    }
+
+    #[test]
+    fn redact_url_handles_encoded_names_authority_and_fragment() {
+        let redacted = redact_url(
+            "https://alice:private-password@example.com/usage?api%5Fkey=opaque-query-secret&limit=10#access_token=fragment-secret",
+        );
+        for secret in [
+            "alice",
+            "private-password",
+            "opaque-query-secret",
+            "fragment-secret",
+        ] {
+            assert!(!redacted.contains(secret), "leaked {secret}: {redacted}");
+        }
+        assert!(redacted.contains("limit=10"));
+        assert_eq!(redact_url("not a url containing secrets"), "[INVALID URL]");
+    }
+
+    #[test]
+    fn redact_url_empty_query_segments_do_not_bypass_redaction() {
+        let redacted = redact_url("https://example.com/usage?&api_key=opaque-secret-value&&safe=1");
+        assert!(!redacted.contains("opaque-secret-value"));
+        assert!(redacted.contains("safe=1"));
+    }
+
+    #[test]
+    fn redact_log_message_hides_opaque_credentials() {
+        let redacted = redact_log_message(
+            "access_token=opaque-token-value Authorization: Bearer opaque-bearer-value api_key=opaque-api-value",
+        );
+        for secret in [
+            "opaque-token-value",
+            "opaque-bearer-value",
+            "opaque-api-value",
+        ] {
+            assert!(!redacted.contains(secret), "leaked {secret}: {redacted}");
+        }
+    }
+
+    #[test]
+    fn redact_log_message_hides_quoted_secrets_in_prefixed_json() {
+        let redacted = redact_log_message(
+            r#"failure: {"access_token":"opaque\" secret with spaces","clientSecret":"another private value"} Cookie: opaque-cookie-value csrf=opaque-csrf-value"#,
+        );
+        for secret in ["opaque", "secret with spaces", "another private value"] {
+            assert!(!redacted.contains(secret), "leaked {secret}: {redacted}");
+        }
+    }
+
+    #[test]
+    fn redact_log_message_omits_unbounded_secret_values() {
+        for message in [
+            r#"failure: {"credentials":{"value":"dummy opaque secret with spaces"}}"#,
+            r#"failure: {"token":["dummy secret", "second dummy secret"]}"#,
+            "Cookie: session=dummy-one; other=dummy-two; preference=three",
+        ] {
+            assert_eq!(redact_log_message(message), "[sensitive log message omitted]");
+        }
+        assert_eq!(redact_log_message("Provider retry scheduled"), "Provider retry scheduled");
     }
 
     #[test]
