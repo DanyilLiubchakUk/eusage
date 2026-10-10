@@ -1,4 +1,4 @@
-import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
+import { convexQuery, useConvexAuth, useConvexMutation } from "@convex-dev/react-query"
 import {
   useAuth,
   useOrganization,
@@ -11,6 +11,7 @@ import { DevelopersPageView } from "../features/developers/developers-page-view"
 import { AppShell } from "../features/shell/app-shell"
 import { PageState } from "../features/shell/page-state"
 import { SignInButton } from "../features/shell/sign-in-button"
+import { ConvexAuthenticationState } from "../features/shell/convex-authentication-state"
 
 export const Route = createFileRoute("/developers")({
   component: DevelopersRoute,
@@ -19,18 +20,16 @@ export const Route = createFileRoute("/developers")({
 function DevelopersRoute() {
   const { isLoaded, isSignedIn, orgId } = useAuth()
   const { organization } = useOrganization()
+  const convexAuth = useConvexAuth()
   const auth = {
     isLoaded,
     isSignedIn: isSignedIn === true,
     orgId: orgId ?? organization?.id ?? null,
   }
-  const canReadDevelopers = auth.isLoaded && auth.isSignedIn && auth.orgId
+  const canReadDevelopers = auth.isLoaded && auth.isSignedIn && auth.orgId && convexAuth.isAuthenticated
   const developersQuery = convexQuery(api.developers.list, canReadDevelopers ? {} : "skip")
-  const developersQueryKey = [...developersQuery.queryKey, "org", auth.orgId]
-  const { data } = useQuery({
-    ...developersQuery,
-    queryKey: developersQueryKey,
-  })
+  const developersQueryKey = developersQuery.queryKey
+  const { data } = useQuery(developersQuery)
   const queryClient = useQueryClient()
   const createDeveloper = useConvexMutation(api.developers.create)
   const rotateDeveloperToken = useConvexMutation(api.developers.rotate)
@@ -49,6 +48,7 @@ function DevelopersRoute() {
   }
 
   if (!auth.isLoaded) return <DevelopersLoading />
+  if (auth.isSignedIn && auth.orgId && !convexAuth.isAuthenticated) return <AppShell><ConvexAuthenticationState /></AppShell>
   if (auth.isSignedIn && auth.orgId && !data) return <DevelopersLoading />
 
   return (

@@ -1,4 +1,4 @@
-import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
+import { convexQuery, useConvexAuth, useConvexMutation } from "@convex-dev/react-query"
 import { useAuth, useOrganization } from "@clerk/tanstack-react-start"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
@@ -13,6 +13,8 @@ import { DASHBOARD_SOURCE_REFETCH_INTERVAL_MS } from "../features/dashboard/dash
 import type { DashboardSourceState } from "../features/dashboard/dashboard"
 import { TvDashboard } from "../features/dashboard/tv-dashboard"
 import { SignInButton } from "../features/shell/sign-in-button"
+import { ConvexAuthenticationState } from "../features/shell/convex-authentication-state"
+import { AppShell } from "../features/shell/app-shell"
 
 export const Route = createFileRoute("/tv")({
   component: TvRoute,
@@ -20,25 +22,24 @@ export const Route = createFileRoute("/tv")({
 
 function TvRoute() {
   const auth = useDashboardAuth()
-  const canReadDashboard = auth.isLoaded && auth.isSignedIn && auth.orgId
+  const convexAuth = useConvexAuth()
+  const canReadDashboard = auth.isLoaded && auth.isSignedIn && auth.orgId && convexAuth.isAuthenticated
   const dashboardSourceQuery = convexQuery(
     api.dashboard.sourceRows,
     canReadDashboard ? {} : "skip"
   )
-  const dashboardQueryKey = [...dashboardSourceQuery.queryKey, "org", auth.orgId]
+  const dashboardQueryKey = dashboardSourceQuery.queryKey
   const tvDisplayLinkQuery = convexQuery(
     api.tvDisplayLinks.get,
     canReadDashboard ? {} : "skip"
   )
-  const tvDisplayLinkQueryKey = [...tvDisplayLinkQuery.queryKey, "org", auth.orgId]
+  const tvDisplayLinkQueryKey = tvDisplayLinkQuery.queryKey
   const { data } = useQuery({
     ...dashboardSourceQuery,
-    queryKey: dashboardQueryKey,
     refetchInterval: DASHBOARD_SOURCE_REFETCH_INTERVAL_MS,
   })
   const { data: displayLinkState } = useQuery({
     ...tvDisplayLinkQuery,
-    queryKey: tvDisplayLinkQueryKey,
   })
   const queryClient = useQueryClient()
   const updateTvSettings = useConvexMutation(api.dashboard.updateTvSettings)
@@ -58,6 +59,7 @@ function TvRoute() {
       />
     )
   }
+  if (!convexAuth.isAuthenticated) return <AppShell><ConvexAuthenticationState /></AppShell>
   if (!data || !displayLinkState) return <DashboardLoading />
 
   if (data.status !== "ready") {

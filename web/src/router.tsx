@@ -4,8 +4,8 @@ import { QueryClient } from "@tanstack/react-query"
 import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import { useCallback, useMemo } from "react"
-import { ConvexProviderWithAuth } from "convex/react"
 import { EusageClerkProvider } from "./features/shell/eusage-clerk-provider"
+import { ConvexIdentityBoundary } from "./lib/convex-identity-boundary"
 import { routeTree } from "./routeTree.gen"
 
 function getConvexUrl() {
@@ -38,9 +38,13 @@ export function getRouter() {
     },
     InnerWrap: ({ children }) => (
       <EusageClerkProvider>
-        <ConvexProviderWithAuth client={convexQueryClient.convexClient} useAuth={useConvexClerkAuth}>
+        <ConvexIdentityBoundary
+          queryClient={queryClient}
+          initialClient={convexQueryClient}
+          useConvexClerkAuth={useConvexClerkAuth}
+        >
           {children}
-        </ConvexProviderWithAuth>
+        </ConvexIdentityBoundary>
       </EusageClerkProvider>
     ),
   })

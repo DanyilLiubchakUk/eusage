@@ -1,4 +1,4 @@
-import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
+import { convexQuery, useConvexAuth, useConvexMutation } from "@convex-dev/react-query"
 import { useAuth, useOrganization } from "@clerk/tanstack-react-start"
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
@@ -16,6 +16,7 @@ import type { MetricDateRangeInput } from "../lib/metrics"
 import { SetupStatusView } from "../features/setup/setup-status-view"
 import { AppShell } from "../features/shell/app-shell"
 import { SignInButton } from "../features/shell/sign-in-button"
+import { ConvexAuthenticationState } from "../features/shell/convex-authentication-state"
 
 const setupQuery = convexQuery(api.setup.get, {})
 
@@ -43,15 +44,15 @@ function OverviewRoute() {
 
 function OverviewDashboard() {
   const auth = useDashboardAuth()
-  const canReadDashboard = auth.isLoaded && auth.isSignedIn && auth.orgId
+  const convexAuth = useConvexAuth()
+  const canReadDashboard = auth.isLoaded && auth.isSignedIn && auth.orgId && convexAuth.isAuthenticated
   const dashboardSourceQuery = convexQuery(
     api.dashboard.sourceRows,
     canReadDashboard ? {} : "skip"
   )
-  const dashboardQueryKey = [...dashboardSourceQuery.queryKey, "org", auth.orgId]
+  const dashboardQueryKey = dashboardSourceQuery.queryKey
   const { data: dashboardState } = useQuery({
     ...dashboardSourceQuery,
-    queryKey: dashboardQueryKey,
     refetchInterval: DASHBOARD_SOURCE_REFETCH_INTERVAL_MS,
   })
   const queryClient = useQueryClient()
@@ -71,6 +72,7 @@ function OverviewDashboard() {
       />
     )
   }
+  if (!convexAuth.isAuthenticated) return <ConvexAuthenticationState />
   if (!dashboardState) return <DashboardLoading />
 
   return (
