@@ -1,0 +1,38 @@
+name: Windows helper and popup checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, dl/fix/desktop-audit-reviewed]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-checks:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test popup placement and focus handling
+        shell: pwsh
+        run: |
+          rustc --edition 2024 --test src-tauri/src/panel/position.rs -o "$env:RUNNER_TEMP/position-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:RUNNER_TEMP/position-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustc --edition 2024 --test src-tauri/src/panel/focus_guard.rs -o "$env:RUNNER_TEMP/focus-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:RUNNER_TEMP/focus-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test hidden helpers, deadlines and descendant ownership
+        shell: pwsh
+        run: |
+          rustc --edition 2024 --test src-tauri/src/plugin_engine/process.rs -o "$env:RUNNER_TEMP/process-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:RUNNER_TEMP/process-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
