@@ -13,6 +13,7 @@
 - Isolate workspace query caches and enforce device ownership by DanyilLiubchak
 - Validate local HTTP requests and redact sensitive provider data from uploads and errors by DanyilLiubchak
 - Complete provider scans within the shared worker limit by DanyilLiubchak
+- Patch the TanStack Start server response vulnerability CVE-2026-102989 by DanyilLiubchak
 
 ### Chores
 - Update Seroval and Vitest to compatible patched versions by DanyilLiubchak
@@ -26,6 +27,8 @@ Web and Convex changes take effect when the hosted app is deployed. The desktop 
 
 **Full Changelog**: [v0.6.29...v0.6.30](https://github.com/DanyilLiubchakUk/eusage/compare/v0.6.29...v0.6.30)
 
+- [8eb9de4](https://github.com/DanyilLiubchakUk/eusage/commit/8eb9de41fa961d4ff86a975926e6f15de129fdd9) fix: patch TanStack Start server response vulnerability by DanyilLiubchak
+- [1d58920](https://github.com/DanyilLiubchakUk/eusage/commit/1d5892046d3ffe4712a569e26a5b91995653fa21) test: model Windows descendant handle inheritance by DanyilLiubchak
 - [1777998](https://github.com/DanyilLiubchakUk/eusage/commit/1777998a76efcf8e3744f5acd70af5d9a92f0a64) ci: build every desktop installer before release by DanyilLiubchak
 - [77fdacd](https://github.com/DanyilLiubchakUk/eusage/commit/77fdacda818b365464c7f5d908188f8cc71b19b1) test: match usage fixtures to their reporting timezone by DanyilLiubchak
 - [566a985](https://github.com/DanyilLiubchakUk/eusage/commit/566a9853d40b400876ca743c3f147ad9be8f7c0a) ci: verify every platform before publishing a release by DanyilLiubchak
