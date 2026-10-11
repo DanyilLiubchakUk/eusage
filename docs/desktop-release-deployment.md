@@ -18,6 +18,8 @@ The free update host is GitHub Releases. No paid update server is needed.
 
 ## Free release path
 
+Before a release, the reviewed branch runs `.github/workflows/desktop-builds.yml`: native tests and package builds on macOS ARM/Intel, Windows x64 and Ubuntu 22.04 x64. It retains installers as CI artifacts without updater signing or publication. Linux checks require both DEB and AppImage, resolve executable libraries, run bundled SQLite against an in-memory fixture and reject the Windows SQLite binary. Native GUI and signed-update acceptance remain separate checks.
+
 1. Bump the app version in `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`.
 2. Commit the version bump and changelog.
 3. Push a tag named `vMAJOR.MINOR.PATCH`.

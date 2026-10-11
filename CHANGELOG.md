@@ -26,6 +26,7 @@ Web and Convex changes take effect when the hosted app is deployed. The desktop 
 
 **Full Changelog**: [v0.6.29...v0.6.30](https://github.com/DanyilLiubchakUk/eusage/compare/v0.6.29...v0.6.30)
 
+- [1777998](https://github.com/DanyilLiubchakUk/eusage/commit/1777998a76efcf8e3744f5acd70af5d9a92f0a64) ci: build every desktop installer before release by DanyilLiubchak
 - [77fdacd](https://github.com/DanyilLiubchakUk/eusage/commit/77fdacda818b365464c7f5d908188f8cc71b19b1) test: match usage fixtures to their reporting timezone by DanyilLiubchak
 - [566a985](https://github.com/DanyilLiubchakUk/eusage/commit/566a9853d40b400876ca743c3f147ad9be8f7c0a) ci: verify every platform before publishing a release by DanyilLiubchak
 - [9d8bf20](https://github.com/DanyilLiubchakUk/eusage/commit/9d8bf203352e145962431618d4e8eb7b6bfebbce) docs: record Windows preflight and release gates by DanyilLiubchak
