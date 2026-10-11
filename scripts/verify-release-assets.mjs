@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-// Check the completed matrix before publishing. Signature presence is not
-// cryptographic verification or a substitute for an installed-app update test.
-export function verifyReleaseAssets(release, manifest, tag, repository) {
+// Native build jobs verify artifact signatures. Match the uploaded metadata
+// to those signatures here; installed-app update acceptance remains separate.
+export function verifyReleaseAssets(release, manifest, tag, repository, signatures) {
   assert.match(tag, /^v\d+\.\d+\.\d+$/);
   assert.match(repository, /^[\w.-]+\/[\w.-]+$/);
   const version = tag.slice(1);
@@ -28,10 +29,9 @@ export function verifyReleaseAssets(release, manifest, tag, repository) {
       typeof entry.signature === "string" && entry.signature.trim(),
       `Missing updater signature: ${platform}`,
     );
-    assert(
-      names.some((name) => entry.url === `https://github.com/${repository}/releases/download/${tag}/${name}`),
-      `Wrong updater URL: ${platform}`,
-    );
+    const name = names.find((name) => entry.url === `https://github.com/${repository}/releases/download/${tag}/${name}`);
+    assert(name, `Wrong updater URL: ${platform}`);
+    assert.equal(entry.signature.trim(), signatures[`${name}.sig`]?.trim(), `Updater signature does not match uploaded asset: ${platform}`);
   };
   requireAsset("latest.json");
   requireAsset(`eUsage_${version}_aarch64.dmg`);
@@ -51,12 +51,16 @@ export function verifyReleaseAssets(release, manifest, tag, repository) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const [releaseFile, manifestFile, tag, repository] = process.argv.slice(2);
+  const [releaseFile, manifestFile, tag, repository, signatureDirectory] = process.argv.slice(2);
+  const signatures = Object.fromEntries(readdirSync(signatureDirectory)
+    .filter((name) => name.endsWith(".sig"))
+    .map((name) => [name, readFileSync(join(signatureDirectory, name), "utf8")]));
   verifyReleaseAssets(
     JSON.parse(readFileSync(releaseFile, "utf8")),
     JSON.parse(readFileSync(manifestFile, "utf8")),
     tag,
     repository,
+    signatures,
   );
   console.log(`Release assets and updater entries complete for ${tag}`);
 }

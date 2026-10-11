@@ -16,21 +16,24 @@ const names = {
 function fixture() {
   const assets = ["latest.json", "eUsage_0.6.30_aarch64.dmg", "eUsage_0.6.30_x64.dmg"];
   const platforms = {};
+  const signatures = {};
   for (const [platform, name] of Object.entries(names)) {
     assets.push(name, `${name}.sig`);
     platforms[platform] = {
       url: `https://github.com/${repository}/releases/download/${tag}/${name}`,
-      signature: "dummy signature, not a signing key",
+      signature: `dummy signature for ${name}`,
     };
+    signatures[`${name}.sig`] = platforms[platform].signature;
     platforms[platform.split("-").slice(0, 2).join("-")] = { ...platforms[platform] };
   }
   return {
     release: { assets: assets.map((name) => ({ name, size: 123 })) },
     manifest: { version: "0.6.30", platforms },
+    signatures,
   };
 }
 
-const verify = ({ release, manifest }) => verifyReleaseAssets(release, manifest, tag, repository);
+const verify = ({ release, manifest, signatures }) => verifyReleaseAssets(release, manifest, tag, repository, signatures);
 
 test("accepts the complete macOS, Windows and Linux matrix", () => {
   verify(fixture());
@@ -55,6 +58,13 @@ test("rejects each missing platform, blank signature or stale URL including alia
     const blank = fixture();
     blank.manifest.platforms[platform].signature = "  ";
     assert.throws(() => verify(blank), /Missing updater signature/);
+    const mismatched = fixture();
+    mismatched.manifest.platforms[platform].signature = "another artifact's signature";
+    assert.throws(() => verify(mismatched), /signature does not match uploaded asset/);
+    const missingSignature = fixture();
+    const name = missingSignature.manifest.platforms[platform].url.split("/").at(-1);
+    delete missingSignature.signatures[`${name}.sig`];
+    assert.throws(() => verify(missingSignature), /signature does not match uploaded asset/);
     const stale = fixture();
     stale.manifest.platforms[platform].url = stale.manifest.platforms[platform].url.replace(tag, "v0.6.29");
     assert.throws(() => verify(stale), /Wrong updater URL/);

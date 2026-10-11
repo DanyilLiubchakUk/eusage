@@ -76,6 +76,7 @@ jobs:
         run: |
           cargo test --locked --manifest-path src-tauri/Cargo.toml --target "$BUILD_TARGET" --lib -- \
             --skip env_api_respects_allowlist_in_host_and_js --skip env_api_prefers_process_env
+          cargo test --locked --manifest-path src-tauri/Cargo.toml --target "$BUILD_TARGET" --example verify-updater-artifacts
       - name: Build packages without updater signing or publication
         run: |
           bun tauri build --ci --target "$BUILD_TARGET" --bundles ${{ matrix.bundles }} \
