@@ -4,6 +4,9 @@ use std::ffi::c_void;
 #[link(name = "Kernel32")]
 unsafe extern "system" {
     fn GetConsoleWindow() -> *mut c_void;
+    fn GetStdHandle(id: u32) -> *mut c_void;
+    fn SetHandleInformation(handle: *mut c_void, mask: u32, flags: u32) -> i32;
+    fn GetHandleInformation(handle: *mut c_void, flags: *mut u32) -> i32;
     fn OpenProcess(access: u32, inherit: i32, id: u32) -> *mut c_void;
     fn WaitForSingleObject(handle: *mut c_void, milliseconds: u32) -> u32;
     fn CloseHandle(handle: *mut c_void) -> i32;
@@ -93,19 +96,13 @@ fn windows_job_stops_descendants_on_timeout_and_success_without_harming_other_he
             .unwrap(),
     );
 
-    for detached in [false, true] {
-        let pid_file = dir.0.join(if detached {
-            "detached.pid"
-        } else {
-            "inherited.pid"
-        });
+    for mode in ["inherited", "redirected", "detached"] {
+        let pid_file = dir.0.join(format!("{mode}.pid"));
         let mut command = fixture_command();
         command.env("EUSAGE_TEST_DESCENDANT", &pid_file);
-        if detached {
-            command.env("EUSAGE_TEST_DETACH_PIPES", "1");
-        }
+        command.env("EUSAGE_TEST_PIPE_MODE", mode);
         let result = command.output_with_timeout(Duration::from_secs(2));
-        if detached {
+        if mode == "detached" {
             assert!(result.unwrap().status.success());
         } else {
             assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);
@@ -168,7 +165,19 @@ fn console_fixture() {
     if let Some(pid_file) = std::env::var_os("EUSAGE_TEST_DESCENDANT") {
         let mut leaf = fixture_command();
         leaf.env("EUSAGE_TEST_SLEEP", "1");
-        if std::env::var_os("EUSAGE_TEST_DETACH_PIPES").is_some() {
+        let mode = std::env::var("EUSAGE_TEST_PIPE_MODE").unwrap();
+        // Redirecting stdio does not stop Windows from inheriting other open
+        // handles. Make both timeout cases explicit, and really detach the third.
+        for id in [-11i32, -12i32] {
+            // STD_OUTPUT_HANDLE, STD_ERROR_HANDLE
+            let handle = unsafe { GetStdHandle(id as u32) };
+            let inherit = u32::from(mode != "detached");
+            assert_ne!(unsafe { SetHandleInformation(handle, 1, inherit) }, 0);
+            let mut flags = 0;
+            assert_ne!(unsafe { GetHandleInformation(handle, &mut flags) }, 0);
+            assert_eq!(flags & 1, inherit);
+        }
+        if mode != "inherited" {
             leaf.stdout(Stdio::null()).stderr(Stdio::null());
         }
         let child = leaf.spawn().unwrap();
