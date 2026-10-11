@@ -18,7 +18,7 @@
 - Update Seroval and Vitest to compatible patched versions by DanyilLiubchak
 - Require Windows regressions, locked platform builds and complete installer/updater metadata before publishing releases and distribution updates by DanyilLiubchak
 
-Web and Convex changes require a separate hosted deployment; this desktop release does not deploy them.
+Web and Convex changes take effect when the hosted app is deployed. The desktop release workflow builds desktop packages; repository Git integrations may also trigger hosted deployments on push.
 
 ---
 
@@ -26,6 +26,7 @@ Web and Convex changes require a separate hosted deployment; this desktop releas
 
 **Full Changelog**: [v0.6.29...v0.6.30](https://github.com/DanyilLiubchakUk/eusage/compare/v0.6.29...v0.6.30)
 
+- [77fdacd](https://github.com/DanyilLiubchakUk/eusage/commit/77fdacda818b365464c7f5d908188f8cc71b19b1) test: match usage fixtures to their reporting timezone by DanyilLiubchak
 - [566a985](https://github.com/DanyilLiubchakUk/eusage/commit/566a9853d40b400876ca743c3f147ad9be8f7c0a) ci: verify every platform before publishing a release by DanyilLiubchak
 - [9d8bf20](https://github.com/DanyilLiubchakUk/eusage/commit/9d8bf203352e145962431618d4e8eb7b6bfebbce) docs: record Windows preflight and release gates by DanyilLiubchak
 - [2ef4c0f](https://github.com/DanyilLiubchakUk/eusage/commit/2ef4c0f9a59c03577ea158f0b8578dde54fe8fbe) ci: gate releases on Windows checks and complete builds by DanyilLiubchak

@@ -35,6 +35,8 @@ GitHub Actions and GitHub Releases are enough for this path.
 
 Asset checks verify presence, version and URLs. They do not verify signatures cryptographically or test installation. Native desktop, package and signed-update acceptance remain separate release gates. A failed build or asset check keeps the release draft.
 
+Before pushing, also check hosted deployment triggers. This repository has Vercel deployment history, and `vercel.json` runs `convex deploy`. A branch or main push may deploy web/Convex through that separate integration even though the desktop workflow does not. Desktop publication approval alone must not imply approval for an unreviewed hosted deployment.
+
 Linux uses the same GitHub Release, with no third distribution repository. The DEB requires system `sqlite3`; the AppImage bundles it. Linux ARM64 is not built. Homebrew and Scoop manifest generation remains macOS and Windows only.
 
 For first-install package-manager setup, see [Desktop package managers](desktop-package-managers.md).
