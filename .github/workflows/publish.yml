@@ -21,13 +21,13 @@ jobs:
         include:
           - platform: macos-latest
             rustTargets: "aarch64-apple-darwin,x86_64-apple-darwin"
-            args: "--target aarch64-apple-darwin"
+            args: "--target aarch64-apple-darwin -- --locked"
           - platform: macos-latest
             rustTargets: "aarch64-apple-darwin,x86_64-apple-darwin"
-            args: "--target x86_64-apple-darwin"
+            args: "--target x86_64-apple-darwin -- --locked"
           - platform: windows-latest
             rustTargets: "x86_64-pc-windows-msvc"
-            args: "--target x86_64-pc-windows-msvc"
+            args: "--target x86_64-pc-windows-msvc -- --locked"
           - platform: ubuntu-22.04
             rustTargets: "x86_64-unknown-linux-gnu"
             args: "--target x86_64-unknown-linux-gnu --bundles deb,appimage -- --locked"
@@ -61,7 +61,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "latest"
-      - run: bun install
+      - run: bun install --frozen-lockfile
       - name: Bundle plugins
         run: bun run bundle:plugins
       - name: Verify bundled plugins
@@ -122,26 +122,6 @@ jobs:
           includeUpdaterJson: true
           args: ${{ matrix.args }}
 
-      - name: Verify updater assets uploaded
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          ASSETS=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | tr -d '\r')
-
-          printf '%s\n' "$ASSETS" | grep -Fxq 'latest.json' || { echo "Missing updater manifest: latest.json"; exit 1; }
-          printf '%s\n' "$ASSETS" | grep -Eq '\.sig$' || { echo "Missing updater signatures (.sig)"; exit 1; }
-
-          if [[ "$RUNNER_OS" == "Linux" ]]; then
-            for EXTENSION in deb AppImage; do
-              printf '%s\n' "$ASSETS" | grep -Eq "\\.${EXTENSION}$" || { echo "Missing Linux installer: $EXTENSION"; exit 1; }
-              printf '%s\n' "$ASSETS" | grep -Eq "\\.${EXTENSION}\\.sig$" || { echo "Missing Linux signature: $EXTENSION"; exit 1; }
-            done
-            gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
-              --pattern latest.json --output "$RUNNER_TEMP/eusage-latest.json"
-            jq -e '[.platforms["linux-x86_64-deb"], .platforms["linux-x86_64-appimage"]] | all(.url and .signature)' \
-              "$RUNNER_TEMP/eusage-latest.json"
-          fi
-
   publish-release:
     needs: publish
     if: startsWith(github.ref, 'refs/tags/v')
@@ -153,6 +133,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.RELEASE_TAG }}
+      - name: Verify all installers and updater entries
+        shell: bash
+        run: |
+          node --test scripts/verify-release-assets.test.mjs
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets > "$RUNNER_TEMP/release-assets.json"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern latest.json --output "$RUNNER_TEMP/eusage-latest.json"
+          node scripts/verify-release-assets.mjs "$RUNNER_TEMP/release-assets.json" \
+            "$RUNNER_TEMP/eusage-latest.json" "$RELEASE_TAG" "$GITHUB_REPOSITORY"
       - name: Publish after all build and asset checks pass
         shell: bash
         run: |

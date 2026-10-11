@@ -2,7 +2,7 @@
 
 ## Goal
 
-Ship free macOS and Windows desktop builds for a small internal team, with simple repeat deploys and the existing `Restart to update` button.
+Ship macOS, Windows and Linux desktop builds for a small internal team, using the existing `Restart to update` button.
 
 ## Current updater path
 
@@ -18,19 +18,24 @@ The free update host is GitHub Releases. No paid update server is needed.
 
 ## Free release path
 
-1. Bump the app version in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
+1. Bump the app version in `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`.
 2. Commit the version bump and changelog.
 3. Push a tag named `vMAJOR.MINOR.PATCH`.
 4. GitHub Actions runs `.github/workflows/publish.yml`.
-5. The workflow builds:
+5. After Windows helper and popup tests pass, the workflow builds from locked dependencies:
    - macOS Apple Silicon DMG.
    - macOS Intel DMG.
    - Windows x64 installer.
-6. The workflow uploads installer assets, updater signatures, and `latest.json` to the GitHub Release.
-7. The workflow updates the Homebrew cask and Scoop manifest with release URLs and hashes.
+   - Linux x64 DEB and AppImage on Ubuntu 22.04.
+6. The workflow uploads installers, updater signatures and `latest.json` to a draft release. After all builds finish, it checks every expected installer, signature and updater entry before publishing the changelog and release.
+7. After publication, the workflow updates the Homebrew cask and Scoop manifest with release URLs and hashes.
 8. Existing desktop apps see the new `latest.json`, download the matching artifact, then show `Restart to update`.
 
 GitHub Actions and GitHub Releases are enough for this path.
+
+Asset checks verify presence, version and URLs. They do not verify signatures cryptographically or test installation. Native desktop, package and signed-update acceptance remain separate release gates. A failed build or asset check keeps the release draft.
+
+Linux uses the same GitHub Release, with no third distribution repository. The DEB requires system `sqlite3`; the AppImage bundles it. Linux ARM64 is not built. Homebrew and Scoop manifest generation remains macOS and Windows only.
 
 For first-install package-manager setup, see [Desktop package managers](desktop-package-managers.md).
 
@@ -88,7 +93,7 @@ Teammate-ready path:
 
 Updater signatures are still required because the app verifies downloaded updates before install.
 
-Required for both OSes:
+Required for the release workflow:
 
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
@@ -113,11 +118,12 @@ Changing the button to open a browser download would be worse for repeat deploys
 
 ## Readiness checklist
 
-- GitHub Release has macOS Apple Silicon, macOS Intel, and Windows x64 assets.
+- GitHub Release has macOS Apple Silicon, macOS Intel, Windows x64, and Linux x64 DEB/AppImage assets.
 - GitHub Release has `latest.json`.
 - GitHub Release has updater `.sig` files.
 - Fresh Windows install works through unsigned-installer warning.
 - Fresh macOS install works through the chosen path: manual bypass for free internal use, notarized DMG for teammate-ready use.
+- Linux packages start on Ubuntu 22.04 and a supported desktop. Tray behavior, locked/unavailable keyring errors and dummy credential lifecycle pass in an isolated user session.
 - Old installed app sees update and shows `Restart to update`.
 - Button installs update and relaunches.
 - Admin and TV still show real synced data after updated desktop reconnects.
