@@ -31,10 +31,10 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-query": "^5.100.14",
-    "@tanstack/react-router": "^1.170.8",
+    "@tanstack/react-router": "1.170.41",
     "@tanstack/react-router-ssr-query": "^1.167.0",
-    "@tanstack/react-start": "^1.168.13",
-    "@tanstack/router-plugin": "^1.168.11",
+    "@tanstack/react-start": "1.168.60",
+    "@tanstack/router-plugin": "1.168.42",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-autostart": "^2.5.1",
     "@tauri-apps/plugin-global-shortcut": "^2",
@@ -74,6 +74,6 @@
     "vitest": "^4.1.11"
   },
   "overrides": {
-    "seroval": "1.6.4"
+    "seroval": "1.6.7"
   }
 }

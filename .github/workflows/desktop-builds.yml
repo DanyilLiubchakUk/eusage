@@ -64,10 +64,13 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - run: bun run bundle:plugins
-      - name: Test frontend and release checks
+      - name: Test frontend, web and release checks
         if: runner.os == 'Linux'
         run: |
           bun run test --run --maxWorkers=2
+          bun run test:web --maxWorkers=2
+          node node_modules/typescript/bin/tsc --noEmit --project web/tsconfig.json
+          bun run build:vercel
           node --test scripts/verify-release-assets.test.mjs scripts/check-linux-bundles.test.mjs
       - name: Test native application
         run: |
