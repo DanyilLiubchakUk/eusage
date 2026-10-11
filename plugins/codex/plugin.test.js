@@ -863,10 +863,10 @@ describe("codex plugin", () => {
       bodyText: JSON.stringify({}),
     })
     const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const month = yesterday.toLocaleString("en-US", { month: "short" })
-    const day = String(yesterday.getDate()).padStart(2, "0")
-    const year = yesterday.getFullYear()
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+    const month = yesterday.toLocaleString("en-US", { month: "short", timeZone: "UTC" })
+    const day = String(yesterday.getUTCDate()).padStart(2, "0")
+    const year = yesterday.getUTCFullYear()
     const yesterdayKey = month + " " + day + ", " + year
     ctx.host.ccusage.query.mockReturnValue({
       status: "ok",
@@ -935,10 +935,10 @@ describe("codex plugin", () => {
       bodyText: JSON.stringify({}),
     })
     const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const month = yesterday.toLocaleString("en-US", { month: "short" })
-    const day = String(yesterday.getDate()).padStart(2, "0")
-    const year = yesterday.getFullYear()
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+    const month = yesterday.toLocaleString("en-US", { month: "short", timeZone: "UTC" })
+    const day = String(yesterday.getUTCDate()).padStart(2, "0")
+    const year = yesterday.getUTCFullYear()
     const yesterdayKey = month + " " + day + ", " + year
     ctx.host.ccusage.query.mockReturnValue({
       status: "ok",

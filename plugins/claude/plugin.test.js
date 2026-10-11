@@ -1750,18 +1750,12 @@ describe("claude plugin", () => {
       return { status: "ok", data: { daily: daily } }
     }
 
-    function localDayKey(date) {
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, "0")
-      const day = String(date.getDate()).padStart(2, "0")
-      return year + "-" + month + "-" + day
+    function utcDayKey(date) {
+      return date.toISOString().slice(0, 10)
     }
 
-    function localCompactDayKey(date) {
-      const year = String(date.getFullYear())
-      const month = String(date.getMonth() + 1).padStart(2, "0")
-      const day = String(date.getDate()).padStart(2, "0")
-      return year + month + day
+    function utcCompactDayKey(date) {
+      return utcDayKey(date).replaceAll("-", "")
     }
 
     it("omits token lines when ccusage reports no_runner", async () => {
@@ -1783,7 +1777,7 @@ describe("claude plugin", () => {
     })
 
     it("adds Today line when ccusage returns today's data", async () => {
-      const todayKey = localDayKey(new Date())
+      const todayKey = utcDayKey(new Date())
       const ctx = makeProbeCtx({
         ccusageResult: okUsage([
             { date: todayKey, inputTokens: 100, outputTokens: 50, cacheCreationTokens: 0, cacheReadTokens: 0, totalTokens: 150, totalCost: 0.75 },
@@ -1800,8 +1794,8 @@ describe("claude plugin", () => {
 
     it("adds Yesterday line when ccusage returns yesterday's data", async () => {
       const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      const yesterdayKey = localDayKey(yesterday)
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+      const yesterdayKey = utcDayKey(yesterday)
       const ctx = makeProbeCtx({
         ccusageResult: okUsage([
             { date: yesterdayKey, inputTokens: 80, outputTokens: 40, cacheCreationTokens: 0, cacheReadTokens: 0, totalTokens: 120, totalCost: 0.6 },
@@ -1817,16 +1811,16 @@ describe("claude plugin", () => {
 
     it("matches locale-formatted dates for today and yesterday (regression)", async () => {
       const now = new Date()
-      const monthToday = now.toLocaleString("en-US", { month: "short" })
-      const dayToday = String(now.getDate()).padStart(2, "0")
-      const yearToday = now.getFullYear()
+      const monthToday = now.toLocaleString("en-US", { month: "short", timeZone: "UTC" })
+      const dayToday = String(now.getUTCDate()).padStart(2, "0")
+      const yearToday = now.getUTCFullYear()
       const todayLabel = monthToday + " " + dayToday + ", " + yearToday
 
       const yesterday = new Date(now.getTime())
-      yesterday.setDate(yesterday.getDate() - 1)
-      const monthYesterday = yesterday.toLocaleString("en-US", { month: "short" })
-      const dayYesterday = String(yesterday.getDate()).padStart(2, "0")
-      const yearYesterday = yesterday.getFullYear()
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+      const monthYesterday = yesterday.toLocaleString("en-US", { month: "short", timeZone: "UTC" })
+      const dayYesterday = String(yesterday.getUTCDate()).padStart(2, "0")
+      const yearYesterday = yesterday.getUTCFullYear()
       const yesterdayLabel = monthYesterday + " " + dayYesterday + ", " + yearYesterday
 
       const ctx = makeProbeCtx({
@@ -1908,7 +1902,7 @@ describe("claude plugin", () => {
     })
 
     it("adds Last 30 Days line summing all daily entries", async () => {
-      const todayKey = localDayKey(new Date())
+      const todayKey = utcDayKey(new Date())
       const ctx = makeProbeCtx({
         ccusageResult: okUsage([
             { date: todayKey, inputTokens: 100, outputTokens: 50, cacheCreationTokens: 0, cacheReadTokens: 0, totalTokens: 150, totalCost: 0.5 },
@@ -1988,7 +1982,7 @@ describe("claude plugin", () => {
     })
 
     it("omits cost when totalCost is null", async () => {
-      const todayKey = localDayKey(new Date())
+      const todayKey = utcDayKey(new Date())
       const ctx = makeProbeCtx({
         ccusageResult: okUsage([
             { date: todayKey, inputTokens: 500, outputTokens: 100, cacheCreationTokens: 0, cacheReadTokens: 0, totalTokens: 600, totalCost: null },
@@ -2003,7 +1997,7 @@ describe("claude plugin", () => {
     })
 
     it("shows empty Today state when today's totals are zero (regression)", async () => {
-      const todayKey = localDayKey(new Date())
+      const todayKey = utcDayKey(new Date())
       const ctx = makeProbeCtx({
         ccusageResult: okUsage([
             { date: todayKey, inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, totalTokens: 0, totalCost: 0 },
@@ -2019,8 +2013,8 @@ describe("claude plugin", () => {
 
     it("shows empty Yesterday state when yesterday's totals are zero (regression)", async () => {
       const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      const yesterdayKey = localDayKey(yesterday)
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+      const yesterdayKey = utcDayKey(yesterday)
       const ctx = makeProbeCtx({
         ccusageResult: okUsage([
             { date: yesterdayKey, inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, totalTokens: 0, totalCost: 0 },
@@ -2035,7 +2029,7 @@ describe("claude plugin", () => {
     })
 
     it("queries ccusage on each probe", async () => {
-      const todayKey = localDayKey(new Date())
+      const todayKey = utcDayKey(new Date())
       const ctx = makeProbeCtx({
         ccusageResult: okUsage([
             { date: todayKey, inputTokens: 100, outputTokens: 50, cacheCreationTokens: 0, cacheReadTokens: 0, totalTokens: 150, totalCost: 0.5 },
@@ -2059,8 +2053,8 @@ describe("claude plugin", () => {
 
         const firstCall = ctx.host.ccusage.query.mock.calls[0][0]
         const since = new Date()
-        since.setDate(since.getDate() - 30)
-        expect(firstCall.since).toBe(localCompactDayKey(since))
+        since.setUTCDate(since.getUTCDate() - 30)
+        expect(firstCall.since).toBe(utcCompactDayKey(since))
         expect(firstCall.timezone).toBe("UTC")
       } finally {
         vi.useRealTimers()
@@ -2117,7 +2111,7 @@ describe("claude plugin", () => {
 
     it("matches compact day keys and falls back from invalid totalCost to costUSD", async () => {
       const today = new Date()
-      const todayKey = localCompactDayKey(today)
+      const todayKey = utcCompactDayKey(today)
       const ctx = makeProbeCtx({
         ccusageResult: okUsage([
           {
@@ -2141,7 +2135,7 @@ describe("claude plugin", () => {
     })
 
     it("includes cache tokens in total", async () => {
-      const todayKey = localDayKey(new Date())
+      const todayKey = utcDayKey(new Date())
       const ctx = makeProbeCtx({
         ccusageResult: okUsage([
             { date: todayKey, inputTokens: 100, outputTokens: 50, cacheCreationTokens: 200, cacheReadTokens: 300, totalTokens: 650, totalCost: 1.0 },
@@ -2155,7 +2149,7 @@ describe("claude plugin", () => {
     })
 
     it("formats compact token values with decimal and rounded K suffixes", async () => {
-      const todayKey = localDayKey(new Date())
+      const todayKey = utcDayKey(new Date())
       const ctx = makeProbeCtx({
         ccusageResult: okUsage([
           {
@@ -2187,7 +2181,7 @@ describe("claude plugin", () => {
     })
 
     it("shows rate limited status after all retries exhausted", async () => {
-      const todayKey = localDayKey(new Date())
+      const todayKey = utcDayKey(new Date())
       const ctx = makeProbeCtx({
         ccusageResult: okUsage([
           { date: todayKey, inputTokens: 100, outputTokens: 50, totalTokens: 150, totalCost: 0.25 },
