@@ -4,9 +4,20 @@ eUsage is an open source fork of OpenUsage.
 
 This fork is not the official OpenUsage project. Original source code is MIT licensed; the OpenUsage name and logo are not reused.
 
+## Bundled providers
+
+eUsage includes Amp, Antigravity, Claude, Codex, Copilot, Cursor, Factory, Gemini, Grok, JetBrains AI Assistant, Kimi, Kiro, MiniMax, OpenCode Go, Perplexity, Synthetic, Windsurf and Z.ai. The development-only Mock plugin is excluded from installers.
+
+Provider availability depends on the installed app or CLI, sign-in and supported storage paths on each OS. Bundling a plugin does not establish live provider validation on every platform. See the platform notes below and [desktop audit](docs/desktop-audit-linux-2026-10-10.md) for tested behavior and remaining checks.
+
 ## Product Direction
 
-eUsage is open source and self-deployed per team.
+eUsage is moving toward a hosted SaaS product for many organizations.
+The new direction keeps Clerk for auth, Convex for data, the desktop app for local usage collection, and the existing Overview/Developers/TV surfaces for the first admin experience.
+See `docs/prd/eusage-saas-organization-platform.md`.
+
+The older v1 notes below describe the current baseline and implementation history.
+They are not the final SaaS target.
 
 v1 implementation order:
 
@@ -167,7 +178,7 @@ Official v1 path:
 - Token rotation revokes the old developer token immediately.
 - Raw developer tokens are shown once on create/rotate. Later UI shows hash-backed fingerprint and metadata only.
 - Developer token hashes use SHA-256 of long random raw tokens.
-- Desktop stores the raw developer token in OS credential storage: macOS Keychain or Windows Credential Manager.
+- Desktop stores the raw developer token in OS credential storage: macOS Keychain, Windows Credential Manager, or the default Secret Service keyring on Linux.
 - Desktop stores non-secret team URL, team name, and token fingerprint in normal app config.
 - Desktop sends the developer token to backend HTTP endpoints with an `Authorization: Bearer ...` header.
 - If the backend rejects the developer token as invalid, revoked, or inactive, desktop stops team sync, removes the stored raw token, and requires a new connection string.
@@ -192,6 +203,16 @@ Official v1 path:
 - Provider "supported on Windows" means readable when the provider app or CLI is installed and signed in with supported local storage.
 
 See [Decision 0001](docs/architecture-decision-0001-self-deployed-vercel-convex.md).
+
+## Linux desktop
+
+- The release workflow includes Ubuntu 22.04 x64 builds for `.deb` and AppImage in the existing GitHub Releases. Desktop and package smoke tests are still required before release. Linux ARM64 is not included.
+- Team connection/sync requires a desktop Secret Service provider, such as GNOME Keyring or a compatible KWallet, with an unlocked persistent default keyring. eUsage does not create or unlock keyrings, use session-only storage, or fall back to plaintext. Missing/locked storage leaves the saved connection intact and shows a retry message. Unlock/setup is a user-only step in the desktop keyring manager.
+- Keyring requests time out after 15 seconds. A provider may ask the user to approve access. Retry after resolving the prompt; a request already sent to the service may finish after the local timeout.
+- The DEB requires the system `sqlite3` package. AppImage bundling includes SQLite and its libraries through linuxdeploy. Provider app/CLI installation and sign-in remain user prerequisites; provider-specific Linux behavior needs smoke testing.
+- A desktop session with a tray/status notifier is needed for the tray menu. On Linux, use its **Show Stats** or **Go to Settings** entry; tray click behavior varies by desktop. Validate Wayland/X11, scaling, keyboard access and updates on the target desktop.
+
+Linux native development needs the [official Tauri prerequisites](https://v2.tauri.app/start/prerequisites/), plus `libclang-dev` for QuickJS bindings and `libxdo-dev` for desktop integration. Packaging also needs `patchelf`, `xdg-utils`, and `sqlite3`. Build on the oldest supported compatible Linux baseline; newer glibc builds may not run on older distributions. See [the Linux audit](/docs/desktop-audit-linux-2026-10-10.md) for validation limits.
 
 ## Local Development
 

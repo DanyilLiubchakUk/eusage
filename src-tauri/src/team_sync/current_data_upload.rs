@@ -12,10 +12,10 @@ pub(crate) struct CurrentSharedProviderAccountUploadResult {
     pub current_data_queued: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct CurrentSharedProviderAccountEnqueue {
     current_data_queued: bool,
-    should_start_worker: bool,
+    worker_connection_key: Option<String>,
 }
 
 pub(crate) fn upload_current_shared_provider_account_data(
@@ -24,16 +24,18 @@ pub(crate) fn upload_current_shared_provider_account_data(
     local_account_fingerprint: &str,
     label: &str,
 ) -> Result<CurrentSharedProviderAccountUploadResult, String> {
-    let enqueue = enqueue_current_shared_provider_account_data_with(
-        app_data_dir,
-        provider_id,
-        local_account_fingerprint,
-        label,
-        crate::local_http_api::cached_snapshot,
-    )?;
+    let enqueue = crate::app_settings::with_team_settings(app_data_dir, |_| {
+        enqueue_current_shared_provider_account_data_with(
+            app_data_dir,
+            provider_id,
+            local_account_fingerprint,
+            label,
+            crate::local_http_api::cached_snapshot,
+        )
+    })?;
 
-    if enqueue.should_start_worker {
-        std::thread::spawn(move || super::debounced_upload_worker(Duration::ZERO));
+    if let Some(key) = enqueue.worker_connection_key {
+        std::thread::spawn(move || super::debounced_upload_worker(key, Duration::ZERO));
     }
 
     Ok(CurrentSharedProviderAccountUploadResult {
@@ -69,7 +71,7 @@ where
     let Some(connection) = load_connection(app_data_dir) else {
         return Ok(CurrentSharedProviderAccountEnqueue {
             current_data_queued: false,
-            should_start_worker: false,
+            worker_connection_key: None,
         });
     };
     if !valid_connection(&connection) {
@@ -79,7 +81,7 @@ where
     let Some(snapshot) = read_cached_snapshot(provider_id) else {
         return Ok(CurrentSharedProviderAccountEnqueue {
             current_data_queued: false,
-            should_start_worker: false,
+            worker_connection_key: None,
         });
     };
     let shared_account = match shared_provider_account_for_label_update(
@@ -94,7 +96,7 @@ where
             log::debug!("current Provider Account upload skipped: {}", error);
             return Ok(CurrentSharedProviderAccountEnqueue {
                 current_data_queued: false,
-                should_start_worker: false,
+                worker_connection_key: None,
             });
         }
     };
@@ -112,7 +114,7 @@ where
     );
     Ok(CurrentSharedProviderAccountEnqueue {
         current_data_queued: true,
-        should_start_worker,
+        worker_connection_key: should_start_worker.then(|| connection_key(&connection)),
     })
 }
 

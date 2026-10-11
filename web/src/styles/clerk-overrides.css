@@ -1,0 +1,318 @@
+/* Clerk UI — keep overrides scoped; match app grain on auth surfaces. */
+
+.cl-modalBackdrop {
+  backdrop-filter: blur(6px);
+  background-color: rgba(0, 0, 0, 0.55) !important;
+}
+
+.cl-modalContent,
+.cl-card,
+.cl-userButtonPopoverCard,
+.cl-organizationSwitcherPopoverCard {
+  background: var(--card) !important;
+  border: 1px solid var(--surface-hairline) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 24px 80px -32px rgba(0, 0, 0, 0.35) !important;
+  color: var(--foreground) !important;
+  isolation: isolate;
+  min-height: 0 !important;
+  position: relative;
+}
+
+.cl-modalContent::after,
+.cl-card::after,
+.cl-userButtonPopoverCard::after,
+.cl-organizationSwitcherPopoverCard::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--surface-noise-surface-opacity);
+  mix-blend-mode: var(--surface-noise-blend);
+  background-image: var(--surface-noise-image);
+  background-size: var(--surface-noise-size) var(--surface-noise-size);
+  background-repeat: repeat;
+}
+
+.cl-modalContent,
+.cl-cardBox,
+.cl-scrollBox,
+.cl-main,
+.cl-pageScrollBox {
+  background: var(--card) !important;
+  min-height: 0 !important;
+}
+
+.cl-signIn-root .cl-modalContent,
+.cl-signUp-root .cl-modalContent,
+.cl-createOrganization-root .cl-modalContent,
+.cl-signIn-root .cl-main,
+.cl-signUp-root .cl-main,
+.cl-createOrganization-root .cl-main,
+.cl-signIn-root .cl-pageScrollBox,
+.cl-signUp-root .cl-pageScrollBox,
+.cl-createOrganization-root .cl-pageScrollBox,
+.cl-signIn-root .cl-scrollBox,
+.cl-signUp-root .cl-scrollBox,
+.cl-createOrganization-root .cl-scrollBox,
+.cl-signIn-root .cl-card,
+.cl-signUp-root .cl-card,
+.cl-createOrganization-root .cl-card {
+  height: auto !important;
+  min-height: unset !important;
+  overflow: visible !important;
+}
+
+.cl-headerTitle,
+.cl-formHeaderTitle {
+  color: var(--foreground) !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+}
+
+.cl-headerSubtitle,
+.cl-formHeaderSubtitle,
+.cl-formFieldHintText,
+.cl-formFieldInfoText {
+  color: var(--muted-foreground) !important;
+}
+
+.cl-formFieldLabel,
+.cl-formFieldLabelRow label {
+  color: var(--foreground) !important;
+  font-weight: 500 !important;
+}
+
+.cl-formFieldInput,
+.cl-formFieldInput__input,
+.cl-selectButton {
+  background: var(--background) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: none !important;
+  color: var(--foreground) !important;
+}
+
+.cl-formFieldInput:focus-within,
+.cl-formFieldInput__input:focus {
+  border-color: var(--accent-green) !important;
+  box-shadow: 0 0 0 3px var(--accent-green-soft) !important;
+}
+
+.cl-formButtonPrimary {
+  background: var(--accent-green) !important;
+  border: 0 !important;
+  border-radius: 0.5rem !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+:root[data-theme="dark"] .cl-formButtonPrimary {
+  color: #0a0a0a !important;
+}
+
+.cl-formButtonPrimary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.cl-formButtonPrimary:disabled,
+.cl-formButtonPrimary[data-disabled="true"] {
+  opacity: 0.45 !important;
+}
+
+.cl-socialButtonsBlockButton {
+  background: var(--background) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  color: var(--foreground) !important;
+}
+
+.cl-socialButtonsBlockButtonText {
+  color: var(--foreground) !important;
+  font-weight: 500 !important;
+}
+
+.cl-modalCloseButton,
+.cl-formButtonReset {
+  color: var(--muted-foreground) !important;
+}
+
+.cl-modalCloseButton:hover,
+.cl-formButtonReset:hover {
+  color: var(--foreground) !important;
+}
+
+.cl-logoBox,
+.cl-fileDropAreaBox {
+  background: var(--muted) !important;
+  border: 1px dashed var(--border) !important;
+  border-radius: 0.625rem !important;
+  color: var(--muted-foreground) !important;
+}
+
+.cl-dividerLine {
+  background: var(--border) !important;
+}
+
+.cl-dividerText {
+  color: var(--muted-foreground) !important;
+}
+
+/* Remove dev/footer chrome and the empty space it reserves. */
+.cl-footer,
+.cl-footerPages,
+.cl-userButtonPopoverFooter,
+.cl-organizationSwitcherPopoverFooter,
+.cl-devBar,
+.cl-internal-b3fm6y {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+}
+
+/* Header org switcher — single compact control. */
+.org-switcher-shell .cl-organizationSwitcherTrigger {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  max-width: min(15rem, 42vw) !important;
+  min-height: 2.25rem !important;
+  padding: 0.35rem 0.65rem !important;
+  border: 1px solid var(--surface-hairline) !important;
+  border-radius: 0.5rem !important;
+  background: var(--card) !important;
+  box-shadow: none !important;
+  color: var(--foreground) !important;
+}
+
+.org-switcher-shell .cl-organizationPreviewTextContainer {
+  min-width: 0 !important;
+  text-align: left !important;
+}
+
+.org-switcher-shell .cl-organizationPreviewMainIdentifier {
+  display: block !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: var(--foreground) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+}
+
+.org-switcher-shell .cl-organizationPreviewSecondaryIdentifier {
+  display: block !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: var(--muted-foreground) !important;
+  font-size: 0.6875rem !important;
+  line-height: 1.2 !important;
+}
+
+.org-switcher-shell .cl-organizationSwitcherTriggerIcon {
+  color: var(--muted-foreground) !important;
+  flex-shrink: 0 !important;
+}
+
+/* Popovers — readable actions, tight layout. */
+.cl-userButtonPopoverCard,
+.cl-organizationSwitcherPopoverCard {
+  background: var(--card) !important;
+  padding: 0.35rem !important;
+  min-width: 16rem !important;
+}
+
+.cl-userButtonPopoverCard::after,
+.cl-organizationSwitcherPopoverCard::after {
+  z-index: 2;
+}
+
+.cl-userButtonPopoverCard > *,
+.cl-organizationSwitcherPopoverCard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.cl-userButtonPopoverCard :where(
+  [class*="Popover"]:not([class*="Avatar"]):not([class*="Badge"]):not([class*="Footer"]):not([class*="Icon"]),
+  .cl-userButtonPopoverProfileSection,
+  .cl-userPreview,
+  .cl-userPreviewTextContainer
+),
+.cl-organizationSwitcherPopoverCard :where(
+  [class*="Popover"]:not([class*="Avatar"]):not([class*="Badge"]):not([class*="Footer"]):not([class*="Icon"]),
+  .cl-organizationSwitcherPopoverActiveOrganization,
+  .cl-organizationSwitcherPopoverOrganizationButton,
+  .cl-organizationSwitcherPopoverOrganizationPreview,
+  .cl-organizationSwitcherPopoverActionButton,
+  .cl-organizationPreview,
+  .cl-organizationPreviewTextContainer
+) {
+  background: transparent !important;
+}
+
+.cl-userButtonPopoverCard :where(
+  .cl-userButtonPopoverProfileSection,
+  .cl-userButtonPopoverActionButton,
+  button,
+  [role="button"],
+  [role="menuitem"],
+  [role="option"]
+),
+.cl-organizationSwitcherPopoverCard :where(
+  .cl-organizationSwitcherPopoverActiveOrganization,
+  .cl-organizationSwitcherPopoverOrganizationButton,
+  .cl-organizationSwitcherPopoverOrganizationPreview,
+  .cl-organizationSwitcherPopoverActionButton,
+  button,
+  [role="button"],
+  [role="menuitem"],
+  [role="option"]
+) {
+  background: var(--card) !important;
+}
+
+.cl-userButtonPopoverActionButton,
+.cl-organizationSwitcherPopoverActionButton,
+.cl-organizationSwitcherPopoverActionButtonText,
+.cl-userButtonPopoverActionButtonText {
+  color: var(--foreground) !important;
+  font-weight: 500 !important;
+  opacity: 1 !important;
+}
+
+.cl-userButtonPopoverActionButtonIcon,
+.cl-organizationSwitcherPopoverActionButtonIcon {
+  color: var(--muted-foreground) !important;
+  opacity: 1 !important;
+}
+
+.cl-userButtonPopoverActionButton:hover,
+.cl-organizationSwitcherPopoverActionButton:hover {
+  background: var(--muted) !important;
+}
+
+.cl-userButtonPopoverMainIdentifier {
+  color: var(--foreground) !important;
+  font-weight: 600 !important;
+}
+
+.cl-userButtonPopoverSecondaryIdentifier,
+.cl-userPreviewSecondaryIdentifier {
+  color: var(--muted-foreground) !important;
+}
+
+.cl-organizationSwitcherPopoverActionButton[data-variant="manage"] {
+  border: 1px solid var(--surface-hairline) !important;
+  border-radius: 9999px !important;
+  padding-inline: 0.65rem !important;
+}

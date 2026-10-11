@@ -13,6 +13,8 @@ use tauri::WindowEvent;
 
 #[cfg(target_os = "windows")]
 use super::focus_guard::OutsideClickCloseGuard;
+#[cfg(target_os = "windows")]
+use super::position::fit_popup_to_work_area;
 use super::position::{
     PhysicalPopupSize, PhysicalRect, position_popup_near_tray, rect_contains_point,
     tray_icon_center,
@@ -27,6 +29,9 @@ static WINDOWS_FOCUS_CLOSE_HANDLER_INSTALLED: AtomicBool = AtomicBool::new(false
 
 #[cfg(target_os = "windows")]
 static WINDOWS_FOCUS_CLOSE_GUARD: OnceLock<Mutex<OutsideClickCloseGuard>> = OnceLock::new();
+
+#[cfg(target_os = "windows")]
+static WINDOWS_TRAY_ANCHOR: OnceLock<Mutex<Option<PhysicalRect>>> = OnceLock::new();
 
 #[cfg(target_os = "windows")]
 fn with_windows_focus_close_guard<T>(action: impl FnOnce(&mut OutsideClickCloseGuard) -> T) -> T {
@@ -65,6 +70,21 @@ fn init_windows_outside_click_close(app_handle: &AppHandle, window: &tauri::Webv
 
     let app_handle = app_handle.clone();
     window.on_window_event(move |event| {
+        if matches!(event, WindowEvent::Resized(_)) {
+            if position_window_from_tray(&app_handle) {
+                return;
+            }
+            let icon = *WINDOWS_TRAY_ANCHOR
+                .get_or_init(Default::default)
+                .lock()
+                .expect("windows tray popup anchor poisoned");
+            if let (Some(icon), Some(window)) = (icon, app_handle.get_webview_window("main")) {
+                if let Err(error) = position_window_at_icon(&window, icon) {
+                    log::warn!("failed to reposition resized tray popup: {}", error);
+                }
+            }
+            return;
+        }
         if !matches!(event, WindowEvent::Focused(false)) {
             return;
         }
@@ -141,6 +161,16 @@ fn monitor_rect(monitor: &Monitor) -> PhysicalRect {
     }
 }
 
+fn monitor_work_area(monitor: &Monitor) -> PhysicalRect {
+    let area = monitor.work_area();
+    PhysicalRect {
+        x: area.position.x as f64,
+        y: area.position.y as f64,
+        width: area.size.width as f64,
+        height: area.size.height as f64,
+    }
+}
+
 fn find_monitor_for_icon(
     window: &tauri::WebviewWindow,
     icon: PhysicalRect,
@@ -177,15 +207,40 @@ fn position_window_at_tray_icon(
         height,
     };
 
-    let Some(monitor) = find_monitor_for_icon(&window, icon) else {
+    // A monitor/DPI move and the frontend can resize after this initial placement.
+    #[cfg(target_os = "windows")]
+    {
+        *WINDOWS_TRAY_ANCHOR
+            .get_or_init(Default::default)
+            .lock()
+            .expect("windows tray popup anchor poisoned") = Some(icon);
+    }
+
+    position_window_at_icon(&window, icon)
+}
+
+fn position_window_at_icon(window: &tauri::WebviewWindow, icon: PhysicalRect) -> tauri::Result<()> {
+    let Some(monitor) = find_monitor_for_icon(window, icon) else {
         log::warn!("no monitor found for tray popup");
         return Ok(());
     };
 
+    let work_area = monitor_work_area(&monitor);
+    let popup = window_popup_size(window);
+    #[cfg(target_os = "windows")]
+    let popup = {
+        let fitted = fit_popup_to_work_area(work_area, popup);
+        if fitted != popup {
+            // Fit first so currentMonitor() cannot select an adjacent monitor.
+            window.set_size(PhysicalSize::new(fitted.width as u32, fitted.height as u32))?;
+        }
+        fitted
+    };
     let position = position_popup_near_tray(
         monitor_rect(&monitor),
+        work_area,
         icon,
-        window_popup_size(&window),
+        popup,
         POPUP_GAP_PX,
     );
 
@@ -193,25 +248,29 @@ fn position_window_at_tray_icon(
     Ok(())
 }
 
-fn position_window_from_tray(app_handle: &AppHandle) {
+fn position_window_from_tray(app_handle: &AppHandle) -> bool {
     let Some(tray) = app_handle.tray_by_id("tray") else {
         log::debug!("position_window_from_tray: tray icon not found");
-        return;
+        return false;
     };
 
     match tray.rect() {
         Ok(Some(rect)) => {
-            if let Err(error) =
-                position_window_at_tray_icon(app_handle, rect.position, rect.size)
-            {
+            if let Err(error) = position_window_at_tray_icon(app_handle, rect.position, rect.size) {
                 log::warn!("failed to position tray popup: {}", error);
             }
+            true
         }
         Ok(None) => {
             log::debug!("position_window_from_tray: tray rect not available yet");
+            false
         }
         Err(error) => {
-            log::warn!("position_window_from_tray: failed to get tray rect: {}", error);
+            log::warn!(
+                "position_window_from_tray: failed to get tray rect: {}",
+                error
+            );
+            false
         }
     }
 }

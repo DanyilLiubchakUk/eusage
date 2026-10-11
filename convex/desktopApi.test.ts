@@ -6,145 +6,12 @@ import {
   disconnectDevice,
   getDeviceStatus,
   getPublicTeamConfig,
-  updateProviderAccountMetadata,
-  type DesktopApiStore,
-  type DeviceRecord,
-  type NewDeviceRecord,
 } from "./desktopApi"
-import type { ProviderAccountRecord, NewProviderAccountRecord } from "./usageIngest"
-import {
-  hashDeveloperToken,
-  type DeveloperRecord,
-  type DeveloperTeamRecord,
-  type DeveloperTokenRecord,
-} from "./developerTokens"
-
-async function createStore(seed?: {
-  token?: Partial<DeveloperTokenRecord>
-  developer?: Partial<DeveloperRecord>
-  devices?: DeviceRecord[]
-  providerAccounts?: ProviderAccountRecord[]
-}) {
-  const rawToken = "eusage_dev_secret_raw_token"
-  const tokenHash = await hashDeveloperToken(rawToken)
-  const team: DeveloperTeamRecord = {
-    _id: "team-1",
-    name: "Acme Team",
-    slug: "acme-team",
-    reportingTimeZone: "America/New_York",
-  }
-  const developers: DeveloperRecord[] = [
-    {
-      _id: "developer-1",
-      teamId: "team-1",
-      displayName: "Alex Dev",
-      status: "active",
-      createdAt: 1780320000000,
-      updatedAt: 1780320000000,
-      ...seed?.developer,
-    },
-  ]
-  const tokens: DeveloperTokenRecord[] = [
-    {
-      _id: "token-1",
-      teamId: "team-1",
-      developerId: "developer-1",
-      tokenHash,
-      fingerprint: "hash...hash",
-      label: "Alex laptop",
-      status: "active",
-      createdAt: 1780320000000,
-      ...seed?.token,
-    },
-  ]
-  const devices: DeviceRecord[] = seed?.devices ? [...seed.devices] : []
-  const providerAccounts: ProviderAccountRecord[] = seed?.providerAccounts
-    ? [...seed.providerAccounts]
-    : []
-
-  const store: DesktopApiStore = {
-    getTeam: async () => team,
-    getTokenByHash: async (hash) =>
-      tokens.find((token) => token.tokenHash === hash) ?? null,
-    getDeveloper: async (developerId) =>
-      developers.find((developer) => developer._id === developerId) ?? null,
-    getDeviceByDeviceId: async (deviceId) =>
-      devices.find((device) => device.deviceId === deviceId) ?? null,
-    createDevice: async (device: NewDeviceRecord) => {
-      const created = {
-        _id: `device-${devices.length + 1}`,
-        ...device,
-      }
-      devices.push(created)
-      return created
-    },
-    updateDevice: async (deviceRecordId, patch) => {
-      const device = devices.find((row) => row._id === deviceRecordId)
-      if (!device) throw new Error("Missing device in fake store.")
-      Object.assign(device, patch)
-      return device
-    },
-    updateDeveloper: async (developerId, patch) => {
-      const developer = developers.find((row) => row._id === developerId)
-      if (!developer) throw new Error("Missing developer in fake store.")
-      Object.assign(developer, patch)
-      return developer
-    },
-    updateToken: async (tokenId, patch) => {
-      const token = tokens.find((row) => row._id === tokenId)
-      if (!token) throw new Error("Missing token in fake store.")
-      Object.assign(token, patch)
-      return token
-    },
-  }
-
-  return {
-    store,
-    providerAccountStore: {
-      ...store,
-      getProviderAccount: async (
-        account: Pick<
-          ProviderAccountRecord,
-          "teamId" | "developerId" | "providerId" | "teamAccountFingerprint"
-        >
-      ) =>
-        providerAccounts.find(
-          (row) =>
-            row.teamId === account.teamId &&
-            row.developerId === account.developerId &&
-            row.providerId === account.providerId &&
-            row.teamAccountFingerprint === account.teamAccountFingerprint
-        ) ?? null,
-      createProviderAccount: async (account: NewProviderAccountRecord) => {
-        const created = {
-          _id: `provider-account-${providerAccounts.length + 1}`,
-          ...account,
-        }
-        providerAccounts.push(created)
-        return created
-      },
-      updateProviderAccount: async (
-        accountId: string,
-        patch: Partial<NewProviderAccountRecord>
-      ) => {
-        const account = providerAccounts.find((row) => row._id === accountId)
-        if (!account) throw new Error("Missing provider account in fake store.")
-        Object.assign(account, patch)
-        return account
-      },
-    },
-    rawToken,
-    tokenHash,
-    developers,
-    tokens,
-    devices,
-    providerAccounts,
-  }
-}
+import { createDesktopApiTestStore } from "../test/convex/desktopApiHelpers"
 
 describe("desktop API", () => {
   it("returns public team reporting timezone metadata", async () => {
-    const fake = await createStore()
+    const fake = await createDesktopApiTestStore()
 
     await expect(getPublicTeamConfig({ store: fake.store })).resolves.toMatchObject({
       ok: true,
@@ -158,8 +25,26 @@ describe("desktop API", () => {
     expect(JSON.stringify(result)).not.toContain("team-1")
   })
 
+  it("returns Organization metadata for a valid desktop token", async () => {
+    const fake = await createDesktopApiTestStore()
+
+    const result = await getPublicTeamConfig({
+      tokenHash: fake.tokenHash,
+      store: fake.store,
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      team: {
+        name: "Acme Team",
+        organizationName: "Acme Team",
+        organizationFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+      },
+    })
+  })
+
   it("rejects missing bearer auth before device writes", async () => {
-    const fake = await createStore()
+    const fake = await createDesktopApiTestStore()
 
     const result = await authenticateDesktopTokenHash({
       tokenHash: null,
@@ -173,8 +58,24 @@ describe("desktop API", () => {
     })
   })
 
+  it("rejects tokens that are not mapped to an Organization", async () => {
+    const fake = await createDesktopApiTestStore({ organizations: null })
+
+    const result = await authenticateDesktopTokenHash({
+      tokenHash: fake.tokenHash,
+      store: fake.store,
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: "error",
+      code: "setup-state-invalid",
+      message: "Developer token is not connected to an Organization.",
+    })
+  })
+
   it("rejects revoked developer tokens", async () => {
-    const fake = await createStore({
+    const fake = await createDesktopApiTestStore({
       token: {
         status: "revoked",
         revokedAt: 1780330000000,
@@ -201,7 +102,7 @@ describe("desktop API", () => {
   })
 
   it("creates and updates a device check-in for the authenticated developer", async () => {
-    const fake = await createStore()
+    const fake = await createDesktopApiTestStore()
 
     const first = await checkInDevice({
       input: {
@@ -247,8 +148,54 @@ describe("desktop API", () => {
     expect(fake.tokens[0].lastUsedAt).toBe(1780343600000)
   })
 
+  it("does not update another Organization device with the same device ID", async () => {
+    const fake = await createDesktopApiTestStore({
+      devices: [
+        {
+          _id: "other-device",
+          teamId: "team-other",
+          developerId: "developer-other",
+          deviceId: "device-1",
+          deviceName: "Other MacBook",
+          os: "macos",
+          appVersion: "0.6.24",
+          status: "connected",
+          lastSeenAt: 1780330000000,
+          createdAt: 1780330000000,
+          updatedAt: 1780330000000,
+        },
+      ],
+    })
+
+    const result = await checkInDevice({
+      input: {
+        tokenHash: fake.tokenHash,
+        deviceId: "device-1",
+        deviceName: "Alex MacBook",
+        os: "macos",
+        appVersion: "0.6.25",
+      },
+      now: 1780340000000,
+      store: fake.store,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(fake.devices).toHaveLength(2)
+    expect(fake.devices[0]).toMatchObject({
+      teamId: "team-other",
+      deviceName: "Other MacBook",
+      appVersion: "0.6.24",
+    })
+    expect(fake.devices[1]).toMatchObject({
+      teamId: "team-1",
+      developerId: "developer-1",
+      deviceId: "device-1",
+      appVersion: "0.6.25",
+    })
+  })
+
   it("uses OS fallback instead of Unknown device when no name is sent", async () => {
-    const fake = await createStore()
+    const fake = await createDesktopApiTestStore()
 
     const result = await checkInDevice({
       input: {
@@ -271,7 +218,7 @@ describe("desktop API", () => {
   })
 
   it("replaces old Unknown device labels in public rows", async () => {
-    const fake = await createStore({
+    const fake = await createDesktopApiTestStore({
       devices: [
         {
           _id: "device-1",
@@ -307,7 +254,7 @@ describe("desktop API", () => {
   })
 
   it("marks an existing device disconnected without deleting it", async () => {
-    const fake = await createStore({
+    const fake = await createDesktopApiTestStore({
       devices: [
         {
           _id: "device-1",
@@ -341,105 +288,6 @@ describe("desktop API", () => {
       lastSeenAt: 1780340000000,
       updatedAt: 1780347200000,
     })
-  })
-
-  it("creates shared Provider Account metadata from a desktop update", async () => {
-    const fake = await createStore()
-
-    const result = await updateProviderAccountMetadata({
-      input: {
-        tokenHash: fake.tokenHash,
-        providerId: "cursor",
-        providerAccountFingerprint: "team-account-fingerprint",
-        providerAccountLabel: "Cursor Work",
-        status: "shared",
-      },
-      now: 1780340000000,
-      store: fake.providerAccountStore,
-    })
-
-    expect(result).toMatchObject({
-      ok: true,
-      providerId: "cursor",
-      serverTime: "2026-06-01T18:53:20.000Z",
-    })
-    expect(fake.providerAccounts).toEqual([
-      expect.objectContaining({
-        teamId: "team-1",
-        developerId: "developer-1",
-        providerId: "cursor",
-        teamAccountFingerprint: "team-account-fingerprint",
-        label: "Cursor Work",
-        status: "shared",
-        firstSharedAt: 1780340000000,
-        lastSharedAt: 1780340000000,
-        updatedAt: 1780340000000,
-      }),
-    ])
-    expect(fake.developers[0].lastSeenAt).toBe(1780340000000)
-    expect(fake.tokens[0].lastUsedAt).toBe(1780340000000)
-  })
-
-  it("updates shared Provider Account label without changing share times", async () => {
-    const fake = await createStore({
-      providerAccounts: [
-        {
-          _id: "provider-account-1",
-          teamId: "team-1",
-          developerId: "developer-1",
-          providerId: "cursor",
-          teamAccountFingerprint: "team-account-fingerprint",
-          label: "Cursor Work",
-          status: "shared",
-          firstSharedAt: 1780330000000,
-          lastSharedAt: 1780335000000,
-          updatedAt: 1780335000000,
-        },
-      ],
-    })
-
-    await updateProviderAccountMetadata({
-      input: {
-        tokenHash: fake.tokenHash,
-        providerId: "cursor",
-        providerAccountFingerprint: "team-account-fingerprint",
-        providerAccountLabel: "Cursor Team",
-        status: "shared",
-      },
-      now: 1780340000000,
-      store: fake.providerAccountStore,
-    })
-
-    expect(fake.providerAccounts).toEqual([
-      expect.objectContaining({
-        label: "Cursor Team",
-        firstSharedAt: 1780330000000,
-        lastSharedAt: 1780335000000,
-        updatedAt: 1780340000000,
-      }),
-    ])
-  })
-
-  it("rejects incomplete Provider Account metadata updates", async () => {
-    const fake = await createStore()
-
-    const result = await updateProviderAccountMetadata({
-      input: {
-        tokenHash: fake.tokenHash,
-        providerId: "cursor",
-        providerAccountFingerprint: "",
-        providerAccountLabel: "Cursor Work",
-        status: "shared",
-      },
-      now: 1780340000000,
-      store: fake.providerAccountStore,
-    })
-
-    expect(result).toMatchObject({
-      ok: false,
-      code: "invalid-body",
-    })
-    expect(fake.providerAccounts).toHaveLength(0)
   })
 
   it("derives stale status after 72 hours without check-in", () => {

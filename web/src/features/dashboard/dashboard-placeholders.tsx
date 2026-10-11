@@ -75,7 +75,7 @@ export function DashboardLoading() {
 export function DashboardSignInRequired({ signInSlot }: { signInSlot?: ReactNode }) {
   return (
     <PageState action={signInSlot} label="Sign in" title="Sign in required">
-      <p className="m-0">Sign in with Clerk to open the dashboard.</p>
+      <p className="m-0">Sign in to open the dashboard.</p>
     </PageState>
   )
 }
@@ -96,7 +96,14 @@ export function DashboardUnavailable({
 
   return (
     <PageState label="Dashboard unavailable" title="Dashboard unavailable">
-      <p className="m-0">{state.status}</p>
+      <p className="m-0">{dashboardUnavailableMessage(state.status)}</p>
     </PageState>
   )
+}
+
+function dashboardUnavailableMessage(status: string) {
+  if (status === "role-not-authorized") {
+    return "Owner or Admin role is required to manage dashboard and TV settings."
+  }
+  return status
 }

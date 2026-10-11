@@ -10,10 +10,16 @@ import {
   type NewDeveloperTokenRecord,
   type PublicDeveloperRow,
 } from "./developerTokens"
+import {
+  isOrganizationManagerRole,
+  type OrganizationRole,
+} from "./organizationScope"
 
 export type DeveloperTokenLifecycleErrorCode =
   | "not-authenticated"
-  | "not-owner"
+  | "organization-required"
+  | "organization-not-configured"
+  | "role-not-authorized"
   | "setup-state-invalid"
   | "developer-not-found"
   | "developer-not-active"
@@ -55,20 +61,23 @@ export type DeveloperTokenLifecycleStore = {
 export async function rotateDeveloperToken(args: {
   developerId: string
   tokenLabel: string
-  identity: { clerkUserId: string } | null
+  identity: {
+    clerkUserId: string
+    organizationRole: OrganizationRole | null
+  } | null
   now: number
   rawToken?: string
   store: DeveloperTokenLifecycleStore
 }): Promise<DeveloperTokenLifecycleResult> {
-  const owner = await requireOwner(args)
-  if (!owner.ok) return owner
+  const manager = await requireManager(args)
+  if (!manager.ok) return manager
 
   const tokenLabel = args.tokenLabel.trim()
   if (!tokenLabel) {
     return lifecycleError("token-label-required", "Token label is required.")
   }
 
-  const developer = await getTeamDeveloper(args.store, args.developerId, owner.team._id)
+  const developer = await getTeamDeveloper(args.store, args.developerId, manager.team._id)
   if (!developer) {
     return lifecycleError("developer-not-found", "Developer was not found.")
   }
@@ -97,7 +106,7 @@ export async function rotateDeveloperToken(args: {
   const rawToken = args.rawToken ?? generateDeveloperToken()
   const token = await createActiveToken({
     developer,
-    teamId: owner.team._id,
+    teamId: manager.team._id,
     tokenLabel,
     rawToken,
     now: args.now,
@@ -119,14 +128,17 @@ export async function rotateDeveloperToken(args: {
 
 export async function revokeDeveloperToken(args: {
   developerId: string
-  identity: { clerkUserId: string } | null
+  identity: {
+    clerkUserId: string
+    organizationRole: OrganizationRole | null
+  } | null
   now: number
   store: DeveloperTokenLifecycleStore
 }): Promise<DeveloperTokenLifecycleResult> {
-  const owner = await requireOwner(args)
-  if (!owner.ok) return owner
+  const manager = await requireManager(args)
+  if (!manager.ok) return manager
 
-  const developer = await getTeamDeveloper(args.store, args.developerId, owner.team._id)
+  const developer = await getTeamDeveloper(args.store, args.developerId, manager.team._id)
   if (!developer) {
     return lifecycleError("developer-not-found", "Developer was not found.")
   }
@@ -169,20 +181,23 @@ export async function revokeDeveloperToken(args: {
 export async function reenableDeveloper(args: {
   developerId: string
   tokenLabel: string
-  identity: { clerkUserId: string } | null
+  identity: {
+    clerkUserId: string
+    organizationRole: OrganizationRole | null
+  } | null
   now: number
   rawToken?: string
   store: DeveloperTokenLifecycleStore
 }): Promise<DeveloperTokenLifecycleResult> {
-  const owner = await requireOwner(args)
-  if (!owner.ok) return owner
+  const manager = await requireManager(args)
+  if (!manager.ok) return manager
 
   const tokenLabel = args.tokenLabel.trim()
   if (!tokenLabel) {
     return lifecycleError("token-label-required", "Token label is required.")
   }
 
-  const developer = await getTeamDeveloper(args.store, args.developerId, owner.team._id)
+  const developer = await getTeamDeveloper(args.store, args.developerId, manager.team._id)
   if (!developer) {
     return lifecycleError("developer-not-found", "Developer was not found.")
   }
@@ -204,7 +219,7 @@ export async function reenableDeveloper(args: {
   const rawToken = args.rawToken ?? generateDeveloperToken()
   const token = await createActiveToken({
     developer,
-    teamId: owner.team._id,
+    teamId: manager.team._id,
     tokenLabel,
     rawToken,
     now: args.now,
@@ -223,8 +238,11 @@ export async function reenableDeveloper(args: {
   }
 }
 
-async function requireOwner(args: {
-  identity: { clerkUserId: string } | null
+async function requireManager(args: {
+  identity: {
+    clerkUserId: string
+    organizationRole: OrganizationRole | null
+  } | null
   store: Pick<DeveloperTokenLifecycleStore, "getTeam" | "getOwner">
 }): Promise<
   | { ok: true; team: DeveloperTeamRecord; owner: DeveloperOwnerRecord }
@@ -247,8 +265,11 @@ async function requireOwner(args: {
     )
   }
 
-  if (owner.clerkUserId !== args.identity.clerkUserId) {
-    return lifecycleError("not-owner", "Only the setup owner can manage developers.")
+  if (!isOrganizationManagerRole(args.identity.organizationRole)) {
+    return lifecycleError(
+      "role-not-authorized",
+      "Owner or Admin role is required to manage developers."
+    )
   }
 
   return { ok: true, team, owner }

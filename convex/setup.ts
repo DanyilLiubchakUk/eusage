@@ -5,6 +5,7 @@ import {
   getSetupState,
   type SetupClaimIdentity,
 } from "./setupClaim"
+import { clerkOrganizationIdFromIdentity } from "./organizationScope"
 import { v } from "convex/values"
 
 export const get = query({
@@ -31,6 +32,7 @@ export const claimOwner = mutation({
     const claimIdentity: SetupClaimIdentity | null = identity
       ? {
           clerkUserId: identity.subject,
+          clerkOrganizationId: clerkOrganizationIdFromIdentity(identity),
           email: identity.email ?? null,
           name: identity.name ?? null,
         }
@@ -56,6 +58,12 @@ export const claimOwner = mutation({
           await ctx.db.insert("admins", {
             ...owner,
             teamId: owner.teamId as Id<"teams">,
+          })
+        },
+        createOrganization: async (organization) => {
+          await ctx.db.insert("organizations", {
+            ...organization,
+            teamId: organization.teamId as Id<"teams">,
           })
         },
       },

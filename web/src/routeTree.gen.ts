@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TvRouteImport } from './routes/tv'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as OverviewRouteImport } from './routes/overview'
 import { Route as DevelopersRouteImport } from './routes/developers'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TvDisplayTokenRouteImport } from './routes/tv_.display.$token'
@@ -28,6 +29,11 @@ const TvRoute = TvRouteImport.update({
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OverviewRoute = OverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DevelopersRoute = DevelopersRouteImport.update({
@@ -75,6 +81,7 @@ const ApiV1DeviceCheckInRoute = ApiV1DeviceCheckInRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/developers': typeof DevelopersRoute
+  '/overview': typeof OverviewRoute
   '/setup': typeof SetupRoute
   '/tv': typeof TvRoute
   '/api/v1/team-config': typeof ApiV1TeamConfigRoute
@@ -87,6 +94,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/developers': typeof DevelopersRoute
+  '/overview': typeof OverviewRoute
   '/setup': typeof SetupRoute
   '/tv': typeof TvRoute
   '/api/v1/team-config': typeof ApiV1TeamConfigRoute
@@ -100,6 +108,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/developers': typeof DevelopersRoute
+  '/overview': typeof OverviewRoute
   '/setup': typeof SetupRoute
   '/tv': typeof TvRoute
   '/api/v1/team-config': typeof ApiV1TeamConfigRoute
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/developers'
+    | '/overview'
     | '/setup'
     | '/tv'
     | '/api/v1/team-config'
@@ -126,6 +136,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/developers'
+    | '/overview'
     | '/setup'
     | '/tv'
     | '/api/v1/team-config'
@@ -138,6 +149,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/developers'
+    | '/overview'
     | '/setup'
     | '/tv'
     | '/api/v1/team-config'
@@ -151,6 +163,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DevelopersRoute: typeof DevelopersRoute
+  OverviewRoute: typeof OverviewRoute
   SetupRoute: typeof SetupRoute
   TvRoute: typeof TvRoute
   ApiV1TeamConfigRoute: typeof ApiV1TeamConfigRoute
@@ -175,6 +188,13 @@ declare module '@tanstack/react-router' {
       path: '/setup'
       fullPath: '/setup'
       preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/overview': {
+      id: '/overview'
+      path: '/overview'
+      fullPath: '/overview'
+      preLoaderRoute: typeof OverviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/developers': {
@@ -239,6 +259,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DevelopersRoute: DevelopersRoute,
+  OverviewRoute: OverviewRoute,
   SetupRoute: SetupRoute,
   TvRoute: TvRoute,
   ApiV1TeamConfigRoute: ApiV1TeamConfigRoute,

@@ -62,6 +62,7 @@ fn provider_upload_prefers_plugin_source_facts_and_redacts_raw_payload() {
             "provider": {
                 "cursor": {
                     "apiPercentUsed": 17.0,
+                    "accessToken": "summary-secret",
                     "individualLimitUsd": 100.0,
                     "individualUsedUsd": 40.0,
                     "pooledLimitUsd": 500.0,
@@ -87,7 +88,7 @@ fn provider_upload_prefers_plugin_source_facts_and_redacts_raw_payload() {
                 start_ms: 1_770_000_000_000,
                 end_ms: 1_770_086_400_000,
             }),
-            coverage: None,
+            coverage: Some(json!({ "providerApiKey": "coverage-secret", "complete": true })),
         }],
     });
 
@@ -109,6 +110,12 @@ fn provider_upload_prefers_plugin_source_facts_and_redacts_raw_payload() {
         "2026-06-01"
     );
     assert_eq!(provider.payload["usage"]["accessToken"], REDACTED_VALUE);
+    assert_eq!(provider.summary["provider"]["cursor"]["accessToken"], REDACTED_VALUE);
+    assert_eq!(provider.metric_samples[0].coverage.as_ref().unwrap()["providerApiKey"], REDACTED_VALUE);
+    assert_eq!(provider.metric_samples[0].coverage.as_ref().unwrap()["complete"], true);
+    let serialized = serde_json::to_string(&provider).unwrap();
+    assert!(!serialized.contains("summary-secret"));
+    assert!(!serialized.contains("coverage-secret"));
     assert!(
         !serde_json::to_string(&provider.payload)
             .unwrap()
@@ -141,6 +148,9 @@ fn provider_account_fingerprint_namespaces_upload_identity() {
 fn redaction_scrubs_secret_shaped_fields() {
     let redacted = redact_json_value(json!({
         "accessToken": "secret",
+        "cookies": [{ "value": "cookie-secret" }],
+        "csrf": "csrf-secret",
+        "credentials": { "value": "credential-secret" },
         "nested": {
             "api_key": "also-secret",
             "ordinary": "keep"
@@ -149,6 +159,9 @@ fn redaction_scrubs_secret_shaped_fields() {
     }));
 
     assert_eq!(redacted["accessToken"], REDACTED_VALUE);
+    for field in ["cookies", "csrf", "credentials"] {
+        assert_eq!(redacted[field], REDACTED_VALUE);
+    }
     assert_eq!(redacted["nested"]["api_key"], REDACTED_VALUE);
     assert_eq!(redacted["nested"]["ordinary"], "keep");
     assert_eq!(redacted["items"][0]["refreshToken"], REDACTED_VALUE);

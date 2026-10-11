@@ -87,7 +87,10 @@ export function normalizeProvider(input: unknown) {
     )
   }
 
-  const secretField = findUnredactedSecretPath(payload)
+  const secretField =
+    findUnredactedSecretPath(payload) ??
+    findUnredactedSecretPath(input.summary, "summary") ??
+    findUnredactedSecretPath(input.metricSamples, "metricSamples")
   if (secretField) {
     return rejectProvider(
       providerId,

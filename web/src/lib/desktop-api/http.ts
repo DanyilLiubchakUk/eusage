@@ -20,19 +20,30 @@ export const DESKTOP_API_CORS_HEADERS = {
 
 type TeamConfigInput = {
   teamName: string
+  organizationName?: string
   reportingTimeZone: string
   teamFingerprint: string
+  organizationFingerprint?: string
 }
 
 export function buildTeamConfigResponse(input: TeamConfigInput) {
   return {
     teamName: input.teamName,
+    organizationName: input.organizationName ?? input.teamName,
     reportingTimeZone: input.reportingTimeZone,
     teamFingerprint: input.teamFingerprint,
+    organizationFingerprint: input.organizationFingerprint ?? input.teamFingerprint,
     appVersion: packageJson.version,
     apiVersion: DESKTOP_API_VERSION,
     endpoints: DESKTOP_API_ENDPOINTS,
   }
+}
+
+export async function getOptionalBearerTokenHash(headers: Headers) {
+  if (!headers.get("authorization")?.trim()) {
+    return { ok: true as const, tokenHash: null }
+  }
+  return getBearerTokenHash(headers)
 }
 
 export async function getBearerTokenHash(headers: Headers) {
@@ -135,6 +146,8 @@ export function optionalStringField(body: Record<string, unknown>, field: string
 
 export function statusForDesktopApiError(code: DesktopApiError["code"]) {
   switch (code) {
+    case "device-owner-conflict":
+      return 409
     case "missing-bearer-auth":
     case "invalid-token":
     case "revoked-token":

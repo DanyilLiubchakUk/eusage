@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import {
   connectTeam,
   disconnectTeam,
@@ -6,103 +6,7 @@ import {
   refreshTeamCheckIn,
   updateTeamDeviceNameOverride,
 } from "@/lib/team-connection-actions"
-import type { TeamConnectionSettings } from "@/lib/team-settings"
-
-const endpoints = {
-  teamConfig: "/api/v1/team-config",
-  deviceCheckIn: "/api/v1/device/check-in",
-  usageBatch: "/api/v1/usage/batch",
-  deviceDisconnect: "/api/v1/device/disconnect",
-  providerAccountUpdate: "/api/v1/provider-account/update",
-}
-
-function createDeps(seed?: {
-  connection?: TeamConnectionSettings | null
-  token?: string | null
-  deviceId?: string | null
-}) {
-  let connection = seed?.connection ?? null
-  let token = seed?.token ?? null
-  let deviceId = seed?.deviceId ?? connection?.deviceId ?? null
-
-  const deps = {
-    fetchTeamConfig: vi.fn(async () => ({
-      ok: true as const,
-      value: {
-        teamName: "Acme Team",
-        reportingTimeZone: "America/New_York",
-        teamFingerprint: "team-fingerprint",
-        appVersion: "0.6.24",
-        apiVersion: "v1",
-        endpoints,
-      },
-    })),
-    checkInTeamDevice: vi.fn(async (input: { deviceName: string }) => ({
-      ok: true as const,
-      value: {
-        device: {
-          deviceName: input.deviceName,
-          status: "connected" as const,
-          lastSeenAt: 1780340000000,
-          updatedAt: 1780340000000,
-        },
-        team: {
-          reportingTimeZone: "America/New_York",
-          teamFingerprint: "team-fingerprint",
-        },
-      },
-    })),
-    disconnectTeamDevice: vi.fn(async () => ({
-      ok: true as const,
-      value: {
-        device: {
-          deviceName: "Alex MacBook",
-          status: "disconnected" as const,
-          lastSeenAt: 1780340000000,
-          updatedAt: 1780340000001,
-        },
-        team: {
-          reportingTimeZone: "America/New_York",
-          teamFingerprint: "team-fingerprint",
-        },
-      },
-    })),
-    fingerprintDeveloperToken: vi.fn(async () => "abcd1234...wxyz7890"),
-    saveTeamToken: vi.fn(async (value: string) => {
-      token = value
-    }),
-    readTeamToken: vi.fn(async () => token),
-    deleteTeamToken: vi.fn(async () => {
-      token = null
-    }),
-    loadTeamConnectionSettings: vi.fn(async () => connection),
-    loadTeamDeviceId: vi.fn(async () => deviceId),
-    saveTeamConnectionSettings: vi.fn(async (value: TeamConnectionSettings) => {
-      connection = value
-      deviceId = value.deviceId
-    }),
-    clearTeamConnectionSettings: vi.fn(async () => {
-      deviceId = connection?.deviceId ?? deviceId
-      connection = null
-    }),
-    clearProviderAccountSharingSettings: vi.fn(async () => undefined),
-    createDeviceId: vi.fn(() => "device-1"),
-    getDesktopPlatform: vi.fn(async () => "macos"),
-    getDetectedDeviceName: vi.fn(async () => "Alex MacBook"),
-    getAppVersion: vi.fn(async () => "0.6.24"),
-    nowIso: vi.fn(() => "2026-06-01T12:00:00.000Z"),
-  }
-
-  return {
-    deps,
-    get connection() {
-      return connection
-    },
-    get token() {
-      return token
-    },
-  }
-}
+import { connectedSettings, createDeps, endpoints } from "../../test/team-connection-actions.helpers"
 
 describe("team connection actions", () => {
   it("connects, saves raw token in credentials, and saves metadata only", async () => {
@@ -115,7 +19,9 @@ describe("team connection actions", () => {
 
     expect(result.ok).toBe(true)
     expect(fake.deps.fetchTeamConfig).toHaveBeenCalledWith("https://team.example.com")
-    expect(fake.deps.saveTeamToken).toHaveBeenCalledWith("eusage_dev_secret")
+    expect(fake.deps.replaceTeamConnectionSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ connectionId: "connection-1" }), "eusage_dev_secret"
+    )
     expect(fake.deps.checkInTeamDevice).toHaveBeenCalledWith(
       expect.objectContaining({
         teamUrl: "https://team.example.com",
@@ -127,7 +33,7 @@ describe("team connection actions", () => {
       })
     )
     expect(fake.token).toBe("eusage_dev_secret")
-    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
+    expect(fake.sharingResets).toBe(1)
     expect(JSON.stringify(fake.connection)).not.toContain("eusage_dev_secret")
     expect(fake.connection).toMatchObject({
       teamName: "Acme Team",
@@ -181,7 +87,7 @@ describe("team connection actions", () => {
     )
 
     expect(result.ok).toBe(true)
-    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
+    expect(fake.sharingResets).toBe(1)
     expect(fake.connection).toMatchObject({
       teamName: "Beta Team",
       teamFingerprint: "team-b-fingerprint",
@@ -191,7 +97,7 @@ describe("team connection actions", () => {
 
   it("fails connection when credential storage fails", async () => {
     const fake = createDeps()
-    fake.deps.saveTeamToken.mockRejectedValueOnce(new Error("credential store unavailable"))
+    fake.deps.replaceTeamConnectionSettings.mockRejectedValueOnce(new Error("credential store unavailable"))
 
     const result = await connectTeam(
       "eusage://connect?url=https://team.example.com&token=eusage_dev_secret",
@@ -229,7 +135,7 @@ describe("team connection actions", () => {
       message: "Disconnected locally. Team deployment was not reachable.",
     })
     expect(fake.deps.disconnectTeamDevice).toHaveBeenCalled()
-    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
+    expect(fake.sharingResets).toBe(1)
     expect(fake.token).toBeNull()
     expect(fake.connection).toBeNull()
   })
@@ -253,6 +159,62 @@ describe("team connection actions", () => {
     )
   })
 
+  it("reconnects after an offline disconnect using a fresh ID on an ownership conflict", async () => {
+    const fake = createDeps({ connection: connectedSettings(), token: "eusage_dev_secret" })
+    fake.deps.disconnectTeamDevice.mockResolvedValueOnce({
+      ok: false, code: "network-error", message: "offline", statusCode: null,
+    })
+    await disconnectTeam(fake.deps)
+    fake.deps.createDeviceId.mockReturnValue("device-new")
+    fake.deps.checkInTeamDevice.mockResolvedValueOnce({
+      ok: false, code: "device-owner-conflict", message: "Device belongs to another developer.", statusCode: 409,
+    })
+
+    const result = await connectTeam(
+      "eusage://connect?url=https://team.example.com&token=eusage_dev_new_developer",
+      fake.deps
+    )
+
+    expect(result).toMatchObject({ ok: true, connection: { deviceId: "device-new" } })
+    expect(fake.deps.checkInTeamDevice).toHaveBeenNthCalledWith(1, expect.objectContaining({ deviceId: "device-1" }))
+    expect(fake.deps.checkInTeamDevice).toHaveBeenNthCalledWith(2, expect.objectContaining({ deviceId: "device-new" }))
+    expect(fake.deps.createDeviceId).toHaveBeenCalledTimes(1)
+    expect(fake.connection?.deviceId).toBe("device-new")
+  })
+
+  it("reports a repeated ownership conflict without another retry", async () => {
+    const fake = createDeps({ deviceId: "device-1" })
+    fake.deps.createDeviceId.mockReturnValue("device-new")
+    fake.deps.checkInTeamDevice.mockResolvedValue({
+      ok: false, code: "device-owner-conflict", message: "Device belongs to another developer.", statusCode: 409,
+    })
+
+    const result = await connectTeam(
+      "eusage://connect?url=https://team.example.com&token=eusage_dev_secret",
+      fake.deps
+    )
+
+    expect(result).toMatchObject({ ok: false, code: "device-owner-conflict" })
+    expect(fake.deps.checkInTeamDevice).toHaveBeenCalledTimes(2)
+    expect(fake.deps.createDeviceId).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([loadTeamConnection, refreshTeamCheckIn])(
+    "does not register a new device during automatic or manual check-in",
+    async (checkIn) => {
+      const fake = createDeps({ connection: connectedSettings(), token: "eusage_dev_secret" })
+      fake.deps.checkInTeamDevice.mockResolvedValueOnce({
+        ok: false, code: "device-owner-conflict", message: "Device belongs to another developer.", statusCode: 409,
+      })
+
+      const result = await checkIn(fake.deps)
+
+      expect(result).toMatchObject({ connection: { deviceId: "device-1" } })
+      expect(fake.deps.checkInTeamDevice).toHaveBeenCalledTimes(1)
+      expect(fake.deps.createDeviceId).not.toHaveBeenCalled()
+    }
+  )
+
   it("cleans up credentials and settings after invalid token check-in", async () => {
     const fake = createDeps({
       connection: connectedSettings(),
@@ -274,7 +236,7 @@ describe("team connection actions", () => {
     })
     expect(fake.token).toBeNull()
     expect(fake.connection).toBeNull()
-    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
+    expect(fake.sharingResets).toBe(1)
   })
 
   it("saves a device name override and sends it on check-in", async () => {
@@ -367,7 +329,7 @@ describe("team connection actions", () => {
     })
     expect(fake.token).toBeNull()
     expect(fake.connection).toBeNull()
-    expect(fake.deps.clearProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
+    expect(fake.sharingResets).toBe(1)
   })
 
   it("updates saved reporting timezone from device check-in metadata", async () => {
@@ -397,22 +359,3 @@ describe("team connection actions", () => {
     expect(fake.connection?.reportingTimeZone).toBe("America/Los_Angeles")
   })
 })
-
-function connectedSettings(): TeamConnectionSettings {
-  return {
-    teamUrl: "https://team.example.com",
-    teamName: "Acme Team",
-    reportingTimeZone: "America/New_York",
-    teamFingerprint: "team-fingerprint",
-    tokenFingerprint: "abcd1234...wxyz7890",
-    deviceId: "device-1",
-    deviceName: "Alex MacBook",
-    detectedDeviceName: "Alex MacBook",
-    deviceNameOverride: null,
-    endpoints,
-    syncStatus: "connected",
-    lastContactAt: "2026-06-01T12:00:00.000Z",
-    deviceStatus: "connected",
-    lastError: null,
-  }
-}

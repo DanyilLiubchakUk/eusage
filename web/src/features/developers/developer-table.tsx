@@ -37,8 +37,11 @@ export function DeveloperTable({
   if (state.developers.length === 0) {
     return (
       <Card role="region" aria-label="Developers">
-        <CardContent>
-          <p className="m-0 text-muted-foreground">No developers yet.</p>
+        <CardContent className="grid gap-2">
+          <strong className="text-base text-foreground">No developers yet</strong>
+          <p className="m-0 text-sm leading-6 text-muted-foreground">
+            Create a developer to generate a one-time token and eUsage connection string. The desktop app uses the connection string to attach one device to this Organization.
+          </p>
         </CardContent>
       </Card>
     )

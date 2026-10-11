@@ -1,9 +1,10 @@
 use super::cache::{cache_state, enabled_snapshots_ordered};
+use super::request_policy::parse_local_request;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const BIND_ADDR: &str = "127.0.0.1:6736";
 const MAX_CONCURRENT_CONNECTIONS: usize = 16;
@@ -100,34 +101,55 @@ pub fn start_server() {
 }
 
 fn handle_connection(mut stream: TcpStream, _permit: ConnectionPermit) {
-    let _ = stream.set_read_timeout(Some(CONNECTION_TIMEOUT));
     let _ = stream.set_write_timeout(Some(CONNECTION_TIMEOUT));
-
-    // Read request (up to 4 KB is plenty for a request line + headers)
     let mut buf = [0u8; 4096];
-    let n = match stream.read(&mut buf) {
-        Ok(n) => n,
-        Err(_) => return,
+    let mut used = 0;
+    let deadline = Instant::now() + CONNECTION_TIMEOUT;
+    // Validate complete headers, including headers received in later TCP packets.
+    let response = loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() || used == buf.len() {
+            break response_json(400, "Bad Request", r#"{"error":"invalid_request"}"#);
+        }
+        let _ = stream.set_read_timeout(Some(remaining));
+        match stream.read(&mut buf[used..]) {
+            Ok(0) | Err(_) => return,
+            Ok(n) => used += n,
+        }
+        if buf[..used].windows(4).any(|part| part == b"\r\n\r\n") {
+            break match std::str::from_utf8(&buf[..used]) {
+                Ok(request) => respond_to_request(request),
+                Err(_) => response_json(400, "Bad Request", r#"{"error":"invalid_request"}"#),
+            };
+        }
     };
-    let request = String::from_utf8_lossy(&buf[..n]);
+    let _ = stream.write_all(response.as_bytes());
+    let _ = stream.flush();
+}
 
-    // Parse request line: "METHOD /path HTTP/1.x\r\n..."
-    let first_line = request.lines().next().unwrap_or("");
-    let mut parts = first_line.split_whitespace();
-    let method = parts.next().unwrap_or("");
-    let raw_path = parts.next().unwrap_or("");
-
+fn respond_to_request(request: &str) -> String {
+    let request = match parse_local_request(request) {
+        Ok(request) => request,
+        Err(403) => return response_json(403, "Forbidden", r#"{"error":"forbidden_origin"}"#),
+        Err(_) => return response_json(400, "Bad Request", r#"{"error":"invalid_request"}"#),
+    };
     // Strip query string and trailing slash (but keep root "/v1/usage" intact)
-    let path = raw_path.split('?').next().unwrap_or(raw_path);
+    let path = request.path.split('?').next().unwrap_or(request.path);
     let path = if path.len() > 1 {
         path.trim_end_matches('/')
     } else {
         path
     };
 
-    let response = route(method, path);
-    let _ = stream.write_all(response.as_bytes());
-    let _ = stream.flush();
+    let response = route(request.method, path);
+    match request.origin {
+        Some(origin) => response.replacen(
+            "\r\n",
+            &format!("\r\nAccess-Control-Allow-Origin: {origin}\r\n"),
+            1,
+        ),
+        None => response,
+    }
 }
 
 fn route(method: &str, path: &str) -> String {
@@ -185,7 +207,7 @@ fn handle_get_usage_single(provider_id: &str) -> String {
 // ---------------------------------------------------------------------------
 
 const CORS_HEADERS: &str = "\
-Access-Control-Allow-Origin: *\r\n\
+Vary: Origin\r\n\
 Access-Control-Allow-Methods: GET, OPTIONS\r\n\
 Access-Control-Allow-Headers: Content-Type";
 
@@ -260,10 +282,10 @@ mod tests {
     }
 
     #[test]
-    fn route_options_returns_204_with_cors() {
+    fn route_options_returns_204_without_wildcard_cors() {
         let resp = route("OPTIONS", "/v1/usage");
         assert!(resp.starts_with("HTTP/1.1 204"));
-        assert!(resp.contains("Access-Control-Allow-Origin: *"));
+        assert!(!resp.contains("Access-Control-Allow-Origin:"));
     }
 
     #[test]
@@ -319,7 +341,8 @@ mod tests {
     #[test]
     fn response_json_includes_cors_headers() {
         let resp = response_json(200, "OK", "[]");
-        assert!(resp.contains("Access-Control-Allow-Origin: *"));
+        assert!(resp.contains("Vary: Origin"));
+        assert!(!resp.contains("Access-Control-Allow-Origin:"));
         assert!(resp.contains("Content-Type: application/json; charset=utf-8"));
     }
 
@@ -348,6 +371,46 @@ mod tests {
 
         assert!(resp.starts_with("HTTP/1.1 503"));
         assert!(resp.contains(r#""error":"server_busy""#));
-        assert!(resp.contains("Access-Control-Allow-Origin: *"));
+        assert!(!resp.contains("Access-Control-Allow-Origin:"));
+    }
+
+    #[test]
+    fn loopback_browser_preflight_echoes_only_its_origin() {
+        let response = respond_to_request(
+            "OPTIONS /v1/usage HTTP/1.1\r\nHost: 127.0.0.1:6736\r\nOrigin: http://localhost:3000\r\n\r\n",
+        );
+        assert!(response.starts_with("HTTP/1.1 204"));
+        assert!(response.contains("Access-Control-Allow-Origin: http://localhost:3000\r\n"));
+    }
+
+    #[test]
+    fn remote_browser_cannot_read_usage() {
+        let response = respond_to_request(
+            "GET /v1/usage HTTP/1.1\r\nHost: 127.0.0.1:6736\r\nOrigin: https://attacker.example\r\n\r\n",
+        );
+        assert!(response.starts_with("HTTP/1.1 403"));
+        assert!(!response.contains("Access-Control-Allow-Origin:"));
+        assert!(!response.contains("fetchedAt"));
+    }
+
+    #[test]
+    fn waits_for_origin_in_a_later_packet_before_responding() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (server, _) = listener.accept().unwrap();
+        let permit = ConnectionLimiter::new(1).acquire().unwrap();
+        let worker = std::thread::spawn(move || handle_connection(server, permit));
+        client.write_all(b"OPTIONS /v1/usage HTTP/1.1\r\nHost: localhost:6736\r\n").unwrap();
+        client.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+        let error = client.read(&mut [0u8; 1]).unwrap_err();
+        assert!(matches!(error.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut));
+
+        client.write_all(b"Origin: https://attacker.example\r\n\r\n").unwrap();
+        client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let mut response = String::new();
+        client.read_to_string(&mut response).unwrap();
+        worker.join().unwrap();
+        assert!(response.starts_with("HTTP/1.1 403"));
+        assert!(!response.contains("Access-Control-Allow-Origin:"));
     }
 }

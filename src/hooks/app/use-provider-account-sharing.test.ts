@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
+import { StrictMode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useProviderAccountSharing } from "@/hooks/app/use-provider-account-sharing"
 import type { LocalProviderAccount } from "@/lib/provider-account-registry"
@@ -31,8 +32,8 @@ describe("useProviderAccountSharing", () => {
     store.loadProviderAccountSharingSettings.mockResolvedValue({
       sharedLocalAccountFingerprints: [],
     })
-    store.saveProviderAccountSharingSettings.mockResolvedValue(undefined)
-    store.clearProviderAccountSharingSettings.mockResolvedValue(undefined)
+    store.saveProviderAccountSharingSettings.mockResolvedValue(true)
+    store.clearProviderAccountSharingSettings.mockResolvedValue(true)
     teamSync.syncSharedProviderAccount.mockResolvedValue({
       ok: true,
       status: "synced",
@@ -117,10 +118,24 @@ describe("useProviderAccountSharing", () => {
     expect(store.saveProviderAccountSharingSettings).not.toHaveBeenCalled()
   })
 
-  it("syncs Team current data and metadata after saving a share-on toggle", async () => {
+  it("does not restore hidden sharing when toggling during a pending prune", async () => {
+    store.loadProviderAccountSharingSettings.mockResolvedValue({ sharedLocalAccountFingerprints: ["fp-hidden"] })
+    let finish!: (saved: boolean) => void
+    store.saveProviderAccountSharingSettings.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+    const groups = [providerGroup()]
+    const { result } = renderHook(() => useProviderAccountSharing(groups))
+    await waitFor(() => expect(store.saveProviderAccountSharingSettings).toHaveBeenCalledTimes(1))
+    act(() => { result.current.handleProviderAccountSharingChange("fp-work", true) })
+    expect(store.saveProviderAccountSharingSettings).toHaveBeenLastCalledWith({ sharedLocalAccountFingerprints: ["fp-work"] })
+    await act(async () => { finish(true) })
+    expect(result.current.providerAccountSharingSettings.sharedLocalAccountFingerprints).toEqual(["fp-work"])
+  })
+
+  it("syncs Team current data and metadata once per share-on toggle in StrictMode", async () => {
     const syncOrder: string[] = []
     store.saveProviderAccountSharingSettings.mockImplementation(async () => {
       syncOrder.push("save")
+      return true
     })
     teamSync.syncSharedProviderAccount.mockImplementation(async () => {
       syncOrder.push("sync")
@@ -133,7 +148,7 @@ describe("useProviderAccountSharing", () => {
     })
     const { result } = renderHook(
       ({ groups }) => useProviderAccountSharing(groups),
-      { initialProps: { groups: [providerGroup()] } }
+      { initialProps: { groups: [providerGroup()] }, wrapper: StrictMode }
     )
 
     await waitFor(() => {
@@ -162,6 +177,29 @@ describe("useProviderAccountSharing", () => {
     })
     expect(syncOrder).toEqual(["save", "sync"])
     expect(result.current.providerAccountSharingSyncNotice).toBeNull()
+  })
+
+  it.each(["toggle", "reset"])("ignores a stale settings reload after a newer %s", async (change) => {
+    store.loadProviderAccountSharingSettings.mockResolvedValue({
+      sharedLocalAccountFingerprints: ["fp-work"],
+    })
+    const groups = [providerGroup()]
+    const { result } = renderHook(() => useProviderAccountSharing(groups))
+    await waitFor(() => expect(result.current.providerAccountSharingSettings.sharedLocalAccountFingerprints).toEqual(["fp-work"]))
+    let finishRead!: (value: { sharedLocalAccountFingerprints: string[] }) => void
+    store.loadProviderAccountSharingSettings.mockImplementationOnce(() => new Promise((resolve) => { finishRead = resolve }))
+    const reload = result.current.reloadProviderAccountSharingSettings()
+
+    await act(async () => {
+      if (change === "toggle") result.current.handleProviderAccountSharingChange("fp-work", false)
+      else await result.current.resetProviderAccountSharing()
+      finishRead({ sharedLocalAccountFingerprints: ["fp-work", "fp-old"] })
+      await reload
+    })
+
+    expect(result.current.providerAccountSharingSettings.sharedLocalAccountFingerprints).toEqual([])
+    expect(store.saveProviderAccountSharingSettings).not.toHaveBeenCalledWith({ sharedLocalAccountFingerprints: ["fp-work"] })
+    expect(teamSync.syncSharedProviderAccount).not.toHaveBeenCalled()
   })
 
   it("keeps local sharing saved and shows retry clarity when immediate Team sync fails", async () => {
@@ -238,6 +276,69 @@ describe("useProviderAccountSharing", () => {
     })
   })
 
+  it("keeps the current sharing visible and reports a failed reset", async () => {
+    const previous = { connectionId: "connection-a", sharedLocalAccountFingerprints: ["fp-work"] }
+    store.loadProviderAccountSharingSettings.mockResolvedValue(previous)
+    store.clearProviderAccountSharingSettings.mockRejectedValueOnce(new Error("synthetic save failure"))
+    const log = vi.spyOn(console, "error").mockImplementation(() => {})
+    const { result } = renderHook(() => useProviderAccountSharing([providerGroup()]))
+    await waitFor(() => expect(result.current.providerAccountSharingSettings).toEqual(previous))
+    await act(async () => { await result.current.resetProviderAccountSharing() })
+    expect(result.current.providerAccountSharingSettings).toEqual(previous)
+    expect(result.current.providerAccountSharingSyncNotice?.message).toContain("could not be cleared")
+    expect(log).toHaveBeenCalled()
+  })
+
+  it("does not upload a sharing choice rejected for a stale connection", async () => {
+    store.saveProviderAccountSharingSettings.mockResolvedValueOnce(false)
+    const { result } = renderHook(() => useProviderAccountSharing([providerGroup()]))
+    await waitFor(() => expect(store.loadProviderAccountSharingSettings).toHaveBeenCalled())
+    act(() => { result.current.handleProviderAccountSharingChange("fp-work", true) })
+    await waitFor(() => expect(result.current.providerAccountSharingSyncNotice?.message).toContain("Team connection changed"))
+    await waitFor(() => expect(result.current.providerAccountSharingSettings.sharedLocalAccountFingerprints).toEqual([]))
+    expect(teamSync.syncSharedProviderAccount).not.toHaveBeenCalled()
+  })
+
+  it("restores persisted sharing when an unshare fails", async () => {
+    const previous = { connectionId: "connection-a", sharedLocalAccountFingerprints: ["fp-work"] }
+    store.loadProviderAccountSharingSettings.mockResolvedValue(previous)
+    store.saveProviderAccountSharingSettings.mockRejectedValueOnce(new Error("synthetic save failure"))
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const groups = [providerGroup()]
+    const { result } = renderHook(() => useProviderAccountSharing(groups))
+    await waitFor(() => expect(result.current.providerAccountSharingSettings).toEqual(previous))
+    act(() => { result.current.handleProviderAccountSharingChange("fp-work", false) })
+    await waitFor(() => expect(result.current.providerAccountSharingSyncNotice?.message).toContain("could not be saved"))
+    expect(result.current.providerAccountSharingSettings).toEqual(previous)
+  })
+
+  it("ignores a stale reset rejection after a newer toggle", async () => {
+    let finish!: (saved: boolean) => void
+    store.clearProviderAccountSharingSettings.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+    const groups = [providerGroup()]
+    const { result } = renderHook(() => useProviderAccountSharing(groups))
+    await waitFor(() => expect(store.loadProviderAccountSharingSettings).toHaveBeenCalled())
+    let reset!: Promise<void>
+    act(() => { reset = result.current.resetProviderAccountSharing() })
+    act(() => { result.current.handleProviderAccountSharingChange("fp-work", true) })
+    await act(async () => { finish(false); await reset })
+    expect(result.current.providerAccountSharingSettings.sharedLocalAccountFingerprints).toEqual(["fp-work"])
+    expect(store.loadProviderAccountSharingSettings).toHaveBeenCalledTimes(1)
+  })
+
+  it("ignores an old connection's late sync failure after the new connection shares the same account", async () => {
+    store.loadProviderAccountSharingSettings.mockResolvedValue({ connectionId: "connection-a", sharedLocalAccountFingerprints: ["fp-work"] })
+    let finish!: (value: unknown) => void
+    teamSync.syncSharedProviderAccount.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+    const { result } = renderHook(() => useProviderAccountSharing([providerGroup()]))
+    await waitFor(() => expect(result.current.providerAccountSharingSettings.connectionId).toBe("connection-a"))
+    await act(async () => { await result.current.retryProviderAccountSharingSync() })
+    store.loadProviderAccountSharingSettings.mockResolvedValue({ connectionId: "connection-b", sharedLocalAccountFingerprints: ["fp-work"] })
+    await act(async () => { await result.current.reloadProviderAccountSharingSettings() })
+    await act(async () => { finish({ ok: false, message: "old connection failure" }) })
+    expect(result.current.providerAccountSharingSyncNotice).toBeNull()
+  })
+
   it("retries current shared Provider Account sync", async () => {
     store.loadProviderAccountSharingSettings.mockResolvedValue({
       sharedLocalAccountFingerprints: ["fp-work"],
@@ -265,6 +366,32 @@ describe("useProviderAccountSharing", () => {
         })
       )
     })
+  })
+
+  it("retries loading persisted sharing before syncing and retains repeated load failures", async () => {
+    const saved = { connectionId: "connection-a", sharedLocalAccountFingerprints: ["fp-work"] }
+    store.loadProviderAccountSharingSettings
+      .mockRejectedValueOnce(new Error("initial read failed"))
+      .mockRejectedValueOnce(new Error("retry read failed"))
+      .mockResolvedValue(saved)
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const groups = [providerGroup()]
+    const { result } = renderHook(() => useProviderAccountSharing(groups))
+    await waitFor(() => expect(result.current.providerAccountSharingSyncNotice?.message).toContain("could not be loaded"))
+    expect(teamSync.syncSharedProviderAccount).not.toHaveBeenCalled()
+
+    await act(async () => { await result.current.retryProviderAccountSharingSync() })
+    expect(store.loadProviderAccountSharingSettings).toHaveBeenCalledTimes(2)
+    expect(result.current.providerAccountSharingSyncNotice?.message).toContain("could not be loaded")
+    expect(teamSync.syncSharedProviderAccount).not.toHaveBeenCalled()
+
+    await act(async () => { await result.current.retryProviderAccountSharingSync() })
+    expect(store.loadProviderAccountSharingSettings).toHaveBeenCalledTimes(3)
+    expect(result.current.providerAccountSharingSettings).toEqual(saved)
+    expect(result.current.providerAccountSharingSyncNotice).toBeNull()
+    expect(teamSync.syncSharedProviderAccount).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ localAccountFingerprint: "fp-work" })
+    )
   })
 })
 

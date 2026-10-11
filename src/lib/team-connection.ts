@@ -28,6 +28,7 @@ export type TeamConnectionErrorCode =
   | "device-os-required"
   | "device-app-version-required"
   | "device-not-found"
+  | "device-owner-conflict"
   | "setup-state-invalid"
   | "credential-error"
   | "settings-error"

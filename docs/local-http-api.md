@@ -80,17 +80,20 @@ The `lines` array uses the same metric line types as the internal plugin output:
 - Only **successful** probe results are cached. A failed probe never overwrites a previous successful snapshot.
 - The single-provider endpoint (`/v1/usage/:providerId`) works for any known provider, including disabled ones.
 
-## CORS
+## Browser access
 
-All responses include permissive CORS headers:
+The API accepts native local clients without an `Origin` header. Requests must use `Host: 127.0.0.1:6736` or `Host: localhost:6736`. Other hosts are rejected to prevent DNS rebinding.
+
+Browser clients must run on an HTTP or HTTPS loopback origin: `localhost`, `127.0.0.1`, or `[::1]`, with an optional port. The response echoes that origin:
 
 ```
-Access-Control-Allow-Origin: *
+Access-Control-Allow-Origin: http://localhost:3000
+Vary: Origin
 Access-Control-Allow-Methods: GET, OPTIONS
 Access-Control-Allow-Headers: Content-Type
 ```
 
-`OPTIONS` requests return **204 No Content** with these headers for preflight support.
+`OPTIONS` requests from allowed origins return **204 No Content** for preflight support. Remote websites and opaque origins, including `file:` pages, receive **403 Forbidden**. This replaces the previous wildcard CORS policy. Remote browser dashboards need a local integration instead of direct access to this API.
 
 ## Error Responses
 
@@ -102,6 +105,8 @@ Error responses use this shape:
 }
 ```
 
-Possible error codes: `provider_not_found`, `not_found`, `method_not_allowed`, `server_busy`.
+Possible error codes: `provider_not_found`, `not_found`, `method_not_allowed`, `server_busy`, `forbidden_origin`, `invalid_request`.
+
+`forbidden_origin` returns **403 Forbidden** for an unsupported host or origin. `invalid_request` returns **400 Bad Request** for malformed, duplicate, or oversized request headers.
 
 `server_busy` returns **503 Service Unavailable** when the local API is already handling the maximum number of concurrent connections. Clients should back off and retry later.

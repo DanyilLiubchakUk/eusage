@@ -101,7 +101,7 @@ describe("developer token lifecycle", () => {
     const result = await rotateDeveloperToken({
       developerId: "developer-1",
       tokenLabel: "Alex new laptop",
-      identity: { clerkUserId: "user_owner" },
+      identity: { clerkUserId: "user_owner", organizationRole: "owner" },
       now: 1780330000000,
       rawToken,
       store: fake.store,
@@ -130,7 +130,7 @@ describe("developer token lifecycle", () => {
 
     const result = await revokeDeveloperToken({
       developerId: "developer-1",
-      identity: { clerkUserId: "user_owner" },
+      identity: { clerkUserId: "user_owner", organizationRole: "owner" },
       now: 1780330000000,
       store: fake.store,
     })
@@ -174,7 +174,7 @@ describe("developer token lifecycle", () => {
     const result = await reenableDeveloper({
       developerId: "developer-1",
       tokenLabel: "Alex return laptop",
-      identity: { clerkUserId: "user_owner" },
+      identity: { clerkUserId: "user_owner", organizationRole: "owner" },
       now: 1780340000000,
       rawToken,
       store: fake.store,
@@ -195,13 +195,30 @@ describe("developer token lifecycle", () => {
     expect(JSON.stringify(fake.tokens)).not.toContain(rawToken)
   })
 
-  it("rejects lifecycle actions from non-owner users", async () => {
+  it("allows Admin role to rotate developer tokens", async () => {
     const fake = createStore()
 
     const result = await rotateDeveloperToken({
       developerId: "developer-1",
       tokenLabel: "Alex new laptop",
-      identity: { clerkUserId: "user_other" },
+      identity: { clerkUserId: "user_admin", organizationRole: "admin" },
+      now: 1780330000000,
+      rawToken: "eusage_dev_new_secret",
+      store: fake.store,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(fake.tokens).toHaveLength(2)
+    expect(fake.tokens[0].status).toBe("revoked")
+  })
+
+  it("rejects lifecycle actions from Developer role users", async () => {
+    const fake = createStore()
+
+    const result = await rotateDeveloperToken({
+      developerId: "developer-1",
+      tokenLabel: "Alex new laptop",
+      identity: { clerkUserId: "user_developer", organizationRole: "developer" },
       now: 1780330000000,
       rawToken: "eusage_dev_new_secret",
       store: fake.store,
@@ -210,7 +227,7 @@ describe("developer token lifecycle", () => {
     expect(result).toMatchObject({
       ok: false,
       status: "error",
-      code: "not-owner",
+      code: "role-not-authorized",
     })
     expect(fake.tokens).toHaveLength(1)
     expect(fake.tokens[0].status).toBe("active")

@@ -18,14 +18,10 @@ import {
   loadTeamDeviceId,
   loadTeamConnectionSettings,
   saveTeamConnectionSettings,
+  replaceTeamConnectionSettings,
   type TeamConnectionSettings,
 } from "@/lib/team-settings"
-import { clearProviderAccountSharingSettings } from "@/lib/provider-account-sharing-store"
-import {
-  deleteTeamToken,
-  readTeamToken,
-  saveTeamToken,
-} from "@/lib/team-credentials"
+import { readTeamToken } from "@/lib/team-credentials"
 
 export type TeamConnectionActionResult =
   | {
@@ -70,14 +66,13 @@ type ActionDeps = {
   checkInTeamDevice: typeof checkInTeamDevice
   disconnectTeamDevice: typeof disconnectTeamDevice
   fingerprintDeveloperToken: typeof fingerprintDeveloperToken
-  saveTeamToken: typeof saveTeamToken
   readTeamToken: typeof readTeamToken
-  deleteTeamToken: typeof deleteTeamToken
   loadTeamConnectionSettings: typeof loadTeamConnectionSettings
   loadTeamDeviceId: typeof loadTeamDeviceId
   saveTeamConnectionSettings: typeof saveTeamConnectionSettings
   clearTeamConnectionSettings: typeof clearTeamConnectionSettings
-  clearProviderAccountSharingSettings: typeof clearProviderAccountSharingSettings
+  replaceTeamConnectionSettings: typeof replaceTeamConnectionSettings
+  createConnectionId: () => string
   createDeviceId: () => string
   getDesktopPlatform: () => Promise<string>
   getDetectedDeviceName: () => Promise<string | null>
@@ -90,14 +85,13 @@ const defaultDeps: ActionDeps = {
   checkInTeamDevice,
   disconnectTeamDevice,
   fingerprintDeveloperToken,
-  saveTeamToken,
   readTeamToken,
-  deleteTeamToken,
   loadTeamConnectionSettings,
   loadTeamDeviceId,
   saveTeamConnectionSettings,
   clearTeamConnectionSettings,
-  clearProviderAccountSharingSettings,
+  replaceTeamConnectionSettings,
+  createConnectionId: () => crypto.randomUUID(),
   createDeviceId: () => crypto.randomUUID(),
   getDesktopPlatform: () => invoke<string>("get_desktop_platform"),
   getDetectedDeviceName: () => invoke<string | null>("get_detected_device_name"),
@@ -105,7 +99,23 @@ const defaultDeps: ActionDeps = {
   nowIso: () => new Date().toISOString(),
 }
 
-export async function loadTeamConnection(
+let teamActionQueue = Promise.resolve()
+
+function serializeTeamAction<Args extends unknown[], Result>(action: (...args: Args) => Promise<Result>) {
+  return (...args: Args): Promise<Result> => {
+    const result = teamActionQueue.then(() => action(...args))
+    teamActionQueue = result.then(() => undefined, () => undefined)
+    return result
+  }
+}
+
+export const loadTeamConnection = serializeTeamAction(loadTeamConnectionNow)
+export const connectTeam = serializeTeamAction(connectTeamNow)
+export const refreshTeamCheckIn = serializeTeamAction(refreshTeamCheckInNow)
+export const disconnectTeam = serializeTeamAction(disconnectTeamNow)
+export const updateTeamDeviceNameOverride = serializeTeamAction(updateTeamDeviceNameOverrideNow)
+
+async function loadTeamConnectionNow(
   deps: Partial<ActionDeps> = {}
 ): Promise<TeamConnectionLoadResult> {
   const resolved = { ...defaultDeps, ...deps }
@@ -114,7 +124,7 @@ export async function loadTeamConnection(
     return { status: "disconnected", connection: null, message: null }
   }
 
-  const token = await readStoredToken(resolved)
+  const token = await readStoredToken(resolved, connection)
   if (!token.ok) {
     return {
       status: "error",
@@ -124,7 +134,10 @@ export async function loadTeamConnection(
   }
 
   if (!token.value) {
-    await cleanupTeamConnection(resolved)
+    if (!await resolved.clearTeamConnectionSettings(connection)) {
+      const current = await resolved.loadTeamConnectionSettings()
+      if (current) return { status: "error", connection: current, message: "Team connection changed. Try again." }
+    }
     return {
       status: "disconnected",
       connection: null,
@@ -156,7 +169,7 @@ export async function loadTeamConnection(
   }
 }
 
-export async function connectTeam(
+async function connectTeamNow(
   connectionString: string,
   deps: Partial<ActionDeps> = {}
 ): Promise<TeamConnectionActionResult> {
@@ -180,10 +193,17 @@ export async function connectTeam(
   const saved = await saveTokenAndSettings(connection, parsed.value.token, resolved)
   if (!saved.ok) return saved
 
-  return checkInConnection(connection, parsed.value.token, resolved)
+  const checkedIn = await checkInConnection(connection, parsed.value.token, resolved)
+  if (checkedIn.ok || checkedIn.code !== "device-owner-conflict") return checkedIn
+
+  // Offline disconnect may leave the saved ID owned by the previous developer.
+  // Only an explicit connect can register this installation with a fresh ID.
+  const replacement = { ...connection, deviceId: resolved.createDeviceId() }
+  if (!await resolved.saveTeamConnectionSettings(replacement)) return connectionChanged(resolved)
+  return checkInConnection(replacement, parsed.value.token, resolved)
 }
 
-export async function refreshTeamCheckIn(
+async function refreshTeamCheckInNow(
   deps: Partial<ActionDeps> = {}
 ): Promise<TeamConnectionActionResult> {
   const resolved = { ...defaultDeps, ...deps }
@@ -197,7 +217,7 @@ export async function refreshTeamCheckIn(
     }
   }
 
-  const token = await readStoredToken(resolved)
+  const token = await readStoredToken(resolved, connection)
   if (!token.ok) {
     return {
       ok: false,
@@ -207,7 +227,7 @@ export async function refreshTeamCheckIn(
     }
   }
   if (!token.value) {
-    await cleanupTeamConnection(resolved)
+    if (!await resolved.clearTeamConnectionSettings(connection)) return connectionChanged(resolved)
     return {
       ok: false,
       code: "credential-error",
@@ -219,12 +239,12 @@ export async function refreshTeamCheckIn(
   return checkInConnection(connection, token.value, resolved)
 }
 
-export async function disconnectTeam(
+async function disconnectTeamNow(
   deps: Partial<ActionDeps> = {}
 ): Promise<TeamConnectionActionResult> {
   const resolved = { ...defaultDeps, ...deps }
   const connection = await resolved.loadTeamConnectionSettings()
-  const token = await readStoredToken(resolved)
+  const token = await readStoredToken(resolved, connection)
   let notifyFailed = false
 
   if (connection && token.ok && token.value) {
@@ -238,9 +258,7 @@ export async function disconnectTeam(
   }
 
   try {
-    await resolved.deleteTeamToken()
-    await resolved.clearTeamConnectionSettings()
-    await resolved.clearProviderAccountSharingSettings()
+    if (connection && !await resolved.clearTeamConnectionSettings(connection)) return connectionChanged(resolved)
   } catch (error) {
     return {
       ok: false,
@@ -259,7 +277,7 @@ export async function disconnectTeam(
   }
 }
 
-export async function updateTeamDeviceNameOverride(
+async function updateTeamDeviceNameOverrideNow(
   deviceNameOverride: string | null,
   deps: Partial<ActionDeps> = {}
 ): Promise<TeamConnectionActionResult> {
@@ -292,9 +310,9 @@ export async function updateTeamDeviceNameOverride(
     },
     resolved
   )
-  await resolved.saveTeamConnectionSettings(updated)
+  if (!await resolved.saveTeamConnectionSettings(updated)) return connectionChanged(resolved)
 
-  const token = await readStoredToken(resolved)
+  const token = await readStoredToken(resolved, updated)
   if (!token.ok) {
     return {
       ok: false,
@@ -322,6 +340,7 @@ async function buildConnectionSettings(args: {
   deps: ActionDeps
 }): Promise<TeamConnectionSettings> {
   return withResolvedDeviceName({
+    connectionId: args.deps.createConnectionId(),
     teamUrl: args.teamUrl,
     teamName: args.config.teamName,
     reportingTimeZone: args.config.reportingTimeZone,
@@ -345,17 +364,14 @@ async function saveTokenAndSettings(
   deps: ActionDeps
 ): Promise<TeamConnectionActionResult> {
   try {
-    await deps.saveTeamToken(token)
-    await deps.saveTeamConnectionSettings(connection)
-    await deps.clearProviderAccountSharingSettings()
+    await deps.replaceTeamConnectionSettings(connection, token)
     return { ok: true, connection, message: "Team connection saved." }
   } catch (error) {
-    await cleanupTeamConnection(deps)
     return {
       ok: false,
       code: "credential-error",
       message: errorMessage(error, "Failed to save team credentials."),
-      connection: null,
+      connection: await deps.loadTeamConnectionSettings(),
     }
   }
 }
@@ -388,7 +404,7 @@ async function checkInConnection(
 
   if (!result.ok) {
     if (isInvalidTokenError(result.code)) {
-      await cleanupTeamConnection(deps)
+      if (!await deps.clearTeamConnectionSettings(connection)) return connectionChanged(deps)
       return {
         ok: false,
         code: result.code,
@@ -398,7 +414,7 @@ async function checkInConnection(
     }
 
     const failed = markConnectionError(connection, result.message)
-    await deps.saveTeamConnectionSettings(failed)
+    if (!await deps.saveTeamConnectionSettings(failed)) return connectionChanged(deps)
     return {
       ok: false,
       code: result.code,
@@ -420,7 +436,7 @@ async function checkInConnection(
     deviceStatus: result.value.device.status,
     lastError: null,
   }
-  await deps.saveTeamConnectionSettings(updated)
+  if (!await deps.saveTeamConnectionSettings(updated)) return connectionChanged(deps)
   return {
     ok: true,
     connection: updated,
@@ -456,18 +472,23 @@ async function readDetectedDeviceName(deps: ActionDeps): Promise<string | null> 
   }
 }
 
-async function cleanupTeamConnection(deps: ActionDeps) {
-  await Promise.allSettled([
-    deps.deleteTeamToken(),
-    deps.clearTeamConnectionSettings(),
-    deps.clearProviderAccountSharingSettings(),
-  ])
+async function connectionChanged(deps: ActionDeps): Promise<Extract<TeamConnectionActionResult, { ok: false }>> {
+  return {
+    ok: false,
+    code: "settings-error",
+    message: "Team connection changed. Try again.",
+    connection: await deps.loadTeamConnectionSettings(),
+  }
 }
 
-async function readStoredToken(deps: ActionDeps):
+async function readStoredToken(deps: ActionDeps, connection: TeamConnectionSettings | null):
   Promise<{ ok: true; value: string | null } | { ok: false; message: string }> {
   try {
-    return { ok: true, value: await deps.readTeamToken() }
+    const token = await deps.readTeamToken()
+    if (token && connection && await deps.fingerprintDeveloperToken(token) !== connection.tokenFingerprint) {
+      return { ok: false, message: "Team credentials do not match the saved connection. Paste a connection string again." }
+    }
+    return { ok: true, value: token }
   } catch (error) {
     return {
       ok: false,

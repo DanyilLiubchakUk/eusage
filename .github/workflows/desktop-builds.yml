@@ -1,0 +1,107 @@
+name: Desktop build checks
+
+on:
+  push:
+    branches: [main, dl/fix/desktop-audit-reviewed]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-checks:
+    uses: ./.github/workflows/windows-checks.yml
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            bundles: app,dmg
+            arch: aarch64
+          - platform: macos-15-intel
+            target: x86_64-apple-darwin
+            bundles: app,dmg
+            arch: x64
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis,msi
+            arch: x64
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb,appimage
+            arch: amd64
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUILD_TARGET: ${{ matrix.target }}
+      BUILD_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libssl-dev libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev librsvg2-dev libxdo-dev libclang-dev \
+            patchelf xdg-utils sqlite3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run bundle:plugins
+      - name: Test frontend, web and release checks
+        if: runner.os == 'Linux'
+        run: |
+          bun run test --run --maxWorkers=2
+          bun run test:web --maxWorkers=2
+          node node_modules/typescript/bin/tsc --noEmit --project web/tsconfig.json
+          bun run build:vercel
+          node --test scripts/verify-release-assets.test.mjs scripts/check-linux-bundles.test.mjs
+      - name: Test native application
+        run: |
+          cargo test --locked --manifest-path src-tauri/Cargo.toml --target "$BUILD_TARGET" --lib -- \
+            --skip env_api_respects_allowlist_in_host_and_js --skip env_api_prefers_process_env
+          cargo test --locked --manifest-path src-tauri/Cargo.toml --target "$BUILD_TARGET" --example verify-updater-artifacts
+      - name: Build packages without updater signing or publication
+        run: |
+          bun tauri build --ci --target "$BUILD_TARGET" --bundles ${{ matrix.bundles }} \
+            --config '{"bundle":{"createUpdaterArtifacts":false}}' -- --locked
+      - name: Verify packages and retain build evidence
+        run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          BUNDLE_DIR="src-tauri/target/$BUILD_TARGET/release/bundle"
+          case "$RUNNER_OS" in
+            macOS)
+              test -s "$BUNDLE_DIR/dmg/eUsage_${VERSION}_${BUILD_ARCH}.dmg"
+              test -x "$BUNDLE_DIR/macos/eUsage.app/Contents/MacOS/eusage"
+              ;;
+            Windows)
+              test -s "$BUNDLE_DIR/nsis/eUsage_${VERSION}_x64-setup.exe"
+              test -s "$BUNDLE_DIR/msi/eUsage_${VERSION}_x64_en-US.msi"
+              ;;
+            Linux)
+              bash scripts/check-linux-bundles.sh "$BUNDLE_DIR" "$VERSION" "$RUNNER_TEMP/linux-package-check"
+              ;;
+          esac
+          tar -czf - -C "$BUNDLE_DIR" . > "$RUNNER_TEMP/eusage-$BUILD_TARGET-$GITHUB_SHA.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.target }}-${{ github.sha }}
+          path: ${{ runner.temp }}/eusage-${{ matrix.target }}-${{ github.sha }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7

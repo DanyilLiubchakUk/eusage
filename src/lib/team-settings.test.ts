@@ -5,31 +5,12 @@ import {
   loadTeamConnectionSettings,
   normalizeTeamConnectionSettings,
   saveTeamConnectionSettings,
+  replaceTeamConnectionSettings,
   type TeamConnectionSettings,
 } from "@/lib/team-settings"
 
-const storeState = new Map<string, unknown>()
-const storeDeleteMock = vi.fn()
-const storeSaveMock = vi.fn()
-
-vi.mock("@tauri-apps/plugin-store", () => ({
-  LazyStore: class {
-    async get<T>(key: string): Promise<T | null> {
-      if (!storeState.has(key)) return undefined as T | null
-      return storeState.get(key) as T | null
-    }
-    async set<T>(key: string, value: T): Promise<void> {
-      storeState.set(key, value)
-    }
-    async delete(key: string): Promise<void> {
-      storeDeleteMock(key)
-      storeState.delete(key)
-    }
-    async save(): Promise<void> {
-      storeSaveMock()
-    }
-  },
-}))
+const invoke = vi.hoisted(() => vi.fn())
+vi.mock("@tauri-apps/api/core", () => ({ invoke }))
 
 const connection: TeamConnectionSettings = {
   teamUrl: "https://team.example.com",
@@ -56,20 +37,24 @@ const connection: TeamConnectionSettings = {
 
 describe("team settings", () => {
   beforeEach(() => {
-    storeState.clear()
-    storeDeleteMock.mockReset()
-    storeSaveMock.mockReset()
+    invoke.mockResolvedValue(true)
   })
 
-  it("persists only non-secret team metadata", async () => {
-    await saveTeamConnectionSettings(connection)
+  it("replaces credentials and metadata in one native operation", async () => {
+    const next = { ...connection, connectionId: "connection-1" }
+    await replaceTeamConnectionSettings(next, "synthetic-value")
+    expect(invoke).toHaveBeenCalledWith("replace_team_connection", {
+      settings: next, token: "synthetic-value",
+    })
+  })
 
-    const stored = storeState.get("teamConnection")
-    expect(stored).toEqual(connection)
-    expect(storeState.get("teamDeviceId")).toBe("device-1")
-    expect(JSON.stringify(stored)).not.toContain("eusage_dev_")
-    await expect(loadTeamConnectionSettings()).resolves.toEqual(connection)
-    await expect(loadTeamDeviceId()).resolves.toBe("device-1")
+  it("updates only the expected connection and returns stale rejection", async () => {
+    const next = { ...connection, connectionId: "connection-1" }
+    invoke.mockResolvedValueOnce(false)
+    await expect(saveTeamConnectionSettings(next)).resolves.toBe(false)
+    expect(invoke).toHaveBeenCalledWith("update_team_connection", {
+      settings: next, expectedConnectionId: "connection-1",
+    })
   })
 
   it("rejects invalid stored metadata", () => {
@@ -110,13 +95,10 @@ describe("team settings", () => {
     })
   })
 
-  it("clears the team connection key without resetting the device ID", async () => {
-    storeState.set("teamConnection", connection)
-
-    await clearTeamConnectionSettings()
-
-    expect(storeDeleteMock).toHaveBeenCalledWith("teamConnection")
-    expect(storeSaveMock).toHaveBeenCalledTimes(1)
+  it("guards legacy connection cleanup and reads the preserved device ID", async () => {
+    await clearTeamConnectionSettings(connection)
+    expect(invoke).toHaveBeenCalledWith("clear_team_connection", { expectedConnectionId: null })
+    invoke.mockResolvedValue({ teamDeviceId: "device-1" })
     await expect(loadTeamConnectionSettings()).resolves.toBeNull()
     await expect(loadTeamDeviceId()).resolves.toBe("device-1")
   })

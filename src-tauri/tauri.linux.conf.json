@@ -1,0 +1,15 @@
+{
+  "bundle": {
+    "resources": ["resources/bundled_plugins/**/*", "icons/tray-icon.png"],
+    "linux": {
+      "deb": {
+        "depends": ["sqlite3"]
+      },
+      "appimage": {
+        "files": {
+          "/usr/bin/sqlite3": "/usr/bin/sqlite3"
+        }
+      }
+    }
+  }
+}

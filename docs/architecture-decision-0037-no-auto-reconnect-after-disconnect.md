@@ -16,6 +16,12 @@ After local disconnect or backend token rejection deletes team credentials, the 
 
 To reconnect, a developer must paste a connection string again.
 
+Check-in cannot move a device ID to another developer, even if the backend marks
+it disconnected. Explicit connect retries an ownership conflict once with a fresh
+device ID. This also covers offline disconnect when the backend still has the old
+owner. Reconnecting the same developer keeps the saved ID. Startup and refresh
+check-ins never register a replacement ID.
+
 ## Consequences
 
 Disconnect behavior is clear and final from the local machine's point of view.

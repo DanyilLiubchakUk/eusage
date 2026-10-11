@@ -91,7 +91,7 @@ export function SetupClaimView({
   if (state.status === "setup-needed" && !auth.isSignedIn) {
     return (
       <PageState action={signInSlot} label="Sign in" title="Sign in required">
-        <p className="m-0">Sign in with Clerk before claiming this deployment.</p>
+        <p className="m-0">Sign in before claiming this deployment.</p>
       </PageState>
     )
   }
@@ -111,7 +111,7 @@ export function SetupClaimView({
       <Card className="w-full p-0" role="region" aria-label="Setup claim">
         <CardContent className="grid grid-cols-2 gap-px p-0 max-md:grid-cols-1">
           <InfoCell label="Backend state" value={state.status} />
-          <InfoCell label="Clerk user" value={auth.userLabel ?? "Signed out"} />
+          <InfoCell label="Account" value={auth.userLabel ?? "Signed out"} />
         </CardContent>
       </Card>
 
@@ -124,7 +124,7 @@ export function SetupClaimView({
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-1 rounded-lg bg-muted/35 p-4">
-                <span className="text-xs font-extrabold uppercase tracking-wide text-primary">Team</span>
+                <span className="text-xs font-extrabold uppercase tracking-wide text-primary">Organization</span>
                 <strong className="break-words text-base text-foreground">{state.team.name} is claimed.</strong>
               </div>
               <div className="grid gap-1 rounded-lg bg-muted/35 p-4">
@@ -133,8 +133,8 @@ export function SetupClaimView({
               </div>
             </div>
             <div className="flex justify-center sm:justify-end">
-              <Link className={buttonVariants({ className: "w-full sm:w-fit" })} to="/">
-                Open dashboard
+              <Link className={buttonVariants({ className: "w-full sm:w-fit" })} to="/overview">
+                Open overview
               </Link>
             </div>
           </CardContent>
@@ -154,7 +154,7 @@ export function SetupClaimView({
                   error={formErrors.teamName}
                   errorId="setup-team-name-error"
                   htmlFor="setup-team-name"
-                  label="Team name"
+                  label="Organization name"
                 >
                   <Input
                     id="setup-team-name"
@@ -211,7 +211,7 @@ function SetupClaimMessage({ result }: { result: SetupClaimResult }) {
     return (
       <div className="rounded-md border border-primary/30 bg-primary/10 p-4 text-primary" role="status">
         <p className="mb-2 mt-0">{result.message}</p>
-        <Link to="/">Open dashboard</Link>
+        <Link to="/overview">Open overview</Link>
       </div>
     )
   }
@@ -253,7 +253,7 @@ function browserReportingTimeZone() {
 }
 
 const setupFormSchema = z.object({
-  teamName: z.string().trim().min(1, "Team name is required.").max(SETUP_TEAM_NAME_MAX_LENGTH, "Use 80 characters or fewer."),
+  teamName: z.string().trim().min(1, "Organization name is required.").max(SETUP_TEAM_NAME_MAX_LENGTH, "Use 80 characters or fewer."),
   setupToken: z.string().trim().min(1, "Setup token is required.").max(SETUP_TOKEN_MAX_LENGTH, "Use 256 characters or fewer."),
 })
 

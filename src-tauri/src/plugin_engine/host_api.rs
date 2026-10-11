@@ -1,3 +1,4 @@
+use super::process::{CommandOutputExt, background_command};
 use aes_gcm::{
     AesGcm, Nonce,
     aead::{Aead, KeyInit, OsRng, generic_array::typenum::U16, rand_core::RngCore},
@@ -11,7 +12,6 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -133,20 +133,36 @@ fn read_env_from_process(name: &str) -> Option<String> {
     sanitize_env_value(&value)
 }
 
-fn read_command_stdout(program: &str, args: &[&str]) -> Option<String> {
-    let output = Command::new(program).args(args).output().ok()?;
+fn read_command_stdout(
+    program: &str,
+    args: &[&str],
+    deadline: ProbeDeadline,
+) -> std::io::Result<Option<String>> {
+    let timeout = deadline.clamp_duration(Duration::from_secs(5)).ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::TimedOut, "subprocess timed out")
+    })?;
+    let output = background_command(program)
+        .args(args)
+        .output_with_timeout(timeout)?;
     if !output.status.success() {
-        return None;
+        return Ok(None);
     }
-    Some(String::from_utf8_lossy(&output.stdout).into_owned())
+    Ok(Some(String::from_utf8_lossy(&output.stdout).into_owned()))
 }
 
-fn read_env_value_via_command(program: &str, args: &[&str]) -> Option<String> {
-    let stdout = read_command_stdout(program, args)?;
+fn read_env_value_via_command(
+    program: &str,
+    args: &[&str],
+    deadline: ProbeDeadline,
+) -> Option<String> {
+    let stdout = read_command_stdout(program, args, deadline).ok()??;
     sanitize_env_value(&stdout)
 }
 
-fn current_macos_keychain_account_from_user_env(user_env: Option<String>) -> String {
+fn current_macos_keychain_account_from_user_env(
+    user_env: Option<String>,
+    deadline: ProbeDeadline,
+) -> String {
     user_env
         .and_then(|value| {
             let trimmed = value.trim();
@@ -156,12 +172,12 @@ fn current_macos_keychain_account_from_user_env(user_env: Option<String>) -> Str
                 Some(trimmed.to_string())
             }
         })
-        .or_else(|| read_env_value_via_command("id", &["-un"]))
+        .or_else(|| read_env_value_via_command("id", &["-un"], deadline))
         .unwrap_or_else(|| "openusage-user".to_string())
 }
 
-fn current_macos_keychain_account() -> String {
-    current_macos_keychain_account_from_user_env(read_env_from_process("USER"))
+fn current_macos_keychain_account(deadline: ProbeDeadline) -> String {
+    current_macos_keychain_account_from_user_env(read_env_from_process("USER"), deadline)
 }
 
 fn keychain_find_generic_password_args(service: &str) -> Vec<OsString> {
@@ -184,17 +200,6 @@ fn keychain_find_generic_password_args_for_account(service: &str, account: &str)
     ]
 }
 
-fn keychain_add_generic_password_args(service: &str, value: &str) -> Vec<OsString> {
-    vec![
-        OsString::from("add-generic-password"),
-        OsString::from("-U"),
-        OsString::from("-s"),
-        OsString::from(service),
-        OsString::from("-w"),
-        OsString::from(value),
-    ]
-}
-
 fn keychain_add_generic_password_args_for_account(
     service: &str,
     account: &str,
@@ -210,6 +215,37 @@ fn keychain_add_generic_password_args_for_account(
         OsString::from("-w"),
         OsString::from(value),
     ]
+}
+
+fn update_keychain_password_with(
+    service: &str,
+    value: &str,
+    mut run: impl FnMut(Vec<OsString>) -> std::io::Result<std::process::Output>,
+) -> std::io::Result<std::process::Output> {
+    let output = run(vec![
+        "find-generic-password".into(),
+        "-s".into(),
+        service.into(),
+    ])?;
+    if !output.status.success() {
+        return Err(std::io::Error::other(
+            "Could not find the existing keychain account. Sign in to the provider again.",
+        ));
+    }
+    let metadata = std::str::from_utf8(&output.stdout)
+        .map_err(|_| std::io::Error::other("Keychain account metadata is not valid UTF-8."))?;
+    let account = metadata
+        .lines()
+        .find_map(|line| {
+            line.trim()
+                .strip_prefix("\"acct\"<blob>=\"")?
+                .strip_suffix('"')
+        })
+        .ok_or_else(|| std::io::Error::other("Could not read the existing keychain account."))?;
+    // security add-generic-password requires -a even with -U. Never guess an account.
+    run(keychain_add_generic_password_args_for_account(
+        service, account, value,
+    ))
 }
 
 fn terminal_env_cache() -> &'static Mutex<HashMap<String, Option<String>>> {
@@ -232,7 +268,11 @@ fn shell_from_env() -> Option<String> {
     }
 }
 
-fn read_env_from_interactive_shell(program: &str, name: &str) -> Option<String> {
+fn read_env_from_interactive_shell(
+    program: &str,
+    name: &str,
+    deadline: ProbeDeadline,
+) -> std::io::Result<Option<String>> {
     const START_MARKER: &str = "__OPENUSAGE_ENV_START__";
     const END_MARKER: &str = "__OPENUSAGE_ENV_END__";
 
@@ -240,11 +280,16 @@ fn read_env_from_interactive_shell(program: &str, name: &str) -> Option<String> 
         "printf '{}\\n'; printenv {}; printf '{}\\n'",
         START_MARKER, name, END_MARKER
     );
-    let output = read_command_stdout(program, &["-ilc", script.as_str()])?;
-    parse_interactive_shell_env_output(&output, START_MARKER, END_MARKER)
+    let output = read_command_stdout(program, &["-ilc", script.as_str()], deadline)?;
+    Ok(output.and_then(|output| {
+        parse_interactive_shell_env_output(&output, START_MARKER, END_MARKER)
+    }))
 }
 
-fn read_env_from_interactive_shells(name: &str) -> Option<String> {
+fn read_env_from_interactive_shells(
+    name: &str,
+    deadline: ProbeDeadline,
+) -> std::io::Result<Option<String>> {
     let mut programs: Vec<String> = Vec::new();
 
     if let Some(shell) = shell_from_env() {
@@ -264,31 +309,45 @@ fn read_env_from_interactive_shells(name: &str) -> Option<String> {
     }
 
     for program in programs {
-        if let Some(value) = read_env_from_interactive_shell(program.as_str(), name) {
-            return Some(value);
+        match read_env_from_interactive_shell(program.as_str(), name, deadline) {
+            Ok(Some(value)) => return Ok(Some(value)),
+            Ok(None) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
         }
     }
 
-    None
+    Ok(None)
 }
 
-fn resolve_env_value(name: &str) -> Option<String> {
+fn resolve_env_value(name: &str, deadline: ProbeDeadline) -> std::io::Result<Option<String>> {
+    if deadline.has_elapsed() {
+        return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "probe timed out"));
+    }
     // Prefer the current process env (fast + supports launchctl/terminal-launch).
     if let Some(value) = read_env_from_process(name) {
-        return Some(value);
+        return Ok(Some(value));
     }
 
+    resolve_terminal_env_value(name, || read_env_from_interactive_shells(name, deadline))
+}
+
+fn resolve_terminal_env_value(
+    name: &str,
+    lookup: impl FnOnce() -> std::io::Result<Option<String>>,
+) -> std::io::Result<Option<String>> {
     if let Ok(cache) = terminal_env_cache().lock() {
         if let Some(cached) = cache.get(name) {
-            return cached.clone();
+            return Ok(cached.clone());
         }
     }
 
-    let resolved = read_env_from_interactive_shells(name);
+    // Cache an absent value only after a completed lookup, never on timeout/error.
+    let resolved = lookup()?;
     if let Ok(mut cache) = terminal_env_cache().lock() {
         cache.insert(name.to_string(), resolved.clone());
     }
-    resolved
+    Ok(resolved)
 }
 
 /// Redact sensitive value to first4...last4 format (UTF-8 safe)
@@ -333,39 +392,123 @@ fn redact_url(url: &str) -> String {
         "profile_arn",
         "email",
         "login",
+        "csrf",
+        "cookie",
     ];
 
-    if let Some(query_start) = url.find('?') {
-        let (base, query) = url.split_at(query_start + 1);
-        let redacted_params: Vec<String> = query
-            .split('&')
-            .map(|param| {
-                if let Some(eq_pos) = param.find('=') {
-                    let (name, value) = param.split_at(eq_pos);
-                    let value = &value[1..]; // skip '='
-                    let name_lower = name.to_lowercase();
-                    if sensitive_params.iter().any(|s| name_lower.contains(s)) && !value.is_empty()
-                    {
-                        format!("{}={}", name, redact_value(value))
-                    } else {
-                        param.to_string()
-                    }
+    let Ok(mut parsed) = reqwest::Url::parse(url) else {
+        return "[INVALID URL]".to_string();
+    };
+    if !parsed.username().is_empty() {
+        let _ = parsed.set_username("REDACTED");
+    }
+    if parsed.password().is_some() {
+        let _ = parsed.set_password(Some("REDACTED"));
+    }
+    // Fragments can contain OAuth tokens and are never sent to the server.
+    parsed.set_fragment(None);
+    if parsed.query().is_some() {
+        let redacted_params: Vec<(String, String)> = parsed
+            .query_pairs()
+            .map(|(name, value)| {
+                let name_lower = name.to_lowercase();
+                let value = if sensitive_params.iter().any(|s| name_lower.contains(s))
+                    && !value.is_empty()
+                {
+                    redact_value(&value)
                 } else {
-                    param.to_string()
-                }
+                    value.into_owned()
+                };
+                (name.into_owned(), value)
             })
             .collect();
-        format!("{}{}", base, redacted_params.join("&"))
-    } else {
-        url.to_string()
+        parsed
+            .query_pairs_mut()
+            .clear()
+            .extend_pairs(redacted_params);
     }
+    parsed.to_string()
 }
 
 /// Redact sensitive patterns in response body for logging
 fn redact_body(body: &str) -> String {
-    let mut result = body.to_string();
-
-    // Redact JWTs (eyJ... pattern with dots)
+    // Parse before redacting: JSON strings can contain escaped quotes and secrets
+    // can be nested objects, arrays, or numeric identifiers.
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(body) else {
+        return "[non-JSON response omitted]".to_string();
+    };
+    // Redact JSON values for sensitive keys
+    let sensitive_keys = [
+        "name",
+        "password",
+        "token",
+        "accesstoken",
+        "refreshtoken",
+        "secret",
+        "apikey",
+        "authorization",
+        "bearer",
+        "credential",
+        "credentials",
+        "sessiontoken",
+        "authtoken",
+        "idtoken",
+        "userid",
+        "accountid",
+        "provideraccountid",
+        "provideruserid",
+        "provideremail",
+        "localprofilepath",
+        "identityvalue",
+        "teamid",
+        "paymentid",
+        "profilearn",
+        "email",
+        "login",
+        "analyticstrackingid",
+        "clientsecret",
+        "csrftoken",
+        "csrf",
+        "oauthtoken",
+        "workoscursorsessiontoken",
+        "xcodeiumcsrftoken",
+        "xapikey",
+        "setcookie",
+        "secretkey",
+        "accesskey",
+        "cookie",
+        "cookies",
+        "deviceid",
+        "customerid",
+    ];
+    fn redact_json(value: &mut serde_json::Value, sensitive_keys: &[&str]) {
+        match value {
+            serde_json::Value::Object(map) => {
+                for (key, value) in map {
+                    let mut normalized_key = key.replace(['-', '_'], "");
+                    normalized_key.make_ascii_lowercase();
+                    if sensitive_keys.contains(&normalized_key.as_str()) {
+                        *value = serde_json::Value::String(
+                            value
+                                .as_str()
+                                .map(redact_value)
+                                .unwrap_or_else(|| "[REDACTED]".to_string()),
+                        );
+                    } else {
+                        redact_json(value, sensitive_keys);
+                    }
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    redact_json(item, sensitive_keys);
+                }
+            }
+            _ => {}
+        }
+    }
+    redact_json(&mut value, &sensitive_keys);
+    let mut result = serde_json::to_string_pretty(&value).expect("JSON value serializes");
     let jwt_pattern =
         regex_lite::Regex::new(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+").unwrap();
     result = jwt_pattern
@@ -373,75 +516,13 @@ fn redact_body(body: &str) -> String {
             redact_value(&caps[0])
         })
         .to_string();
-
-    // Redact common API key patterns (sk-xxx, pk-xxx, api_xxx, etc.)
     let api_key_pattern =
-        regex_lite::Regex::new(r#"["']?(sk-|pk-|api_|key_|secret_)[A-Za-z0-9_-]{12,}["']?"#)
-            .unwrap();
+        regex_lite::Regex::new(r"(sk-|pk-|api_|key_|secret_)[A-Za-z0-9_-]{12,}").unwrap();
     result = api_key_pattern
         .replace_all(&result, |caps: &regex_lite::Captures| {
-            let key = caps[0].trim_matches(|c| c == '"' || c == '\'');
-            redact_value(key)
+            redact_value(&caps[0])
         })
         .to_string();
-
-    // Redact JSON values for sensitive keys
-    let sensitive_keys = [
-        "name",
-        "password",
-        "token",
-        "access_token",
-        "refresh_token",
-        "secret",
-        "api_key",
-        "apiKey",
-        "authorization",
-        "bearer",
-        "credential",
-        "session_token",
-        "sessionToken",
-        "auth_token",
-        "authToken",
-        "id_token",
-        "idToken",
-        "accessToken",
-        "refreshToken",
-        "user_id",
-        "userId",
-        "account_id",
-        "accountId",
-        "provider_account_id",
-        "providerAccountId",
-        "provider_user_id",
-        "providerUserId",
-        "provider_email",
-        "providerEmail",
-        "local_profile_path",
-        "localProfilePath",
-        "identity_value",
-        "identityValue",
-        "team_id",
-        "teamId",
-        "payment_id",
-        "paymentId",
-        "profile_arn",
-        "profileArn",
-        "email",
-        "login",
-        "analytics_tracking_id",
-    ];
-    for key in sensitive_keys {
-        // Match "key": "value" or "key":"value"
-        let pattern = format!(r#""{}":\s*"([^"]+)""#, key);
-        if let Ok(re) = regex_lite::Regex::new(&pattern) {
-            result = re
-                .replace_all(&result, |caps: &regex_lite::Captures| {
-                    let value = &caps[1];
-                    format!("\"{}\": \"{}\"", key, redact_value(value))
-                })
-                .to_string();
-        }
-    }
 
     if let Ok(path_re) =
         regex_lite::Regex::new(r#"(/(?:Users|home|opt|private|var|tmp|Applications)/[^\s"')]+)"#)
@@ -454,7 +535,33 @@ fn redact_body(body: &str) -> String {
 
 /// Lightweight redaction for log messages.
 pub(crate) fn redact_log_message(msg: &str) -> String {
-    let mut result = msg.to_string();
+    let mut result = if serde_json::from_str::<serde_json::Value>(msg).is_ok() {
+        redact_body(msg)
+    } else {
+        msg.to_string()
+    };
+    if let Ok(secret_re) = regex_lite::Regex::new(
+        r#"(?i)(["']?(?:access[_-]?token|refresh[_-]?token|api[_-]?key|client[_-]?secret|csrf(?:[_-]?token)?|password|token|secret|credentials?|cookies?|authorization)["']?\s*[:=]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|(?:Bearer\s+)?[^\s,;]+)"#,
+    ) {
+        let mut omit_message = false;
+        result = secret_re
+            .replace_all(&result, |caps: &regex_lite::Captures| {
+                // Free-text objects and cookie lists have no reliable scalar boundary.
+                if caps[2].starts_with(['{', '[']) || caps[1].to_ascii_lowercase().contains("cookie") {
+                    omit_message = true;
+                }
+                format!("{}[REDACTED]", &caps[1])
+            })
+            .to_string();
+        if omit_message {
+            return "[sensitive log message omitted]".to_string();
+        }
+    }
+    if let Ok(bearer_re) = regex_lite::Regex::new(r"(?i)Bearer\s+[^\s,;]+") {
+        result = bearer_re
+            .replace_all(&result, "Bearer [REDACTED]")
+            .to_string();
+    }
     if let Ok(jwt_re) = regex_lite::Regex::new(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
     {
         result = jwt_re
@@ -632,11 +739,11 @@ pub(crate) fn inject_host_api_with_deadline<'js>(
     inject_log(ctx, &host, plugin_id)?;
     inject_fs(ctx, &host)?;
     inject_crypto(ctx, &host)?;
-    inject_env(ctx, &host, plugin_id)?;
+    inject_env(ctx, &host, plugin_id, deadline)?;
     inject_http(ctx, &host, plugin_id, deadline)?;
-    inject_keychain(ctx, &host, plugin_id)?;
-    inject_sqlite(ctx, &host, resource_dir)?;
-    inject_ls(ctx, &host, plugin_id)?;
+    inject_keychain(ctx, &host, plugin_id, deadline)?;
+    inject_sqlite(ctx, &host, resource_dir, deadline)?;
+    inject_ls(ctx, &host, plugin_id, deadline)?;
     inject_time_zone(ctx, &host)?;
     inject_ccusage(ctx, &host, plugin_id, deadline)?;
 
@@ -647,8 +754,7 @@ pub(crate) fn inject_host_api_with_deadline<'js>(
 }
 
 fn read_reporting_time_zone(app_data_dir: &Path) -> Option<String> {
-    let data = std::fs::read_to_string(app_data_dir.join("settings.json")).ok()?;
-    let value = serde_json::from_str::<serde_json::Value>(&data).ok()?;
+    let value = crate::app_settings::snapshot(app_data_dir)?;
     let reporting_time_zone = value
         .get("teamConnection")
         .and_then(|connection| connection.get("reportingTimeZone"))
@@ -885,17 +991,31 @@ fn inject_crypto<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()
     Ok(())
 }
 
-fn inject_env<'js>(ctx: &Ctx<'js>, host: &Object<'js>, _plugin_id: &str) -> rquickjs::Result<()> {
+fn inject_env<'js>(
+    ctx: &Ctx<'js>,
+    host: &Object<'js>,
+    _plugin_id: &str,
+    deadline: ProbeDeadline,
+) -> rquickjs::Result<()> {
     let env_obj = Object::new(ctx.clone())?;
     env_obj.set(
         "get",
-        Function::new(ctx.clone(), move |name: String| -> Option<String> {
-            if !WHITELISTED_ENV_VARS.contains(&name.as_str()) {
-                return None;
-            }
+        Function::new(
+            ctx.clone(),
+            move |ctx_inner: Ctx<'_>, name: String| -> rquickjs::Result<Option<String>> {
+                if !WHITELISTED_ENV_VARS.contains(&name.as_str()) {
+                    return Ok(None);
+                }
 
-            resolve_env_value(&name)
-        })?,
+                let value = resolve_env_value(&name, deadline).map_err(|error| {
+                    Exception::throw_message(&ctx_inner, &format!("env lookup failed: {error}"))
+                })?;
+                if deadline.has_elapsed() {
+                    return Err(probe_timeout_error(&ctx_inner));
+                }
+                Ok(value)
+            },
+        )?,
     )?;
     host.set("env", env_obj)?;
     Ok(())
@@ -968,9 +1088,9 @@ fn inject_http<'js>(
                 if req.dangerously_ignore_tls.unwrap_or(false) {
                     builder = builder.danger_accept_invalid_certs(true);
                 }
-                let client = builder
-                    .build()
-                    .map_err(|e| Exception::throw_message(&ctx_inner, &e.to_string()))?;
+                let client = builder.build().map_err(|e| {
+                    Exception::throw_message(&ctx_inner, &e.without_url().to_string())
+                })?;
 
                 let method = req.method.as_deref().unwrap_or("GET");
                 let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|e| {
@@ -985,9 +1105,9 @@ fn inject_http<'js>(
                     builder = builder.body(body);
                 }
 
-                let response = builder
-                    .send()
-                    .map_err(|e| Exception::throw_message(&ctx_inner, &e.to_string()))?;
+                let response = builder.send().map_err(|e| {
+                    Exception::throw_message(&ctx_inner, &e.without_url().to_string())
+                })?;
 
                 let status = response.status().as_u16();
                 let mut resp_headers = std::collections::HashMap::new();
@@ -1000,9 +1120,9 @@ fn inject_http<'js>(
                     })?;
                     resp_headers.insert(key.to_string(), header_value.to_string());
                 }
-                let body = response
-                    .text()
-                    .map_err(|e| Exception::throw_message(&ctx_inner, &e.to_string()))?;
+                let body = response.text().map_err(|e| {
+                    Exception::throw_message(&ctx_inner, &e.without_url().to_string())
+                })?;
 
                 // Redact BEFORE truncation to ensure sensitive values are caught while intact
                 let redacted_body = redact_body(&body);
@@ -1496,7 +1616,12 @@ struct LsDiscoverResult {
     extension_port: Option<i32>,
 }
 
-fn inject_ls<'js>(ctx: &Ctx<'js>, host: &Object<'js>, plugin_id: &str) -> rquickjs::Result<()> {
+fn inject_ls<'js>(
+    ctx: &Ctx<'js>,
+    host: &Object<'js>,
+    plugin_id: &str,
+    deadline: ProbeDeadline,
+) -> rquickjs::Result<()> {
     let ls_obj = Object::new(ctx.clone())?;
     let pid = plugin_id.to_string();
 
@@ -1516,10 +1641,13 @@ fn inject_ls<'js>(ctx: &Ctx<'js>, host: &Object<'js>, plugin_id: &str) -> rquick
                     opts.markers
                 );
 
-                let ps_output = match std::process::Command::new("/bin/ps")
+                let ps_output = match background_command("/bin/ps")
                     .args(["-ax", "-o", "pid=,command="])
-                    .output()
-                {
+                    .output_with_timeout(
+                        deadline
+                            .clamp_duration(Duration::from_secs(5))
+                            .unwrap_or(Duration::ZERO),
+                    ) {
                     Ok(o) => o,
                     Err(e) => {
                         log::warn!("[plugin:{}] ps failed: {}", pid, e);
@@ -1633,7 +1761,7 @@ fn inject_ls<'js>(ctx: &Ctx<'js>, host: &Object<'js>, plugin_id: &str) -> rquick
                     .copied();
 
                 let ports = if let Some(lsof) = lsof_path {
-                    match std::process::Command::new(lsof)
+                    match background_command(lsof)
                         .args([
                             "-nP",
                             "-iTCP",
@@ -1642,8 +1770,11 @@ fn inject_ls<'js>(ctx: &Ctx<'js>, host: &Object<'js>, plugin_id: &str) -> rquick
                             "-p",
                             &process_pid.to_string(),
                         ])
-                        .output()
-                    {
+                        .output_with_timeout(
+                            deadline
+                                .clamp_duration(Duration::from_secs(5))
+                                .unwrap_or(Duration::ZERO),
+                        ) {
                         Ok(o) if o.status.success() => {
                             ls_parse_listening_ports(&String::from_utf8_lossy(&o.stdout))
                         }
@@ -1763,7 +1894,6 @@ const CCUSAGE_LEGACY_CLAUDE_PACKAGE_NAME: &str = "ccusage";
 const CCUSAGE_LEGACY_CODEX_PACKAGE_NAME: &str = "@ccusage/codex";
 const CCUSAGE_LEGACY_CODEX_BIN_NAME: &str = "ccusage-codex";
 const CCUSAGE_TIMEOUT_SECS: u64 = 15;
-const CCUSAGE_POLL_INTERVAL_MS: u64 = 100;
 
 #[derive(Default, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -2035,17 +2165,23 @@ fn ccusage_enriched_path() -> Option<OsString> {
     ccusage_enriched_path_with(home.as_deref(), existing_path.as_deref())
 }
 
-fn ccusage_runner_available(candidate: &str, enriched_path: Option<&OsStr>) -> bool {
-    let mut command = std::process::Command::new(candidate);
+fn ccusage_runner_available(
+    candidate: &str,
+    enriched_path: Option<&OsStr>,
+    deadline: ProbeDeadline,
+) -> bool {
+    let mut command = background_command(candidate);
     command.arg("--version");
     if let Some(path) = enriched_path {
         command.env("PATH", path);
     }
+    let timeout = deadline
+        .clamp_duration(Duration::from_secs(2))
+        .unwrap_or(Duration::ZERO);
     command
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
-
-    command.status().map(|s| s.success()).unwrap_or(false)
+        .output_with_timeout(timeout)
+        .map(|output| output.status.success())
+        .unwrap_or(false)
 }
 
 fn configure_ccusage_command(
@@ -2057,21 +2193,15 @@ fn configure_ccusage_command(
     if let Some(path) = enriched_path {
         command.env("PATH", path);
     }
-    command
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.process_group(0);
-    }
 }
 
-fn resolve_ccusage_runner_binary(kind: CcusageRunnerKind) -> Option<String> {
+fn resolve_ccusage_runner_binary(
+    kind: CcusageRunnerKind,
+    deadline: ProbeDeadline,
+) -> Option<String> {
     let path = ccusage_enriched_path();
     for candidate in ccusage_runner_candidates(kind) {
-        if ccusage_runner_available(&candidate, path.as_deref()) {
+        if ccusage_runner_available(&candidate, path.as_deref(), deadline) {
             return Some(candidate);
         }
     }
@@ -2091,8 +2221,8 @@ where
     runners
 }
 
-fn collect_ccusage_runners() -> Vec<(CcusageRunnerKind, String)> {
-    collect_ccusage_runners_with(resolve_ccusage_runner_binary)
+fn collect_ccusage_runners(deadline: ProbeDeadline) -> Vec<(CcusageRunnerKind, String)> {
+    collect_ccusage_runners_with(|kind| resolve_ccusage_runner_binary(kind, deadline))
 }
 
 fn append_ccusage_common_args(
@@ -2233,34 +2363,6 @@ enum CcusageRunnerResult {
     TimedOut,
 }
 
-#[cfg(unix)]
-fn kill_ccusage_process_group(child_id: u32) -> std::io::Result<()> {
-    let pgid = i32::try_from(child_id)
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid child pid"))?;
-    let rc = unsafe { libc::kill(-pgid, libc::SIGKILL) };
-    if rc == 0 {
-        return Ok(());
-    }
-
-    let err = std::io::Error::last_os_error();
-    if err.raw_os_error() == Some(libc::ESRCH) {
-        return Ok(());
-    }
-    Err(err)
-}
-
-fn kill_ccusage_on_timeout(child: &mut std::process::Child) -> std::io::Result<()> {
-    #[cfg(unix)]
-    {
-        kill_ccusage_process_group(child.id())
-    }
-
-    #[cfg(not(unix))]
-    {
-        child.kill()
-    }
-}
-
 fn format_ccusage_timeout(timeout: std::time::Duration) -> String {
     if timeout.subsec_millis() == 0 {
         return format!("{}s", timeout.as_secs());
@@ -2351,7 +2453,7 @@ fn run_ccusage_with_runner_timeout(
 ) -> CcusageRunnerResult {
     let args = ccusage_runner_args(kind, opts, provider, flavor);
     let enriched_path = ccusage_enriched_path();
-    let mut command = std::process::Command::new(program);
+    let mut command = background_command(program);
     configure_ccusage_command(&mut command, &args, enriched_path.as_deref());
 
     if let Some(home_path) = ccusage_home_override(opts, provider) {
@@ -2369,104 +2471,45 @@ fn run_ccusage_with_runner_timeout(
         redacted_program
     );
 
-    let mut child = match command.spawn() {
-        Ok(c) => c,
-        Err(e) => {
+    match command.output_with_timeout(timeout) {
+        Ok(output) if output.status.success() => {
+            let out = String::from_utf8_lossy(&output.stdout);
+            if let Some(normalized_json) = normalize_ccusage_output(&out) {
+                return CcusageRunnerResult::Success(normalized_json);
+            }
             log::warn!(
-                "[plugin:{}] ccusage spawn failed for {}: {}",
+                "[plugin:{}] ccusage output parse failed for {}",
+                plugin_id,
+                ccusage_runner_label(kind)
+            );
+            CcusageRunnerResult::Failed
+        }
+        Ok(output) => {
+            log::warn!(
+                "[plugin:{}] ccusage failed for {}: {}",
                 plugin_id,
                 ccusage_runner_label(kind),
-                e
+                redact_log_message(String::from_utf8_lossy(&output.stderr).trim())
             );
-            return CcusageRunnerResult::Failed;
+            CcusageRunnerResult::Failed
         }
-    };
-
-    // Drain pipes concurrently while the process is running so the child cannot block on full
-    // stdout/stderr buffers before exit.
-    let mut stdout_reader = child.stdout.take().map(|mut stdout| {
-        std::thread::spawn(move || {
-            let mut v = Vec::new();
-            let _ = std::io::Read::read_to_end(&mut stdout, &mut v);
-            v
-        })
-    });
-    let mut stderr_reader = child.stderr.take().map(|mut stderr| {
-        std::thread::spawn(move || {
-            let mut v = Vec::new();
-            let _ = std::io::Read::read_to_end(&mut stderr, &mut v);
-            v
-        })
-    });
-
-    let start = std::time::Instant::now();
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let stdout = stdout_reader
-                    .take()
-                    .and_then(|reader| reader.join().ok())
-                    .unwrap_or_default();
-                let stderr = stderr_reader
-                    .take()
-                    .and_then(|reader| reader.join().ok())
-                    .unwrap_or_default();
-
-                if status.success() {
-                    let out = String::from_utf8_lossy(&stdout);
-                    if let Some(normalized_json) = normalize_ccusage_output(&out) {
-                        return CcusageRunnerResult::Success(normalized_json);
-                    }
-                    log::warn!(
-                        "[plugin:{}] ccusage output parse failed for {}",
-                        plugin_id,
-                        ccusage_runner_label(kind)
-                    );
-                    return CcusageRunnerResult::Failed;
-                }
-
-                let err = String::from_utf8_lossy(&stderr);
-                log::warn!(
-                    "[plugin:{}] ccusage failed for {}: {}",
-                    plugin_id,
-                    ccusage_runner_label(kind),
-                    err.trim()
-                );
-                return CcusageRunnerResult::Failed;
-            }
-            Ok(None) => {
-                if start.elapsed() > timeout {
-                    if let Err(e) = kill_ccusage_on_timeout(&mut child) {
-                        log::warn!(
-                            "[plugin:{}] ccusage process group kill failed for {}: {}",
-                            plugin_id,
-                            ccusage_runner_label(kind),
-                            e
-                        );
-                        let _ = child.kill();
-                    }
-                    let _ = child.wait();
-                    let _ = stdout_reader.take().and_then(|reader| reader.join().ok());
-                    let _ = stderr_reader.take().and_then(|reader| reader.join().ok());
-                    log::warn!(
-                        "[plugin:{}] ccusage timed out after {} for {}",
-                        plugin_id,
-                        format_ccusage_timeout(timeout),
-                        ccusage_runner_label(kind)
-                    );
-                    return CcusageRunnerResult::TimedOut;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(CCUSAGE_POLL_INTERVAL_MS));
-            }
-            Err(e) => {
-                log::warn!(
-                    "[plugin:{}] ccusage wait failed for {}: {}",
-                    plugin_id,
-                    ccusage_runner_label(kind),
-                    e
-                );
-                return CcusageRunnerResult::Failed;
-            }
+        Err(error) if error.kind() == std::io::ErrorKind::TimedOut => {
+            log::warn!(
+                "[plugin:{}] ccusage timed out after {} for {}",
+                plugin_id,
+                format_ccusage_timeout(timeout),
+                ccusage_runner_label(kind)
+            );
+            CcusageRunnerResult::TimedOut
+        }
+        Err(error) => {
+            log::warn!(
+                "[plugin:{}] ccusage command failed for {}: {}",
+                plugin_id,
+                ccusage_runner_label(kind),
+                error
+            );
+            CcusageRunnerResult::Failed
         }
     }
 }
@@ -2555,7 +2598,7 @@ fn inject_ccusage<'js>(
                     log::warn!("[plugin:{}] ccusage query already running", pid);
                     return Ok(serde_json::json!({ "status": "runner_failed" }).to_string());
                 };
-                let runners = collect_ccusage_runners();
+                let runners = collect_ccusage_runners(deadline);
                 Ok(run_ccusage_query_with_runners(
                     runners,
                     &opts,
@@ -2600,6 +2643,7 @@ fn inject_keychain<'js>(
     ctx: &Ctx<'js>,
     host: &Object<'js>,
     plugin_id: &str,
+    deadline: ProbeDeadline,
 ) -> rquickjs::Result<()> {
     let keychain_obj = Object::new(ctx.clone())?;
     let pid_read = plugin_id.to_string();
@@ -2616,9 +2660,11 @@ fn inject_keychain<'js>(
                     ));
                 }
                 log::info!("[plugin:{}] keychain read: service={}", pid_read, service);
-                let output = std::process::Command::new("security")
+                let output = background_command("security")
                     .args(keychain_find_generic_password_args(&service))
-                    .output()
+                    .output_with_timeout(
+                        deadline.clamp_duration(Duration::from_secs(5)).unwrap_or(Duration::ZERO),
+                    )
                     .map_err(|e| {
                         Exception::throw_message(
                             &ctx_inner,
@@ -2663,7 +2709,7 @@ fn inject_keychain<'js>(
                         "keychain API is only supported on macOS",
                     ));
                 }
-                let account = current_macos_keychain_account();
+                let account = current_macos_keychain_account(deadline);
                 let args = keychain_find_generic_password_args_for_account(&service, &account);
                 let redacted_account = redact_value(&account);
                 log::info!(
@@ -2672,9 +2718,11 @@ fn inject_keychain<'js>(
                     service,
                     redacted_account
                 );
-                let output = std::process::Command::new("security")
+                let output = background_command("security")
                     .args(&args)
-                    .output()
+                    .output_with_timeout(
+                        deadline.clamp_duration(Duration::from_secs(5)).unwrap_or(Duration::ZERO),
+                    )
                     .map_err(|e| {
                         Exception::throw_message(
                             &ctx_inner,
@@ -2723,37 +2771,13 @@ fn inject_keychain<'js>(
                 }
                 log::info!("[plugin:{}] keychain write: service={}", pid_write, service);
 
-                let mut account_arg: Option<String> = None;
-                let find_output = std::process::Command::new("security")
-                    .args(["find-generic-password", "-s", &service])
-                    .output();
-
-                if let Ok(output) = find_output {
-                    if output.status.success() {
-                        let stdout = String::from_utf8_lossy(&output.stdout);
-                        for line in stdout.lines() {
-                            if let Some(start) = line.find("\"acct\"<blob>=\"") {
-                                let rest = &line[start + 14..];
-                                if let Some(end) = rest.find('"') {
-                                    account_arg = Some(rest[..end].to_string());
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                let output = if let Some(ref acct) = account_arg {
-                    std::process::Command::new("security")
-                        .args(keychain_add_generic_password_args_for_account(
-                            &service, acct, &value,
-                        ))
-                        .output()
-                } else {
-                    std::process::Command::new("security")
-                        .args(keychain_add_generic_password_args(&service, &value))
-                        .output()
-                }
+                let output = update_keychain_password_with(&service, &value, |args| {
+                    background_command("security")
+                        .args(args)
+                        .output_with_timeout(
+                            deadline.clamp_duration(Duration::from_secs(5)).unwrap_or(Duration::ZERO),
+                        )
+                })
                 .map_err(|e| {
                     Exception::throw_message(&ctx_inner, &format!("keychain write failed: {}", e))
                 })?;
@@ -2795,7 +2819,7 @@ fn inject_keychain<'js>(
                         "keychain API is only supported on macOS",
                     ));
                 }
-                let account = current_macos_keychain_account();
+                let account = current_macos_keychain_account(deadline);
                 let args =
                     keychain_add_generic_password_args_for_account(&service, &account, &value);
                 let redacted_account = redact_value(&account);
@@ -2805,9 +2829,11 @@ fn inject_keychain<'js>(
                     service,
                     redacted_account
                 );
-                let output = std::process::Command::new("security")
+                let output = background_command("security")
                     .args(&args)
-                    .output()
+                    .output_with_timeout(
+                        deadline.clamp_duration(Duration::from_secs(5)).unwrap_or(Duration::ZERO),
+                    )
                     .map_err(|e| {
                         Exception::throw_message(
                             &ctx_inner,
@@ -2850,6 +2876,7 @@ fn inject_sqlite<'js>(
     ctx: &Ctx<'js>,
     host: &Object<'js>,
     resource_dir: &PathBuf,
+    deadline: ProbeDeadline,
 ) -> rquickjs::Result<()> {
     let sqlite_obj = Object::new(ctx.clone())?;
     let query_resource_dir = resource_dir.clone();
@@ -2866,7 +2893,7 @@ fn inject_sqlite<'js>(
                     ));
                 }
                 let expanded = expand_path(&db_path);
-                run_sqlite_query(&query_resource_dir, &expanded, &sql)
+                run_sqlite_query(&query_resource_dir, &expanded, &sql, deadline)
                     .map_err(|e| Exception::throw_message(&ctx_inner, &e))
             },
         )?,
@@ -2886,7 +2913,7 @@ fn inject_sqlite<'js>(
                     ));
                 }
                 let expanded = expand_path(&db_path);
-                run_sqlite_exec(&exec_resource_dir, &expanded, &sql)
+                run_sqlite_exec(&exec_resource_dir, &expanded, &sql, deadline)
                     .map_err(|e| Exception::throw_message(&ctx_inner, &e))
             },
         )?,
@@ -2902,14 +2929,19 @@ enum SqliteRunError {
     Command(String),
 }
 
-fn run_sqlite_query(resource_dir: &Path, db_path: &str, sql: &str) -> Result<String, String> {
+fn run_sqlite_query(
+    resource_dir: &Path,
+    db_path: &str,
+    sql: &str,
+    deadline: ProbeDeadline,
+) -> Result<String, String> {
     let primary_args = sqlite_query_args(db_path, sql);
     let immutable_path = sqlite_immutable_uri(db_path);
     let fallback_args = sqlite_query_args(&immutable_path, sql);
     let mut errors = Vec::new();
 
     for program in sqlite_program_candidates(resource_dir) {
-        match run_sqlite_query_with_program(&program, &primary_args, &fallback_args) {
+        match run_sqlite_query_with_program(&program, &primary_args, &fallback_args, deadline) {
             Ok(output) => return Ok(output),
             Err(error) => errors.push(error),
         }
@@ -2918,12 +2950,23 @@ fn run_sqlite_query(resource_dir: &Path, db_path: &str, sql: &str) -> Result<Str
     Err(sqlite_error_message(&errors))
 }
 
-fn run_sqlite_exec(resource_dir: &Path, db_path: &str, sql: &str) -> Result<(), String> {
+fn run_sqlite_exec(
+    resource_dir: &Path,
+    db_path: &str,
+    sql: &str,
+    deadline: ProbeDeadline,
+) -> Result<(), String> {
     let args = vec![OsString::from(db_path), OsString::from(sql)];
     let mut errors = Vec::new();
 
     for program in sqlite_program_candidates(resource_dir) {
-        match std::process::Command::new(&program).args(&args).output() {
+        match background_command(&program)
+            .args(&args)
+            .output_with_timeout(
+                deadline
+                    .clamp_duration(Duration::from_secs(10))
+                    .unwrap_or(Duration::ZERO),
+            ) {
             Ok(output) if output.status.success() => return Ok(()),
             Ok(output) => {
                 let stderr = String::from_utf8_lossy(&output.stderr);
@@ -2932,7 +2975,7 @@ fn run_sqlite_exec(resource_dir: &Path, db_path: &str, sql: &str) -> Result<(), 
                     stderr.trim()
                 )));
             }
-            Err(_) => errors.push(SqliteRunError::Spawn),
+            Err(error) => errors.push(sqlite_process_error(error)),
         }
     }
 
@@ -2943,20 +2986,29 @@ fn run_sqlite_query_with_program(
     program: &OsStr,
     primary_args: &[OsString],
     fallback_args: &[OsString],
+    deadline: ProbeDeadline,
 ) -> Result<String, SqliteRunError> {
-    let primary = std::process::Command::new(program)
+    let primary = background_command(program)
         .args(primary_args)
-        .output()
-        .map_err(|_| SqliteRunError::Spawn)?;
+        .output_with_timeout(
+            deadline
+                .clamp_duration(Duration::from_secs(10))
+                .unwrap_or(Duration::ZERO),
+        )
+        .map_err(sqlite_process_error)?;
 
     if primary.status.success() {
         return Ok(String::from_utf8_lossy(&primary.stdout).to_string());
     }
 
-    let fallback = std::process::Command::new(program)
+    let fallback = background_command(program)
         .args(fallback_args)
-        .output()
-        .map_err(|_| SqliteRunError::Spawn)?;
+        .output_with_timeout(
+            deadline
+                .clamp_duration(Duration::from_secs(10))
+                .unwrap_or(Duration::ZERO),
+        )
+        .map_err(sqlite_process_error)?;
 
     if fallback.status.success() {
         return Ok(String::from_utf8_lossy(&fallback.stdout).to_string());
@@ -2969,6 +3021,14 @@ fn run_sqlite_query_with_program(
         stderr_primary.trim(),
         stderr_fallback.trim()
     )))
+}
+
+fn sqlite_process_error(error: std::io::Error) -> SqliteRunError {
+    if error.kind() == std::io::ErrorKind::NotFound {
+        SqliteRunError::Spawn
+    } else {
+        SqliteRunError::Command(format!("sqlite3 command failed: {}", error))
+    }
 }
 
 fn sqlite_query_args(db_path: &str, sql: &str) -> Vec<OsString> {
@@ -3265,11 +3325,9 @@ mod tests {
         );
         let dir = std::env::temp_dir().join(test_id);
         std::fs::create_dir_all(&dir).expect("create temp dir");
-        std::fs::write(
-            dir.join("settings.json"),
-            r#"{"teamConnection":{"reportingTimeZone":"America/New_York"}}"#,
-        )
-        .expect("write settings");
+        crate::app_settings::set_test_settings(&dir, serde_json::json!({
+            "teamConnection": {"reportingTimeZone": "America/New_York"}
+        }));
 
         let rt = Runtime::new().expect("runtime");
         let ctx = Context::full(&rt).expect("context");
@@ -3401,7 +3459,7 @@ mod tests {
             let get: Function = env.get("get").expect("get");
 
             for name in WHITELISTED_ENV_VARS {
-                let expected = resolve_env_value(name);
+                let expected = resolve_env_value(name, ProbeDeadline::none()).unwrap();
                 let value: Option<String> =
                     get.call((name.to_string(),)).expect("get whitelisted var");
                 assert_eq!(value, expected, "{name} should match host env resolver");
@@ -3489,7 +3547,10 @@ mod tests {
     #[test]
     fn current_macos_keychain_account_prefers_explicit_user_value() {
         assert_eq!(
-            current_macos_keychain_account_from_user_env(Some("openusage-test-user".to_string())),
+            current_macos_keychain_account_from_user_env(
+                Some("openusage-test-user".to_string()),
+                ProbeDeadline::none(),
+            ),
             "openusage-test-user"
         );
     }
@@ -3615,24 +3676,80 @@ mod tests {
     }
 
     #[test]
-    fn keychain_add_generic_password_args_include_service_only_write() {
-        let args = keychain_add_generic_password_args("Claude Code-credentials", "secret-value");
-        let rendered: Vec<String> = args
-            .into_iter()
-            .map(|value| value.to_string_lossy().into_owned())
-            .collect();
+    #[cfg(unix)]
+    fn keychain_discovery_failure_never_writes() {
+        use std::os::unix::process::ExitStatusExt;
+        use std::process::{ExitStatus, Output};
+        let metadata = |code, stdout: &[u8]| {
+            Ok(Output {
+                status: ExitStatus::from_raw(code << 8),
+                stdout: stdout.to_vec(),
+                stderr: Vec::new(),
+            })
+        };
+        for lookup in [
+            Err(std::io::Error::from(std::io::ErrorKind::TimedOut)),
+            Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)),
+            metadata(44, b""),
+            metadata(1, b""),
+            metadata(0, b"missing account"),
+            metadata(0, b"\"acct\"<blob>=0xAABB"),
+            metadata(0, &[0xff]),
+        ] {
+            let mut lookup = Some(lookup);
+            let mut calls = 0;
+            let result = update_keychain_password_with("dummy-service", "dummy-value", |args| {
+                calls += 1;
+                assert_eq!(args[0], "find-generic-password");
+                lookup
+                    .take()
+                    .expect("failed lookup must not proceed to a write")
+            });
+            assert!(result.is_err());
+            assert_eq!(calls, 1);
+        }
+    }
 
-        assert_eq!(
-            rendered,
-            vec![
-                "add-generic-password",
-                "-U",
-                "-s",
-                "Claude Code-credentials",
-                "-w",
-                "secret-value",
-            ]
-        );
+    #[test]
+    #[cfg(unix)]
+    fn keychain_update_preserves_the_complete_discovered_account() {
+        use std::os::unix::process::ExitStatusExt;
+        use std::process::{ExitStatus, Output};
+        for account in ["dummy-account", "Ж-test-account", ""] {
+            let mut calls = 0;
+            update_keychain_password_with("dummy-service", "dummy-value", |args| {
+                calls += 1;
+                let stdout = if calls == 1 {
+                    assert_eq!(
+                        args,
+                        vec![
+                            OsString::from("find-generic-password"),
+                            "-s".into(),
+                            "dummy-service".into()
+                        ]
+                    );
+                    format!("attributes:\n    \"acct\"<blob>=\"{account}\"\n").into_bytes()
+                } else {
+                    assert_eq!(calls, 2);
+                    assert_eq!(
+                        args,
+                        keychain_add_generic_password_args_for_account(
+                            "dummy-service",
+                            account,
+                            "dummy-value"
+                        )
+                    );
+                    Vec::new()
+                };
+                Ok(Output {
+                    status: ExitStatus::from_raw(0),
+                    stdout,
+                    stderr: Vec::new(),
+                })
+            })
+            .unwrap();
+            assert_eq!(calls, 2);
+        }
     }
 
     #[test]
@@ -3666,6 +3783,155 @@ mod tests {
     fn redact_value_shows_first_and_last_four() {
         assert_eq!(redact_value("sk-1234567890abcdef"), "sk-1...cdef");
         assert_eq!(redact_value("short"), "[REDACTED]");
+    }
+
+    #[test]
+    fn redact_body_handles_escaped_and_nested_secrets() {
+        let body = r#"{"PASSWORD":"head\"hidden-secret-tail","credential":{"value":"opaque-credential"},"accountId":123456789,"items":[{"CLIENT_SECRET":"private-client-value"}],"used":42}"#;
+        let redacted = redact_body(body);
+        let parsed: serde_json::Value = serde_json::from_str(&redacted).unwrap();
+        assert!(!redacted.contains("hidden-secret"));
+        assert!(!redacted.contains("opaque-credential"));
+        assert!(!redacted.contains("123456789"));
+        assert!(!redacted.contains("private-client-value"));
+        assert_eq!(parsed["credential"], "[REDACTED]");
+        assert_eq!(parsed["used"], 42);
+    }
+
+    #[test]
+    fn redact_body_covers_plugin_tokens_cookies_and_identity_aliases() {
+        for key in [
+            "credentials", "csrf", "oauthToken", "WorkosCursorSessionToken",
+            "X-Codeium-CSRF-Token", "X-API-Key", "Set-Cookie", "SecretKey",
+            "access_key", "Account-Id", "provider_email", "PROFILE-ARN",
+            "api_key", "apiKey", "API-KEY",
+        ] {
+            let body = serde_json::json!({(key): "opaque-sensitive-provider-value", "used": 42});
+            let redacted = redact_body(&body.to_string());
+            assert!(!redacted.contains("opaque-sensitive-provider-value"), "leaked {key}");
+            let parsed: serde_json::Value = serde_json::from_str(&redacted).unwrap();
+            assert_eq!(parsed["used"], 42);
+        }
+    }
+
+    #[test]
+    fn redact_body_omits_non_json_responses() {
+        assert_eq!(
+            redact_body("credential=opaque-response-secret"),
+            "[non-JSON response omitted]"
+        );
+    }
+
+    #[test]
+    fn redact_url_handles_encoded_names_authority_and_fragment() {
+        let redacted = redact_url(
+            "https://alice:private-password@example.com/usage?api%5Fkey=opaque-query-secret&limit=10#access_token=fragment-secret",
+        );
+        for secret in [
+            "alice",
+            "private-password",
+            "opaque-query-secret",
+            "fragment-secret",
+        ] {
+            assert!(!redacted.contains(secret), "leaked {secret}: {redacted}");
+        }
+        assert!(redacted.contains("limit=10"));
+        assert_eq!(redact_url("not a url containing secrets"), "[INVALID URL]");
+    }
+
+    #[test]
+    fn redact_url_empty_query_segments_do_not_bypass_redaction() {
+        let redacted = redact_url("https://example.com/usage?&api_key=opaque-secret-value&&safe=1");
+        assert!(!redacted.contains("opaque-secret-value"));
+        assert!(redacted.contains("safe=1"));
+    }
+
+    #[test]
+    fn redact_log_message_hides_opaque_credentials() {
+        let redacted = redact_log_message(
+            "access_token=opaque-token-value Authorization: Bearer opaque-bearer-value api_key=opaque-api-value",
+        );
+        for secret in [
+            "opaque-token-value",
+            "opaque-bearer-value",
+            "opaque-api-value",
+        ] {
+            assert!(!redacted.contains(secret), "leaked {secret}: {redacted}");
+        }
+    }
+
+    #[test]
+    fn redact_log_message_hides_quoted_secrets_in_prefixed_json() {
+        let redacted = redact_log_message(
+            r#"failure: {"access_token":"opaque\" secret with spaces","clientSecret":"another private value"} Cookie: opaque-cookie-value csrf=opaque-csrf-value"#,
+        );
+        for secret in ["opaque", "secret with spaces", "another private value"] {
+            assert!(!redacted.contains(secret), "leaked {secret}: {redacted}");
+        }
+    }
+
+    #[test]
+    fn redact_log_message_omits_unbounded_secret_values() {
+        for message in [
+            r#"failure: {"credentials":{"value":"dummy opaque secret with spaces"}}"#,
+            r#"failure: {"token":["dummy secret", "second dummy secret"]}"#,
+            "Cookie: session=dummy-one; other=dummy-two; preference=three",
+        ] {
+            assert_eq!(redact_log_message(message), "[sensitive log message omitted]");
+        }
+        assert_eq!(redact_log_message("Provider retry scheduled"), "Provider retry scheduled");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_command_stays_within_probe_deadline() {
+        let started = Instant::now();
+        let result = read_command_stdout(
+            "/bin/sh", &["-c", "sleep 1"],
+            ProbeDeadline::at(started + Duration::from_millis(20)),
+        );
+        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::TimedOut);
+        assert!(started.elapsed() < Duration::from_millis(500));
+    }
+
+    #[test]
+    fn expired_env_deadline_does_not_read_or_cache_a_miss() {
+        let name = "__OPENUSAGE_EXPIRED_DEADLINE_TEST__";
+        assert_eq!(resolve_env_value(name, ProbeDeadline::at(Instant::now())).unwrap_err().kind(), std::io::ErrorKind::TimedOut);
+        assert!(!terminal_env_cache().lock().unwrap().contains_key(name));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_timeout_is_not_cached_and_a_later_lookup_succeeds() {
+        let name = "__OPENUSAGE_SYNTHETIC_TIMEOUT_CACHE_TEST__";
+        let error = resolve_terminal_env_value(name, || read_command_stdout(
+            "/bin/sh", &["-c", "sleep 1"],
+            ProbeDeadline::at(Instant::now() + Duration::from_millis(20)),
+        )).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+        assert!(!terminal_env_cache().lock().unwrap().contains_key(name));
+        let result = resolve_terminal_env_value(name, || read_command_stdout(
+            "/bin/sh", &["-c", "printf synthetic-value"], ProbeDeadline::none(),
+        )).unwrap();
+        assert_eq!(result.as_deref(), Some("synthetic-value"));
+        assert_eq!(resolve_terminal_env_value(name, || panic!("cached lookup reran")).unwrap(), result);
+
+        let missing = "__OPENUSAGE_SYNTHETIC_MISSING_CACHE_TEST__";
+        assert_eq!(resolve_terminal_env_value(missing, || Ok(None)).unwrap(), None);
+        assert_eq!(resolve_terminal_env_value(missing, || panic!("absent lookup reran")).unwrap(), None);
+    }
+
+    #[test]
+    fn sqlite_expired_deadline_reports_timeout_without_spawning() {
+        let error = run_sqlite_query_with_program(
+            OsStr::new("/missing/synthetic-sqlite"),
+            &[],
+            &[],
+            ProbeDeadline::at(Instant::now()),
+        )
+        .unwrap_err();
+        assert!(matches!(error, SqliteRunError::Command(message) if message.contains("timed out")));
     }
 
     #[test]
@@ -4409,7 +4675,7 @@ mod tests {
 
     #[test]
     fn configure_ccusage_command_sets_path_override() {
-        let mut command = std::process::Command::new("echo");
+        let mut command = background_command("echo");
         let args = vec!["daily".to_string(), "--json".to_string()];
         let path = std::env::join_paths([
             std::path::PathBuf::from("/tmp/bin"),
@@ -4434,7 +4700,7 @@ mod tests {
 
     #[test]
     fn configure_ccusage_command_skips_path_override_when_absent() {
-        let mut command = std::process::Command::new("echo");
+        let mut command = background_command("echo");
         let args = vec!["daily".to_string()];
 
         configure_ccusage_command(&mut command, &args, None);
@@ -4656,6 +4922,7 @@ esac
         let mut permissions = script.metadata().expect("script metadata").permissions();
         permissions.set_mode(0o755);
         std::fs::set_permissions(&script_path, permissions).expect("make script executable");
+        drop(script); // Linux refuses to execute a file still open for writing.
 
         let opts = CcusageQueryOpts {
             provider: Some("codex".to_string()),
@@ -4776,6 +5043,7 @@ wait
         let mut permissions = script.metadata().expect("script metadata").permissions();
         permissions.set_mode(0o755);
         std::fs::set_permissions(&script_path, permissions).expect("make script executable");
+        drop(script); // Linux refuses to execute a file still open for writing.
 
         let opts = CcusageQueryOpts::default();
         let start = Instant::now();

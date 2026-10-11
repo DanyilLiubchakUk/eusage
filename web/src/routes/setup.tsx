@@ -1,17 +1,16 @@
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
 import {
-  SignInButton,
   UserButton,
   useAuth,
   useUser,
 } from "@clerk/tanstack-react-start"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Button } from "@/components/ui/button"
 import { api } from "../../../convex/_generated/api"
 import { SetupClaimView } from "../features/setup/setup-claim-view"
 import { AppShell } from "../features/shell/app-shell"
 import { PageState } from "../features/shell/page-state"
+import { SignInButton } from "../features/shell/sign-in-button"
 
 const setupQuery = convexQuery(api.setup.get, {})
 
@@ -41,13 +40,7 @@ function SetupRoute() {
           isSignedIn: isSignedIn === true,
           userLabel,
         }}
-        signInSlot={
-          <SignInButton mode="modal">
-            <Button type="button">
-              Sign in
-            </Button>
-          </SignInButton>
-        }
+        signInSlot={<SignInButton />}
         userSlot={<UserButton />}
         onClaim={async (input) => {
           const result = await claimOwner(input)

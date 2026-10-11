@@ -9,7 +9,6 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 const CACHE_FILE_NAME: &str = "usage-api-cache.json";
-const SETTINGS_FILE_NAME: &str = "settings.json";
 const DEFAULT_ENABLED_PLUGINS: &[&str] = &["claude", "codex", "cursor"];
 
 #[cfg(not(test))]
@@ -282,7 +281,7 @@ pub fn flush_cache() {
 }
 
 // ---------------------------------------------------------------------------
-// Settings reader (reads settings.json directly, not via tauri_plugin_store)
+// Settings reader uses the same in-memory store as frontend preferences.
 // ---------------------------------------------------------------------------
 
 #[derive(Deserialize)]
@@ -297,12 +296,10 @@ struct PluginSettingsJson {
 }
 
 fn read_plugin_settings(app_data_dir: &Path) -> (Vec<String>, HashSet<String>, bool) {
-    let path = app_data_dir.join(SETTINGS_FILE_NAME);
-    let data = match std::fs::read_to_string(&path) {
-        Ok(d) => d,
-        Err(_) => return (Vec::new(), HashSet::new(), false),
+    let Some(value) = crate::app_settings::snapshot(app_data_dir) else {
+        return (Vec::new(), HashSet::new(), false);
     };
-    match serde_json::from_str::<SettingsFile>(&data) {
+    match serde_json::from_value::<SettingsFile>(value) {
         Ok(sf) => {
             let ps = sf.plugins.unwrap_or(PluginSettingsJson {
                 order: None,

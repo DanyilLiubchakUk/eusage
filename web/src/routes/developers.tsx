@@ -1,54 +1,60 @@
-import { convexQuery, useConvexMutation } from "@convex-dev/react-query"
+import { convexQuery, useConvexAuth, useConvexMutation } from "@convex-dev/react-query"
 import {
-  SignInButton,
   useAuth,
+  useOrganization,
 } from "@clerk/tanstack-react-start"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Button } from "@/components/ui/button"
 import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { DevelopersPageView } from "../features/developers/developers-page-view"
 import { AppShell } from "../features/shell/app-shell"
 import { PageState } from "../features/shell/page-state"
+import { SignInButton } from "../features/shell/sign-in-button"
+import { ConvexAuthenticationState } from "../features/shell/convex-authentication-state"
 
 export const Route = createFileRoute("/developers")({
   component: DevelopersRoute,
 })
 
 function DevelopersRoute() {
-  const { isLoaded, isSignedIn } = useAuth()
+  const { isLoaded, isSignedIn, orgId } = useAuth()
+  const { organization } = useOrganization()
+  const convexAuth = useConvexAuth()
   const auth = {
     isLoaded,
     isSignedIn: isSignedIn === true,
+    orgId: orgId ?? organization?.id ?? null,
   }
-  const developersQuery = convexQuery(api.developers.list, auth.isSignedIn ? {} : "skip")
+  const canReadDevelopers = auth.isLoaded && auth.isSignedIn && auth.orgId && convexAuth.isAuthenticated
+  const developersQuery = convexQuery(api.developers.list, canReadDevelopers ? {} : "skip")
+  const developersQueryKey = developersQuery.queryKey
   const { data } = useQuery(developersQuery)
   const queryClient = useQueryClient()
   const createDeveloper = useConvexMutation(api.developers.create)
   const rotateDeveloperToken = useConvexMutation(api.developers.rotate)
   const revokeDeveloperToken = useConvexMutation(api.developers.revoke)
   const reenableDeveloper = useConvexMutation(api.developers.reenable)
-  const signInSlot = (
-    <SignInButton mode="modal">
-      <Button type="button">
-        Sign in
-      </Button>
-    </SignInButton>
-  )
+  const signInSlot = <SignInButton />
   const signedOutState = {
     status: "not-authenticated" as const,
     team: null,
     developers: [],
   }
+  const noOrganizationState = {
+    status: "organization-required" as const,
+    team: null,
+    developers: [],
+  }
 
   if (!auth.isLoaded) return <DevelopersLoading />
-  if (auth.isSignedIn && !data) return <DevelopersLoading />
+  if (auth.isSignedIn && auth.orgId && !convexAuth.isAuthenticated) return <AppShell><ConvexAuthenticationState /></AppShell>
+  if (auth.isSignedIn && auth.orgId && !data) return <DevelopersLoading />
 
   return (
     <AppShell>
       <DevelopersPageView
-        state={data ?? signedOutState}
+        state={data ?? (auth.isSignedIn ? noOrganizationState : signedOutState)}
         auth={{
           ...auth,
         }}
@@ -56,7 +62,7 @@ function DevelopersRoute() {
         teamUrl={browserOrigin()}
         onCreate={async (input) => {
           const result = await createDeveloper(input)
-          await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
+          await queryClient.invalidateQueries({ queryKey: developersQueryKey })
           return result
         }}
         onRotate={async (input) => {
@@ -64,14 +70,14 @@ function DevelopersRoute() {
             developerId: input.developerId as Id<"developers">,
             tokenLabel: input.tokenLabel,
           })
-          await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
+          await queryClient.invalidateQueries({ queryKey: developersQueryKey })
           return result
         }}
         onRevoke={async (input) => {
           const result = await revokeDeveloperToken({
             developerId: input.developerId as Id<"developers">,
           })
-          await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
+          await queryClient.invalidateQueries({ queryKey: developersQueryKey })
           return result
         }}
         onReenable={async (input) => {
@@ -79,7 +85,7 @@ function DevelopersRoute() {
             developerId: input.developerId as Id<"developers">,
             tokenLabel: input.tokenLabel,
           })
-          await queryClient.invalidateQueries({ queryKey: developersQuery.queryKey })
+          await queryClient.invalidateQueries({ queryKey: developersQueryKey })
           return result
         }}
       />

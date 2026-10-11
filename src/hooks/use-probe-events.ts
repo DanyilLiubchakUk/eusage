@@ -24,22 +24,19 @@ type UseProbeEventsOptions = {
 
 export function useProbeEvents({ onResult, onBatchComplete }: UseProbeEventsOptions) {
   const activeBatchIds = useRef<Set<string>>(new Set())
-  const unlisteners = useRef<UnlistenFn[]>([])
+  const callbacks = useRef({ onResult, onBatchComplete })
+  callbacks.current = { onResult, onBatchComplete }
   const listenersReadyRef = useRef<Promise<void> | null>(null)
-  const listenersReadyResolveRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     let cancelled = false
-
-    // Create the promise that will resolve when listeners are ready
-    listenersReadyRef.current = new Promise<void>((resolve) => {
-      listenersReadyResolveRef.current = resolve
-    })
+    const unlisteners: UnlistenFn[] = []
+    const cleanup = () => unlisteners.splice(0).forEach((unlisten) => unlisten())
 
     const setup = async () => {
       const resultUnlisten = await listen<ProbeResult>("probe:result", (event) => {
         if (activeBatchIds.current.has(event.payload.batchId)) {
-          onResult(event.payload.output)
+          callbacks.current.onResult(event.payload.output)
         }
       })
 
@@ -47,43 +44,52 @@ export function useProbeEvents({ onResult, onBatchComplete }: UseProbeEventsOpti
         resultUnlisten()
         return
       }
+      unlisteners.push(resultUnlisten)
 
       const completeUnlisten = await listen<ProbeBatchComplete>(
         "probe:batch-complete",
         (event) => {
           if (activeBatchIds.current.delete(event.payload.batchId)) {
-            onBatchComplete()
+            callbacks.current.onBatchComplete()
           }
         }
       )
 
       if (cancelled) {
-        resultUnlisten()
         completeUnlisten()
         return
       }
-
-      unlisteners.current.push(resultUnlisten, completeUnlisten)
-
-      // Signal that listeners are ready
-      listenersReadyResolveRef.current?.()
+      unlisteners.push(completeUnlisten)
     }
 
-    void setup()
+    let rejectReady: (error: Error) => void
+    const ready = new Promise<void>((resolve, reject) => {
+      rejectReady = reject
+      void setup().then(resolve, reject)
+    })
+    listenersReadyRef.current = ready
+    // Keep the rejection available to startBatch without an unhandled rejection
+    // when listener setup fails before the first refresh.
+    void ready.catch((error) => {
+      cleanup()
+      if (!cancelled) console.error("Failed to listen for probe events:", error)
+    })
 
     return () => {
       cancelled = true
-      unlisteners.current.forEach((unlisten) => unlisten())
-      unlisteners.current = []
+      rejectReady(new Error("Probe listeners stopped"))
+      cleanup()
+      activeBatchIds.current.clear()
       listenersReadyRef.current = null
-      listenersReadyResolveRef.current = null
     }
-  }, [onBatchComplete, onResult])
+  }, [])
 
   const startBatch = useCallback(async (pluginIds?: string[]) => {
-    // Wait for listeners to be ready before starting the batch
-    if (listenersReadyRef.current) {
-      await listenersReadyRef.current
+    const ready = listenersReadyRef.current
+    if (!ready) throw new Error("Probe listeners are not active")
+    await ready
+    if (listenersReadyRef.current !== ready) {
+      throw new Error("Probe listeners stopped")
     }
 
     const batchId =

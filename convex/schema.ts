@@ -10,6 +10,14 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_slug", ["slug"]),
+  organizations: defineTable({
+    clerkOrganizationId: v.string(),
+    teamId: v.id("teams"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_clerkOrganizationId", ["clerkOrganizationId"])
+    .index("by_teamId", ["teamId"]),
   admins: defineTable({
     teamId: v.id("teams"),
     clerkUserId: v.string(),
@@ -69,6 +77,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_deviceId", ["deviceId"])
+    .index("by_team_deviceId", ["teamId", "deviceId"])
     .index("by_developerId_status", ["developerId", "status"])
     .index("by_teamId_status", ["teamId", "status"])
     .index("by_lastSeenAt", ["lastSeenAt"]),

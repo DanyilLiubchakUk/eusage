@@ -1,5 +1,6 @@
 pub mod host_api;
 pub mod manifest;
+pub(crate) mod process;
 pub mod provider_account;
 pub mod runtime;
 

@@ -344,8 +344,8 @@ describe("usePanel", () => {
 
   it("uses max monitor height on Windows so tray position stays stable", async () => {
     const setSize = vi.fn().mockResolvedValue(undefined)
-    currentMonitorMock.mockResolvedValue({ size: { height: 1000 } })
-    getCurrentWindowMock.mockReturnValue({ setSize })
+    currentMonitorMock.mockResolvedValue({ size: { height: 1000 }, workArea: { size: { width: 1920, height: 1000 } }, scaleFactor: 1 })
+    getCurrentWindowMock.mockReturnValue({ setSize, onScaleChanged: vi.fn().mockResolvedValue(vi.fn()) })
 
     const { result, rerender } = renderHook(
       ({ activeView }) =>

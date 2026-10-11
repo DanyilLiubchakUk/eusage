@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react"
 import type { ChartConfiguration, ChartType } from "chart.js"
+import { cn } from "@/lib/utils"
 
 type DashboardChartDataset = {
   label: string
@@ -15,6 +16,7 @@ type DashboardChartProps = {
   labels: string[]
   datasets: DashboardChartDataset[]
   emptyLabel: string
+  fill?: boolean
 }
 
 export function DashboardChart({
@@ -23,6 +25,7 @@ export function DashboardChart({
   labels,
   datasets,
   emptyLabel,
+  fill = false,
 }: DashboardChartProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const hasData = labels.length > 0 && datasets.some((dataset) => dataset.data.length > 0)
@@ -57,15 +60,30 @@ export function DashboardChart({
 
   if (!hasData) {
     return (
-      <div className="admin-chart-frame-empty grid h-full min-h-72 place-items-center rounded-lg border border-dashed bg-muted/40 p-6">
+      <div
+        className={cn(
+          "admin-chart-frame-empty grid place-items-center rounded-lg border border-dashed bg-muted/40 p-6",
+          fill ? "h-full min-h-72" : "h-72"
+        )}
+      >
         <p className="m-0 text-center text-sm text-muted-foreground">{emptyLabel}</p>
       </div>
     )
   }
 
   return (
-    <div className="h-full min-h-72 rounded-lg bg-background/60 p-3">
-      <canvas ref={canvasRef} aria-label={ariaLabel} role="img" />
+    <div
+      className={cn(
+        "admin-chart-frame relative w-full rounded-lg bg-background/60 p-3",
+        fill ? "h-full min-h-72" : "h-72"
+      )}
+    >
+      <canvas
+        ref={canvasRef}
+        aria-label={ariaLabel}
+        role="img"
+        className="block h-full w-full"
+      />
     </div>
   )
 }

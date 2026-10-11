@@ -14,35 +14,21 @@ import {
   isLocalSeedOrigin,
   seedLocalDashboardData,
 } from "./dashboardSeed"
+import { getActiveOrganizationManagerState } from "./organizationScope"
 import { normalizeReportingTimeZone } from "./reportingTimeZone"
 
 export const sourceRows = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-
-    if (!identity) {
-      return unavailableDashboardSource("not-authenticated")
+    const managerState = await getActiveOrganizationManagerState(ctx)
+    if (managerState.status !== "ready") {
+      return unavailableDashboardSource(
+        managerState.status,
+        managerState.team ?? undefined
+      )
     }
 
-    const team = await ctx.db.query("teams").first()
-    const owner = await ctx.db.query("admins").first()
-
-    if (!team || !owner || owner.teamId !== team._id) {
-      return unavailableDashboardSource("setup-state-invalid")
-    }
-
-    const publicTeam = {
-      name: team.name,
-      slug: team.slug,
-      reportingTimeZone: team.reportingTimeZone,
-    }
-
-    if (owner.clerkUserId !== identity.subject) {
-      return unavailableDashboardSource("not-owner", publicTeam)
-    }
-
-    return dashboardSourceRowsForTeam(ctx, team, { includeDeveloperTokens: true })
+    return dashboardSourceRowsForTeam(ctx, managerState.team, { includeDeveloperTokens: true })
   },
 })
 
@@ -65,8 +51,8 @@ export const updateDashboardSettings = mutation({
     reportingTimeZone: v.optional(v.string()),
   },
   handler: async (ctx, input) => {
-    const ownerState = await getOwnerTeamState(ctx)
-    if (ownerState.status !== "ready") return ownerState
+    const managerState = await getManagerTeamState(ctx)
+    if (managerState.status !== "ready") return managerState
     if (input.defaultDateRange !== undefined && !isValidDateRange(input.defaultDateRange)) {
       return {
         status: "invalid-date-range" as const,
@@ -86,11 +72,11 @@ export const updateDashboardSettings = mutation({
 
     const existing = await ctx.db
       .query("dashboardSettings")
-      .withIndex("by_teamId", (q) => q.eq("teamId", ownerState.team._id))
+      .withIndex("by_teamId", (q) => q.eq("teamId", managerState.team._id))
       .first()
     const now = Date.now()
     if (reportingTimeZone) {
-      await ctx.db.patch(ownerState.team._id, {
+      await ctx.db.patch(managerState.team._id, {
         reportingTimeZone,
         updatedAt: now,
       })
@@ -111,7 +97,7 @@ export const updateDashboardSettings = mutation({
       await ctx.db.patch(existing._id, patch)
     } else {
       await ctx.db.insert("dashboardSettings", {
-        teamId: ownerState.team._id,
+        teamId: managerState.team._id,
         defaultDateRange: input.defaultDateRange ?? defaultDashboardSettings().defaultDateRange,
         ...(input.visibleProviderIds === undefined || input.visibleProviderIds === null
           ? {}
@@ -156,8 +142,8 @@ export const updateTvSettings = mutation({
     ),
   },
   handler: async (ctx, input) => {
-    const ownerState = await getOwnerTeamState(ctx)
-    if (ownerState.status !== "ready") return ownerState
+    const managerState = await getManagerTeamState(ctx)
+    if (managerState.status !== "ready") return managerState
     if (input.dateRange !== undefined && !isValidDateRange(input.dateRange)) {
       return {
         status: "invalid-date-range" as const,
@@ -173,7 +159,7 @@ export const updateTvSettings = mutation({
 
     const existing = await ctx.db
       .query("tvSettings")
-      .withIndex("by_teamId", (q) => q.eq("teamId", ownerState.team._id))
+      .withIndex("by_teamId", (q) => q.eq("teamId", managerState.team._id))
       .first()
     const now = Date.now()
     const patch = {
@@ -192,7 +178,7 @@ export const updateTvSettings = mutation({
       await ctx.db.patch(existing._id, patch)
     } else {
       await ctx.db.insert("tvSettings", {
-        teamId: ownerState.team._id,
+        teamId: managerState.team._id,
         dateRange: input.dateRange ?? defaultTvSettings().dateRange,
         ...(input.visibleProviderIds === undefined || input.visibleProviderIds === null
           ? {}
@@ -216,8 +202,8 @@ export const clearTeamData = mutation({
     confirm: v.literal("DELETE TEAM DATA"),
   },
   handler: async (ctx) => {
-    const ownerState = await getOwnerTeamState(ctx)
-    if (ownerState.status !== "ready") return ownerState
+    const managerState = await getManagerTeamState(ctx)
+    if (managerState.status !== "ready") return managerState
 
     const deleted = {
       developers: 0,
@@ -231,15 +217,70 @@ export const clearTeamData = mutation({
       usageSnapshots: 0,
     }
 
-    deleted.metricSamples = await deleteTeamRows(ctx, "metricSamples", ownerState.team._id)
-    deleted.usageSnapshots = await deleteTeamRows(ctx, "usageSnapshots", ownerState.team._id)
-    deleted.rawPayloads = await deleteTeamRows(ctx, "rawPayloads", ownerState.team._id)
-    deleted.syncErrors = await deleteTeamRows(ctx, "syncErrors", ownerState.team._id)
-    deleted.providerAccounts = await deleteTeamRows(ctx, "providerAccounts", ownerState.team._id)
-    deleted.devices = await deleteTeamRows(ctx, "devices", ownerState.team._id)
-    deleted.developerTokens = await deleteTeamRows(ctx, "developerTokens", ownerState.team._id)
-    deleted.providers = await deleteTeamRows(ctx, "providers", ownerState.team._id)
-    deleted.developers = await deleteTeamRows(ctx, "developers", ownerState.team._id)
+    const teamId = managerState.team._id
+    deleted.metricSamples = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("metricSamples")
+        .withIndex("by_team_metric_day", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.usageSnapshots = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("usageSnapshots")
+        .withIndex("by_team_updatedAt", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.rawPayloads = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("rawPayloads")
+        .withIndex("by_team_provider_capturedAt", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.syncErrors = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("syncErrors")
+        .withIndex("by_team_createdAt", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.providerAccounts = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("providerAccounts")
+        .withIndex("by_team_account_fingerprint", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.devices = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("devices")
+        .withIndex("by_teamId_status", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.developerTokens = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("developerTokens")
+        .withIndex("by_teamId_status", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.providers = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("providers")
+        .withIndex("by_teamId_status", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
+    deleted.developers = await deleteRows(
+      ctx,
+      await ctx.db
+        .query("developers")
+        .withIndex("by_teamId_status", (q) => q.eq("teamId", teamId))
+        .collect()
+    )
 
     return {
       status: "ok" as const,
@@ -254,8 +295,8 @@ export const seedLocalMockData = mutation({
     clientOrigin: v.string(),
   },
   handler: async (ctx, input) => {
-    const ownerState = await getOwnerTeamState(ctx)
-    if (ownerState.status !== "ready") return ownerState
+    const managerState = await getManagerTeamState(ctx)
+    if (managerState.status !== "ready") return managerState
     if (!isLocalSeedOrigin(input.clientOrigin)) {
       return {
         status: "not-local-dev" as const,
@@ -263,7 +304,7 @@ export const seedLocalMockData = mutation({
       }
     }
 
-    const result = await seedLocalDashboardData(ctx, ownerState.team._id)
+    const result = await seedLocalDashboardData(ctx, managerState.team._id)
     return {
       status: "ok" as const,
       ...result,
@@ -271,21 +312,16 @@ export const seedLocalMockData = mutation({
   },
 })
 
-async function getOwnerTeamState(ctx: MutationCtx) {
-  const identity = await ctx.auth.getUserIdentity()
-  if (!identity) return { status: "not-authenticated" as const }
-
-  const team = await ctx.db.query("teams").first()
-  const owner = await ctx.db.query("admins").first()
-  if (!team || !owner || owner.teamId !== team._id) {
-    return { status: "setup-state-invalid" as const }
+async function getManagerTeamState(ctx: MutationCtx) {
+  const managerState = await getActiveOrganizationManagerState(ctx)
+  if (managerState.status !== "ready") {
+    return { status: managerState.status }
   }
-  if (owner.clerkUserId !== identity.subject) return { status: "not-owner" as const }
 
-  return { status: "ready" as const, team: team as { _id: Id<"teams"> } }
+  return { status: "ready" as const, team: managerState.team }
 }
 
-async function deleteTeamRows<
+async function deleteRows<
   TTable extends
     | "developers"
     | "developerTokens"
@@ -296,12 +332,10 @@ async function deleteTeamRows<
     | "rawPayloads"
     | "syncErrors"
     | "usageSnapshots",
->(ctx: MutationCtx, table: TTable, teamId: Id<"teams">) {
-  const rows = await ctx.db.query(table).collect()
+>(ctx: MutationCtx, rows: Array<{ _id: Id<TTable> }>) {
   let count = 0
 
   for (const row of rows) {
-    if (row.teamId !== teamId) continue
     await ctx.db.delete(row._id)
     count += 1
   }

@@ -59,6 +59,13 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
   return {
     getTeam: async () =>
       ctx.db.query("teams").first() as Promise<DeveloperTeamRecord | null>,
+    getTeamById: async (teamId) =>
+      ctx.db.get(teamId as Id<"teams">) as Promise<DeveloperTeamRecord | null>,
+    getOrganizationByTeamId: async (teamId) =>
+      ctx.db
+        .query("organizations")
+        .withIndex("by_teamId", (q) => q.eq("teamId", teamId as Id<"teams">))
+        .first(),
     getTokenByHash: async (tokenHash) =>
       ctx.db
         .query("developerTokens")
@@ -66,10 +73,12 @@ function createUsageIngestStore(ctx: MutationCtx): UsageIngestStore {
         .first(),
     getDeveloper: async (developerId) =>
       ctx.db.get(developerId as Id<"developers">),
-    getDeviceByDeviceId: async (deviceId) =>
+    getDeviceByTeamAndDeviceId: async (teamId, deviceId) =>
       ctx.db
         .query("devices")
-        .withIndex("by_deviceId", (q) => q.eq("deviceId", deviceId))
+        .withIndex("by_team_deviceId", (q) =>
+          q.eq("teamId", teamId as Id<"teams">).eq("deviceId", deviceId)
+        )
         .first(),
     updateDevice: async (deviceRecordId, patch) => {
       const { developerId, ...rest } = patch

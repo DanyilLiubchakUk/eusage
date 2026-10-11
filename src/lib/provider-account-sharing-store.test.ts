@@ -6,39 +6,23 @@ import {
 } from "@/lib/provider-account-sharing-store"
 
 const storeState = new Map<string, unknown>()
-const storeDeleteMock = vi.fn()
-const storeSaveMock = vi.fn()
+const invoke = vi.hoisted(() => vi.fn())
+vi.mock("@tauri-apps/api/core", () => ({ invoke }))
 
-vi.mock("@tauri-apps/plugin-store", () => ({
-  LazyStore: class {
-    async get<T>(key: string): Promise<T | null> {
-      if (!storeState.has(key)) return undefined as T | null
-      return storeState.get(key) as T | null
-    }
-    async set<T>(key: string, value: T): Promise<void> {
-      storeState.set(key, value)
-    }
-    async delete(key: string): Promise<void> {
-      storeDeleteMock(key)
-      storeState.delete(key)
-    }
-    async save(): Promise<void> {
-      storeSaveMock()
-    }
-  },
-}))
+const readTeamSettings = vi.hoisted(() => vi.fn())
+vi.mock("@/lib/team-settings", () => ({ readTeamSettings }))
 
 describe("provider account sharing store", () => {
   beforeEach(() => {
     storeState.clear()
-    storeDeleteMock.mockReset()
-    storeSaveMock.mockReset()
+    readTeamSettings.mockImplementation(async () => Object.fromEntries(storeState))
+    invoke.mockResolvedValue(true)
   })
 
   it("loads default sharing settings when missing", async () => {
     saveTeamConnection("team-a")
     await expect(loadProviderAccountSharingSettings()).resolves.toEqual({
-      sharedLocalAccountFingerprints: [],
+      sharedLocalAccountFingerprints: [], connectionId: null,
     })
   })
 
@@ -50,7 +34,7 @@ describe("provider account sharing store", () => {
     })
 
     await expect(loadProviderAccountSharingSettings()).resolves.toEqual({
-      sharedLocalAccountFingerprints: ["fp-work", "fp-side"],
+      sharedLocalAccountFingerprints: ["fp-work", "fp-side"], connectionId: null,
     })
   })
 
@@ -62,34 +46,91 @@ describe("provider account sharing store", () => {
     })
 
     await expect(loadProviderAccountSharingSettings()).resolves.toEqual({
-      sharedLocalAccountFingerprints: [],
+      sharedLocalAccountFingerprints: [], connectionId: null,
     })
   })
 
-  it("saves and clears sharing settings", async () => {
+  it.each([undefined, "old-connection"])("rejects sharing retained from an earlier connection to the same Team (%s)", async (connectionId) => {
+    storeState.set("teamConnection", { teamFingerprint: "team-a", connectionId: "new-connection" })
+    storeState.set("providerAccountSharing", {
+      teamFingerprint: "team-a", connectionId, sharedLocalAccountFingerprints: ["fp-work"],
+    })
+    await expect(loadProviderAccountSharingSettings()).resolves.toEqual({
+      sharedLocalAccountFingerprints: [], connectionId: "new-connection",
+    })
+  })
+
+  it("saves and clears through the owner with the expected identity", async () => {
+    storeState.set("teamConnection", { connectionId: "connection-a" })
+    const settings = { connectionId: "connection-a", sharedLocalAccountFingerprints: ["fp-work"] }
+    await saveProviderAccountSharingSettings(settings)
+    await clearProviderAccountSharingSettings(settings)
+    expect(invoke).toHaveBeenNthCalledWith(1, "save_provider_account_sharing", {
+      settings: { connectionId: "connection-a", sharedLocalAccountFingerprints: ["fp-work"] }, expectedConnectionId: "connection-a",
+    })
+    expect(invoke).toHaveBeenNthCalledWith(2, "save_provider_account_sharing", {
+      settings: null, expectedConnectionId: "connection-a",
+    })
+  })
+
+  it("returns the native rejection after the Team connection changes", async () => {
+    invoke.mockResolvedValueOnce(false)
+    await expect(saveProviderAccountSharingSettings({ sharedLocalAccountFingerprints: ["fp-work"] })).resolves.toBe(false)
+  })
+
+  it("finishes a pending save before reset, retaining each invocation's identity", async () => {
+    storeState.set("teamConnection", { connectionId: "connection-a" })
+    let finish!: (value: boolean) => void
+    invoke.mockImplementationOnce(() => new Promise<boolean>((resolve) => { finish = resolve }))
+    const settings = { connectionId: "connection-a", sharedLocalAccountFingerprints: ["fp-work"] }
+    const save = saveProviderAccountSharingSettings(settings)
+    await vi.waitFor(() => expect(invoke).toHaveBeenCalledTimes(1))
+    const reset = clearProviderAccountSharingSettings(settings)
+    storeState.set("teamConnection", { connectionId: "connection-b" })
+    await Promise.resolve()
+    expect(invoke).toHaveBeenCalledTimes(1)
+    finish(true)
+    await Promise.all([save, reset])
+    expect(invoke).toHaveBeenLastCalledWith("save_provider_account_sharing", {
+      settings: null, expectedConnectionId: "connection-a",
+    })
+  })
+
+  it("never stamps old displayed consent with a newer connection identity", async () => {
+    storeState.set("teamConnection", { connectionId: "connection-b", teamFingerprint: "team-b" })
+    const previous = { connectionId: "connection-a", sharedLocalAccountFingerprints: ["fp-work"] }
+    await saveProviderAccountSharingSettings(previous)
+    expect(invoke).toHaveBeenCalledWith("save_provider_account_sharing", {
+      settings: previous, expectedConnectionId: "connection-a",
+    })
+    expect(readTeamSettings).not.toHaveBeenCalled()
+  })
+
+  it("continues with reset after a failed save", async () => {
+    invoke.mockRejectedValueOnce(new Error("synthetic disk failure"))
+    await expect(saveProviderAccountSharingSettings({ sharedLocalAccountFingerprints: ["fp-work"] })).rejects.toThrow("synthetic disk failure")
+    await expect(clearProviderAccountSharingSettings({ sharedLocalAccountFingerprints: [] })).resolves.toBe(true)
+    expect(invoke).toHaveBeenCalledTimes(2)
+  })
+
+  it("reads after a pending sharing write commits", async () => {
+    let finish!: () => void
+    invoke.mockImplementationOnce(() => new Promise<boolean>((resolve) => {
+      finish = () => {
+        storeState.set("providerAccountSharing", { teamFingerprint: "team-a", sharedLocalAccountFingerprints: [] })
+        resolve(true)
+      }
+    }))
     saveTeamConnection("team-a")
-    await saveProviderAccountSharingSettings({
-      sharedLocalAccountFingerprints: ["fp-work"],
-    })
-    expect(storeState.get("providerAccountSharing")).toEqual({
-      teamFingerprint: "team-a",
-      sharedLocalAccountFingerprints: ["fp-work"],
-    })
-
-    await clearProviderAccountSharingSettings()
-
-    expect(storeDeleteMock).toHaveBeenCalledWith("providerAccountSharing")
-    expect(storeState.has("providerAccountSharing")).toBe(false)
-    expect(storeSaveMock).toHaveBeenCalled()
-  })
-
-  it("does not save sharing without a current team fingerprint", async () => {
-    await expect(
-      saveProviderAccountSharingSettings({
-        sharedLocalAccountFingerprints: ["fp-work"],
-      })
-    ).rejects.toThrow("Team fingerprint is required")
-    expect(storeState.has("providerAccountSharing")).toBe(false)
+    storeState.set("providerAccountSharing", { teamFingerprint: "team-a", sharedLocalAccountFingerprints: ["fp-work"] })
+    const save = saveProviderAccountSharingSettings({ sharedLocalAccountFingerprints: [] })
+    await vi.waitFor(() => expect(invoke).toHaveBeenCalledTimes(1))
+    const load = loadProviderAccountSharingSettings()
+    await Promise.resolve()
+    expect(readTeamSettings).not.toHaveBeenCalled()
+    finish()
+    await save
+    await expect(load).resolves.toMatchObject({ sharedLocalAccountFingerprints: [] })
   })
 })
 

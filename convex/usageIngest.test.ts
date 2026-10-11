@@ -64,6 +64,29 @@ describe("usage ingest", () => {
     expect(fake.devices[0].lastSyncAt).toBe(now)
   })
 
+  it("rejects usage uploads for a device in another Organization", async () => {
+    const fake = await createUsageIngestTestStore()
+    fake.devices[0].teamId = "team-other"
+
+    const result = await ingestUsageBatch({
+      input: {
+        tokenHash: fake.tokenHash,
+        batch: usageBatch([mockUsageProvider()]),
+      },
+      now,
+      store: fake.store,
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: "error",
+      code: "device-not-found",
+    })
+    expect(fake.rawPayloads).toHaveLength(0)
+    expect(fake.usageSnapshots).toHaveLength(0)
+    expect(fake.metricSamples).toHaveLength(0)
+  })
+
   it("requires upload, summary, and extractor versions", async () => {
     const fake = await createUsageIngestTestStore()
 

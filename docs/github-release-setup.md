@@ -107,6 +107,7 @@ Before tagging a release:
 3. Bump the version in:
    - `package.json`
    - `src-tauri/Cargo.toml`
+   - `src-tauri/Cargo.lock`
    - `src-tauri/tauri.conf.json`
 4. Commit the version bump.
 5. Tag the same version.
@@ -125,16 +126,15 @@ The tag starts `.github/workflows/publish.yml`.
 
 The `Publish` workflow should:
 
-1. Build macOS Apple Silicon DMG.
-2. Build macOS Intel DMG.
-3. Build Windows x64 installer.
-4. Upload GitHub Release assets.
-5. Upload `latest.json`.
-6. Upload updater `.sig` files.
-7. Download the final release installers.
-8. Compute SHA256 hashes.
-9. Commit updated `Casks/eusage.rb` to `homebrew-eusage`.
-10. Commit updated `bucket/eusage.json` to `scoop-eusage`.
+1. Pass the Windows helper and popup regressions.
+2. Build macOS Apple Silicon/Intel DMGs, Windows x64 installers and Linux x64 DEB/AppImage packages from locked dependencies.
+3. Upload installers, `latest.json` and updater `.sig` files to a draft release.
+4. Require every platform build to succeed, then check all expected assets and updater entries.
+5. Publish the release with its matching section from `CHANGELOG.md`.
+6. Download the macOS and Windows installers and compute SHA256 hashes.
+7. Commit updated `Casks/eusage.rb` to `homebrew-eusage` and `bucket/eusage.json` to `scoop-eusage`.
+
+Linux downloads use the existing eUsage GitHub Release. No additional repository is required. Asset presence checks do not replace native installation or signed-updater acceptance.
 
 ## What to verify after release
 
@@ -143,6 +143,9 @@ In GitHub Release:
 - `eUsage_VERSION_aarch64.dmg`
 - `eUsage_VERSION_x64.dmg`
 - `eUsage_VERSION_x64-setup.exe`
+- `eUsage_VERSION_x64_en-US.msi`
+- `eUsage_VERSION_amd64.deb`
+- `eUsage_VERSION_amd64.AppImage`
 - `latest.json`
 - updater `.sig` files
 

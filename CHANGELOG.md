@@ -1,5 +1,77 @@
 # Changelog
 
+## v0.6.30
+
+### New Features
+- Add Linux DEB/AppImage build support and secure Team storage through Secret Service by DanyilLiubchak
+- Add organization-scoped workspaces, role gates, first-run states and the refreshed landing page in the web source by DanyilLiubchak
+
+### Bug Fixes
+- Keep tray popups within usable monitor areas and clear of the tray icon during resizing by DanyilLiubchak
+- Hide background helper consoles and own Windows helper descendants through completion or timeout by DanyilLiubchak
+- Preserve sharing on reopen and serialize Team/provider settings updates by DanyilLiubchak
+- Isolate workspace query caches and enforce device ownership by DanyilLiubchak
+- Validate local HTTP requests and redact sensitive provider data from uploads and errors by DanyilLiubchak
+- Complete provider scans within the shared worker limit by DanyilLiubchak
+- Patch the TanStack Start server response vulnerability CVE-2026-102989 by DanyilLiubchak
+- Direct desktop connection setup instructions to eUsage by DanyilLiubchak
+
+### Chores
+- Update Seroval and Vitest to compatible patched versions by DanyilLiubchak
+- Require Windows regressions, locked platform builds, valid updater signatures and complete installer metadata before publishing releases and distribution updates by DanyilLiubchak
+
+Web and Convex changes take effect when the hosted app is deployed. The desktop release workflow builds desktop packages; repository Git integrations may also trigger hosted deployments on push.
+
+---
+
+### Changelog
+
+**Full Changelog**: [v0.6.29...v0.6.30](https://github.com/DanyilLiubchakUk/eusage/compare/v0.6.29...v0.6.30)
+
+- [af929f9](https://github.com/DanyilLiubchakUk/eusage/commit/af929f99ea8c92f63d28c67fde01be76ec9bbd54) fix: direct connection setup instructions to eUsage by DanyilLiubchak
+- [cd6ad35](https://github.com/DanyilLiubchakUk/eusage/commit/cd6ad354a1af83d7c6059bc76623416a38c75bd5) ci: archive Windows installers without drive-path parsing by DanyilLiubchak
+- [830f92d](https://github.com/DanyilLiubchakUk/eusage/commit/830f92df7f09e0c35dcdb37bedc64407cc71885b) ci: verify updater signatures before publication by DanyilLiubchak
+- [8eb9de4](https://github.com/DanyilLiubchakUk/eusage/commit/8eb9de41fa961d4ff86a975926e6f15de129fdd9) fix: patch TanStack Start server response vulnerability by DanyilLiubchak
+- [1d58920](https://github.com/DanyilLiubchakUk/eusage/commit/1d5892046d3ffe4712a569e26a5b91995653fa21) test: model Windows descendant handle inheritance by DanyilLiubchak
+- [1777998](https://github.com/DanyilLiubchakUk/eusage/commit/1777998a76efcf8e3744f5acd70af5d9a92f0a64) ci: build every desktop installer before release by DanyilLiubchak
+- [77fdacd](https://github.com/DanyilLiubchakUk/eusage/commit/77fdacda818b365464c7f5d908188f8cc71b19b1) test: match usage fixtures to their reporting timezone by DanyilLiubchak
+- [566a985](https://github.com/DanyilLiubchakUk/eusage/commit/566a9853d40b400876ca743c3f147ad9be8f7c0a) ci: verify every platform before publishing a release by DanyilLiubchak
+- [9d8bf20](https://github.com/DanyilLiubchakUk/eusage/commit/9d8bf203352e145962431618d4e8eb7b6bfebbce) docs: record Windows preflight and release gates by DanyilLiubchak
+- [2ef4c0f](https://github.com/DanyilLiubchakUk/eusage/commit/2ef4c0f9a59c03577ea158f0b8578dde54fe8fbe) ci: gate releases on Windows checks and complete builds by DanyilLiubchak
+- [32a3324](https://github.com/DanyilLiubchakUk/eusage/commit/32a33241439d040e27f2f8a43c3b45549808a824) fix: own Windows helper descendants until completion by DanyilLiubchak
+- [2e8209c](https://github.com/DanyilLiubchakUk/eusage/commit/2e8209caff0b660c63d711cdddcc021e7042223d) fix: keep tray popups clear of their icon by DanyilLiubchak
+- [a77e364](https://github.com/DanyilLiubchakUk/eusage/commit/a77e364deb92154cc8254b88671d3c1be43cc6aa) fix: integrate provider sharing startup readiness by DanyilLiubchak
+- [d6cbb6c](https://github.com/DanyilLiubchakUk/eusage/commit/d6cbb6cde342241d48bffdb273a9fc5760e635ef) docs: record desktop audit validation limits by DanyilLiubchak
+- [acec62e](https://github.com/DanyilLiubchakUk/eusage/commit/acec62e3688259ccbc382b6bd2e693cee91f5b14) build: package Linux installers in the existing release workflow by DanyilLiubchak
+- [4319fb0](https://github.com/DanyilLiubchakUk/eusage/commit/4319fb0b91ebec56ac563e6840df23cd1b52e072) feat: store Linux Team credentials in Secret Service by DanyilLiubchak
+- [eb18252](https://github.com/DanyilLiubchakUk/eusage/commit/eb18252907d4676b73087cf12b53b9e2bbfdd3d5) fix: use the installed Clerk appearance types by DanyilLiubchak
+- [b66c92d](https://github.com/DanyilLiubchakUk/eusage/commit/b66c92d321d9adc310307bcf0d1c8b4609944e6b) fix: isolate workspace queries by authenticated identity by DanyilLiubchak
+- [72b37a6](https://github.com/DanyilLiubchakUk/eusage/commit/72b37a62654c4da6880e2aa7d8d82410c0350f7f) fix: serialize provider account registry updates by DanyilLiubchak
+- [f4f457d](https://github.com/DanyilLiubchakUk/eusage/commit/f4f457d03f854bff7f3bbaddda8904bccb9b47d4) fix: serialize Team connection ownership changes by DanyilLiubchak
+- [23f20e7](https://github.com/DanyilLiubchakUk/eusage/commit/23f20e7cc8700e5c8cb933a7ccd4d52fafe517bd) fix: constrain tray popups to monitor work areas by DanyilLiubchak
+- [99b948f](https://github.com/DanyilLiubchakUk/eusage/commit/99b948f5d4647b72d4301c6f7c6a0dc9613568cd) fix: complete probe batches within the shared worker limit by DanyilLiubchak
+- [fec338e](https://github.com/DanyilLiubchakUk/eusage/commit/fec338ed323ae06469b1eca089380a7d2421e184) fix: omit request URLs from provider HTTP errors by DanyilLiubchak
+- [91e35f9](https://github.com/DanyilLiubchakUk/eusage/commit/91e35f903349994ef2ed7ce7611cd2fbdc3ed4cb) fix: bound background subprocess execution by DanyilLiubchak
+- [f57e658](https://github.com/DanyilLiubchakUk/eusage/commit/f57e658618c3bb6ce06d8637f64c676532bc408e) fix: redact sensitive provider data by DanyilLiubchak
+- [7b43cb8](https://github.com/DanyilLiubchakUk/eusage/commit/7b43cb872d9b1a8b03e865493b92d35ba605183d) fix: validate complete local HTTP requests by DanyilLiubchak
+- [aa48ca2](https://github.com/DanyilLiubchakUk/eusage/commit/aa48ca2aa2d83aafb1ebe0f195bf881ea3121de2) fix: reject cross-developer device operations by DanyilLiubchak
+- [d53aad5](https://github.com/DanyilLiubchakUk/eusage/commit/d53aad58c617985525c29d575f998259413b1dac) chore: update Vitest to the patched compatible release by DanyilLiubchak
+- [bb467df](https://github.com/DanyilLiubchakUk/eusage/commit/bb467df15deb0fac3b6deef0bec82e0869b2cd1f) fix: pin patched Seroval serialization by DanyilLiubchak
+- [f05866f](https://github.com/DanyilLiubchakUk/eusage/commit/f05866fe6c995e253dfea51d1ae5a0f3b49813d6) feat: polish saas landing and auth shell by DanyilLiubchak
+- [b0f13a6](https://github.com/DanyilLiubchakUk/eusage/commit/b0f13a676b059bcc52e8d8d05b6b63c309f8405b) feat: add hero preview tilt and hover sliders by DanyilLiubchak
+- [2aca42a](https://github.com/DanyilLiubchakUk/eusage/commit/2aca42ade93c00e69e53ff1f6d3d33468b907ce2) refactor: align landing mock with cache-aware cost mix by DanyilLiubchak
+- [1756f98](https://github.com/DanyilLiubchakUk/eusage/commit/1756f988653f7f21f88550b31e5c9eafbe237ace) feat: redesign landing page with usage preview by DanyilLiubchak
+- [f6c37f0](https://github.com/DanyilLiubchakUk/eusage/commit/f6c37f028a2340f7fc4a556ae7f43b7413fa2fef) style: refresh overview shell theme and chrome by DanyilLiubchak
+- [6332cc3](https://github.com/DanyilLiubchakUk/eusage/commit/6332cc3627ee2c340561b16ba989fb5a12d02d7c) feat: resolve owner scope without org claim by DanyilLiubchak
+- [982d577](https://github.com/DanyilLiubchakUk/eusage/commit/982d577abd1d393fcc27ba0e1531d01c89c97372) feat: polish organization first-run states by DanyilLiubchak
+- [76163d0](https://github.com/DanyilLiubchakUk/eusage/commit/76163d0ac18622b9a124d688977af563d6d5d94d) feat: scope desktop API by organization by DanyilLiubchak
+- [b77b638](https://github.com/DanyilLiubchakUk/eusage/commit/b77b6384f7626264768e6dbe188844bb71ed3c64) fix: preserve provider account sharing on reopen by DanyilLiubchak
+- [ea6f33c](https://github.com/DanyilLiubchakUk/eusage/commit/ea6f33ce4cb1d8d23b3e0ac8301554d659b833bb) feat: add organization role gates by DanyilLiubchak
+- [68e09c0](https://github.com/DanyilLiubchakUk/eusage/commit/68e09c09c507f7a1e6d3bb53112887e541ee77f9) feat: scope convex data by organization by DanyilLiubchak
+- [f7f97fb](https://github.com/DanyilLiubchakUk/eusage/commit/f7f97fb2fd223689d5245e3b8e834d127ff4b3eb) feat: add clerk organization shell by DanyilLiubchak
+- [a6c95bd](https://github.com/DanyilLiubchakUk/eusage/commit/a6c95bda9b85cd88846d676294d1f9f9b4f26052) feat: add saas landing overview route by DanyilLiubchak
+- [2465647](https://github.com/DanyilLiubchakUk/eusage/commit/2465647e7297a86c28e22a052dd1ee146c23c038) docs: plan saas organization platform by DanyilLiubchak
+
 ## v0.6.29
 
 ### Bug Fixes

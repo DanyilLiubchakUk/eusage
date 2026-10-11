@@ -1,9 +1,12 @@
 #[cfg(target_os = "macos")]
 mod app_nap;
 mod config;
+mod app_settings;
+mod team_settings_store;
 mod local_http_api;
 mod panel;
 mod plugin_engine;
+mod team_commands;
 mod team_credentials;
 mod team_sync;
 mod tray;
@@ -13,7 +16,7 @@ mod webkit_config;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 
 use serde::Serialize;
 use tauri::{Emitter, Manager};
@@ -28,6 +31,47 @@ const MAX_CONCURRENT_PROBES: usize = 4;
 
 fn probe_worker_count(plugin_count: usize) -> usize {
     plugin_count.min(MAX_CONCURRENT_PROBES)
+}
+
+fn active_probes() -> &'static (Mutex<usize>, Condvar) {
+    static ACTIVE: OnceLock<(Mutex<usize>, Condvar)> = OnceLock::new();
+    ACTIVE.get_or_init(|| (Mutex::new(0), Condvar::new()))
+}
+
+struct ProbePermit;
+
+impl ProbePermit {
+    fn acquire() -> Self {
+        let (count, available) = active_probes();
+        let mut active = available
+            .wait_while(count.lock().expect("probe limit poisoned"), |active| {
+                *active >= MAX_CONCURRENT_PROBES
+            })
+            .expect("probe limit poisoned");
+        *active += 1;
+        Self
+    }
+}
+
+impl Drop for ProbePermit {
+    fn drop(&mut self) {
+        let (count, available) = active_probes();
+        *count.lock().expect("probe limit poisoned") -= 1;
+        available.notify_one();
+    }
+}
+
+fn run_probe_safely(
+    plugin: &plugin_engine::manifest::LoadedPlugin,
+    run: impl FnOnce() -> plugin_engine::runtime::PluginOutput,
+) -> plugin_engine::runtime::PluginOutput {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)) {
+        Ok(output) => output,
+        Err(_) => {
+            log::error!("probe {} panicked", plugin.manifest.id);
+            plugin_engine::runtime::error_output(plugin, "The plugin failed. Try again.".to_string())
+        }
+    }
 }
 
 #[cfg(desktop)]
@@ -157,59 +201,6 @@ fn open_devtools(#[allow(unused)] app_handle: tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn save_team_token(token: String) -> Result<(), String> {
-    team_credentials::save_team_token(&token)
-}
-
-#[tauri::command]
-fn read_team_token() -> Result<Option<String>, String> {
-    team_credentials::read_team_token()
-}
-
-#[tauri::command]
-fn delete_team_token() -> Result<(), String> {
-    team_credentials::delete_team_token()
-}
-
-#[tauri::command]
-fn update_shared_provider_account_label(
-    state: tauri::State<'_, Mutex<AppState>>,
-    provider_id: String,
-    local_account_fingerprint: String,
-    label: String,
-) -> Result<(), String> {
-    let app_data_dir = {
-        let locked = state.lock().map_err(|e| e.to_string())?;
-        locked.app_data_dir.clone()
-    };
-    team_sync::update_shared_provider_account_label(
-        &app_data_dir,
-        &provider_id,
-        &local_account_fingerprint,
-        &label,
-    )
-}
-
-#[tauri::command]
-fn upload_shared_provider_account_current_data(
-    state: tauri::State<'_, Mutex<AppState>>,
-    provider_id: String,
-    local_account_fingerprint: String,
-    label: String,
-) -> Result<team_sync::CurrentSharedProviderAccountUploadResult, String> {
-    let app_data_dir = {
-        let locked = state.lock().map_err(|e| e.to_string())?;
-        locked.app_data_dir.clone()
-    };
-    team_sync::upload_current_shared_provider_account_data(
-        &app_data_dir,
-        &provider_id,
-        &local_account_fingerprint,
-        &label,
-    )
-}
-
-#[tauri::command]
 async fn start_probe_batch(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, Mutex<AppState>>,
@@ -321,37 +312,32 @@ async fn start_probe_batch(
                 };
 
                 let plugin_id = plugin.manifest.id.clone();
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let permit = ProbePermit::acquire();
+                let output = run_probe_safely(&plugin, || {
                     plugin_engine::runtime::run_probe(&plugin, &data_dir, &resources, &version)
-                }));
+                });
+                drop(permit);
 
-                match result {
-                    Ok(output) => {
-                        let has_error = output.lines.iter().any(|line| {
-                            matches!(line, plugin_engine::runtime::MetricLine::Badge { label, .. } if label == "Error")
-                        });
-                        if has_error {
-                            log::warn!("probe {} completed with error", plugin_id);
-                        } else {
-                            log::info!(
-                                "probe {} completed ok ({} lines)",
-                                plugin_id,
-                                output.lines.len()
-                            );
-                            local_http_api::cache_successful_output(&output);
-                        }
-                        let _ = handle.emit(
-                            "probe:result",
-                            ProbeResult {
-                                batch_id: bid.clone(),
-                                output,
-                            },
-                        );
-                    }
-                    Err(_) => {
-                        log::error!("probe {} panicked", plugin_id);
-                    }
+                let has_error = output.lines.iter().any(|line| {
+                    matches!(line, plugin_engine::runtime::MetricLine::Badge { label, .. } if label == "Error")
+                });
+                if has_error {
+                    log::warn!("probe {} completed with error", plugin_id);
+                } else {
+                    log::info!(
+                        "probe {} completed ok ({} lines)",
+                        plugin_id,
+                        output.lines.len()
+                    );
+                    local_http_api::cache_successful_output(&output);
                 }
+                let _ = handle.emit(
+                    "probe:result",
+                    ProbeResult {
+                        batch_id: bid.clone(),
+                        output,
+                    },
+                );
 
                 if counter.fetch_sub(1, Ordering::SeqCst) == 1 {
                     log::info!("probe batch {} complete", completion_bid);
@@ -526,11 +512,14 @@ pub fn run() {
             get_desktop_platform,
             get_detected_device_name,
             open_devtools,
-            save_team_token,
-            read_team_token,
-            delete_team_token,
-            update_shared_provider_account_label,
-            upload_shared_provider_account_current_data,
+            team_commands::read_team_token,
+            team_commands::read_team_settings,
+            team_commands::replace_team_connection,
+            team_commands::update_team_connection,
+            team_commands::clear_team_connection,
+            team_commands::save_provider_account_sharing,
+            team_commands::update_shared_provider_account_label,
+            team_commands::upload_shared_provider_account_current_data,
             start_probe_batch,
             list_plugins,
             get_log_path,
@@ -554,6 +543,8 @@ pub fn run() {
 
             let app_data_dir = app.path().app_data_dir().expect("no app data dir");
             let resource_dir = app.path().resource_dir().expect("no resource dir");
+            #[cfg(not(test))]
+            app_settings::init(app.handle(), &app_data_dir).map_err(std::io::Error::other)?;
             let app_data_dir_tail = app_data_dir
                 .file_name()
                 .and_then(|value| value.to_str())
@@ -631,7 +622,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{MAX_CONCURRENT_PROBES, probe_worker_count};
+    use super::*;
 
     #[test]
     fn probe_worker_count_is_bounded() {
@@ -645,5 +636,48 @@ mod tests {
             probe_worker_count(MAX_CONCURRENT_PROBES + 1),
             MAX_CONCURRENT_PROBES
         );
+    }
+
+    #[test]
+    fn probe_limit_is_shared_across_workers() {
+        let active = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+        let start = Arc::new(std::sync::Barrier::new(9));
+        let workers: Vec<_> = (0..8).map(|_| {
+            let active = active.clone();
+            let peak = peak.clone();
+            let start = start.clone();
+            std::thread::spawn(move || {
+                start.wait();
+                let _permit = ProbePermit::acquire();
+                let count = active.fetch_add(1, Ordering::SeqCst) + 1;
+                peak.fetch_max(count, Ordering::SeqCst);
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                active.fetch_sub(1, Ordering::SeqCst);
+            })
+        }).collect();
+        start.wait();
+        for worker in workers {
+            worker.join().unwrap();
+        }
+        assert!(peak.load(Ordering::SeqCst) <= MAX_CONCURRENT_PROBES);
+        assert_eq!(active.load(Ordering::SeqCst), 0);
+        assert_eq!(*active_probes().0.lock().unwrap(), 0);
+    }
+
+    #[test]
+    fn probe_panic_returns_error_for_the_same_provider() {
+        let plugin = plugin_engine::manifest::LoadedPlugin {
+            manifest: serde_json::from_value(serde_json::json!({
+                "schemaVersion": 1, "id": "test", "name": "Test", "version": "0.0.0",
+                "entry": "plugin.js", "icon": "icon.svg", "lines": [],
+            })).unwrap(),
+            plugin_dir: PathBuf::new(),
+            entry_script: String::new(),
+            icon_data_url: String::new(),
+        };
+        let output = run_probe_safely(&plugin, || panic!("synthetic probe panic"));
+        assert_eq!(output.provider_id, "test");
+        assert!(matches!(&output.lines[0], plugin_engine::runtime::MetricLine::Badge { label, .. } if label == "Error"));
     }
 }

@@ -34,6 +34,16 @@ enum NearestEdge {
 
 const SCREEN_EDGE_MARGIN_PX: f64 = 12.0;
 
+#[cfg(any(target_os = "windows", test))]
+pub fn fit_popup_to_work_area(work_area: PhysicalRect, popup: PhysicalPopupSize) -> PhysicalPopupSize {
+    PhysicalPopupSize {
+        width: popup.width.min(work_area.width.max(1.0)),
+        height: popup
+            .height
+            .min((work_area.height - 2.0 * SCREEN_EDGE_MARGIN_PX).max(1.0)),
+    }
+}
+
 pub fn rect_contains_point(rect: PhysicalRect, point: PhysicalPoint) -> bool {
     point.x >= rect.x
         && point.x < rect.x + rect.width
@@ -55,156 +65,76 @@ fn clamp(value: f64, min: f64, max: f64) -> f64 {
     value.max(min).min(max)
 }
 
-fn nearest_monitor_edge(monitor: PhysicalRect, point: PhysicalPoint) -> NearestEdge {
-    let distances = [
-        (NearestEdge::Top, point.y - monitor.y),
-        (NearestEdge::Right, monitor.x + monitor.width - point.x),
-        (NearestEdge::Bottom, monitor.y + monitor.height - point.y),
-        (NearestEdge::Left, point.x - monitor.x),
+fn preferred_monitor_edges(
+    monitor: PhysicalRect,
+    work_area: PhysicalRect,
+    point: PhysicalPoint,
+) -> [NearestEdge; 4] {
+    let mut distances = [
+        (
+            NearestEdge::Top,
+            point.y - monitor.y,
+            work_area.y > monitor.y,
+        ),
+        (
+            NearestEdge::Right,
+            monitor.x + monitor.width - point.x,
+            work_area.x + work_area.width < monitor.x + monitor.width,
+        ),
+        (
+            NearestEdge::Bottom,
+            monitor.y + monitor.height - point.y,
+            work_area.y + work_area.height < monitor.y + monitor.height,
+        ),
+        (
+            NearestEdge::Left,
+            point.x - monitor.x,
+            work_area.x > monitor.x,
+        ),
     ];
-
-    distances
-        .into_iter()
-        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-        .map(|(edge, _)| edge)
-        .unwrap_or(NearestEdge::Bottom)
+    // Work-area reservations can belong to other appbars. They guide the order;
+    // the caller still checks that the resulting position clears the tray icon.
+    distances.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.1.total_cmp(&b.1)));
+    distances.map(|(edge, _, _)| edge)
 }
 
 pub fn position_popup_near_tray(
     monitor: PhysicalRect,
+    work_area: PhysicalRect,
     icon: PhysicalRect,
     popup: PhysicalPopupSize,
     gap: f64,
 ) -> PhysicalPopupPosition {
     let center = tray_icon_center(icon);
-    let min_y = monitor.y + SCREEN_EDGE_MARGIN_PX;
-    let max_x = (monitor.x + monitor.width - popup.width).max(monitor.x);
-    let max_y = (monitor.y + monitor.height - popup.height - SCREEN_EDGE_MARGIN_PX).max(min_y);
+    let min_y = work_area.y + SCREEN_EDGE_MARGIN_PX;
+    let max_x = (work_area.x + work_area.width - popup.width).max(work_area.x);
+    let max_y = (work_area.y + work_area.height - popup.height - SCREEN_EDGE_MARGIN_PX).max(min_y);
 
-    let (x, y) = match nearest_monitor_edge(monitor, center) {
-        NearestEdge::Top => (
-            center.x - popup.width / 2.0,
-            icon.y + icon.height + gap,
-        ),
-        NearestEdge::Right => (
-            icon.x - popup.width - gap,
-            center.y - popup.height / 2.0,
-        ),
-        NearestEdge::Bottom => (
-            center.x - popup.width / 2.0,
-            icon.y - popup.height - gap,
-        ),
-        NearestEdge::Left => (
-            icon.x + icon.width + gap,
-            center.y - popup.height / 2.0,
-        ),
-    };
+    let candidates = preferred_monitor_edges(monitor, work_area, center).map(|edge| {
+        let (x, y) = match edge {
+            NearestEdge::Top => (center.x - popup.width / 2.0, icon.y + icon.height + gap),
+            NearestEdge::Right => (icon.x - popup.width - gap, center.y - popup.height / 2.0),
+            NearestEdge::Bottom => (center.x - popup.width / 2.0, icon.y - popup.height - gap),
+            NearestEdge::Left => (icon.x + icon.width + gap, center.y - popup.height / 2.0),
+        };
+        PhysicalPopupPosition {
+            x: clamp(x, work_area.x, max_x).round() as i32,
+            y: clamp(y, min_y, max_y).round() as i32,
+        }
+    });
 
-    PhysicalPopupPosition {
-        x: clamp(x, monitor.x, max_x).round() as i32,
-        y: clamp(y, min_y, max_y).round() as i32,
-    }
+    // If no side has enough room, retain the preferred, work-area-clamped position.
+    candidates
+        .into_iter()
+        .find(|position| {
+            position.x as f64 + popup.width + gap <= icon.x
+                || position.x as f64 >= icon.x + icon.width + gap
+                || position.y as f64 + popup.height + gap <= icon.y
+                || position.y as f64 >= icon.y + icon.height + gap
+        })
+        .unwrap_or(candidates[0])
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    const MONITOR: PhysicalRect = PhysicalRect {
-        x: 0.0,
-        y: 0.0,
-        width: 1920.0,
-        height: 1080.0,
-    };
-
-    const POPUP: PhysicalPopupSize = PhysicalPopupSize {
-        width: 400.0,
-        height: 500.0,
-    };
-
-    #[test]
-    fn positions_above_bottom_taskbar_icon() {
-        let icon = PhysicalRect {
-            x: 1840.0,
-            y: 1040.0,
-            width: 32.0,
-            height: 32.0,
-        };
-
-        let position = position_popup_near_tray(MONITOR, icon, POPUP, 8.0);
-
-        assert_eq!(position, PhysicalPopupPosition { x: 1520, y: 532 });
-    }
-
-    #[test]
-    fn positions_below_top_taskbar_icon() {
-        let icon = PhysicalRect {
-            x: 1840.0,
-            y: 8.0,
-            width: 32.0,
-            height: 32.0,
-        };
-
-        let position = position_popup_near_tray(MONITOR, icon, POPUP, 8.0);
-
-        assert_eq!(position, PhysicalPopupPosition { x: 1520, y: 48 });
-    }
-
-    #[test]
-    fn positions_left_of_right_taskbar_icon() {
-        let icon = PhysicalRect {
-            x: 1880.0,
-            y: 520.0,
-            width: 32.0,
-            height: 32.0,
-        };
-
-        let position = position_popup_near_tray(MONITOR, icon, POPUP, 8.0);
-
-        assert_eq!(position, PhysicalPopupPosition { x: 1472, y: 286 });
-    }
-
-    #[test]
-    fn positions_right_of_left_taskbar_icon() {
-        let icon = PhysicalRect {
-            x: 8.0,
-            y: 520.0,
-            width: 32.0,
-            height: 32.0,
-        };
-
-        let position = position_popup_near_tray(MONITOR, icon, POPUP, 8.0);
-
-        assert_eq!(position, PhysicalPopupPosition { x: 48, y: 286 });
-    }
-
-    #[test]
-    fn keeps_popup_off_top_screen_edge_when_clamped() {
-        let icon = PhysicalRect {
-            x: 1840.0,
-            y: 1040.0,
-            width: 32.0,
-            height: 32.0,
-        };
-        let tall_popup = PhysicalPopupSize {
-            width: 400.0,
-            height: 1200.0,
-        };
-
-        let position = position_popup_near_tray(MONITOR, icon, tall_popup, 8.0);
-
-        assert_eq!(position.y, 12);
-    }
-
-    #[test]
-    fn detects_point_inside_monitor_rect() {
-        assert!(rect_contains_point(MONITOR, PhysicalPoint { x: 10.0, y: 10.0 }));
-        assert!(!rect_contains_point(
-            MONITOR,
-            PhysicalPoint {
-                x: 1920.0,
-                y: 10.0
-            }
-        ));
-    }
-}
+#[path = "position_tests.rs"]
+mod tests;
