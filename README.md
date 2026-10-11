@@ -4,6 +4,12 @@ eUsage is an open source fork of OpenUsage.
 
 This fork is not the official OpenUsage project. Original source code is MIT licensed; the OpenUsage name and logo are not reused.
 
+## Bundled providers
+
+eUsage includes Amp, Antigravity, Claude, Codex, Copilot, Cursor, Factory, Gemini, Grok, JetBrains AI Assistant, Kimi, Kiro, MiniMax, OpenCode Go, Perplexity, Synthetic, Windsurf and Z.ai. The development-only Mock plugin is excluded from installers.
+
+Provider availability depends on the installed app or CLI, sign-in and supported storage paths on each OS. Bundling a plugin does not establish live provider validation on every platform. See the platform notes below and [desktop audit](docs/desktop-audit-linux-2026-10-10.md) for tested behavior and remaining checks.
+
 ## Product Direction
 
 eUsage is moving toward a hosted SaaS product for many organizations.

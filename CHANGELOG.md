@@ -17,7 +17,7 @@
 
 ### Chores
 - Update Seroval and Vitest to compatible patched versions by DanyilLiubchak
-- Require Windows regressions, locked platform builds and complete installer/updater metadata before publishing releases and distribution updates by DanyilLiubchak
+- Require Windows regressions, locked platform builds, valid updater signatures and complete installer metadata before publishing releases and distribution updates by DanyilLiubchak
 
 Web and Convex changes take effect when the hosted app is deployed. The desktop release workflow builds desktop packages; repository Git integrations may also trigger hosted deployments on push.
 
@@ -27,6 +27,8 @@ Web and Convex changes take effect when the hosted app is deployed. The desktop 
 
 **Full Changelog**: [v0.6.29...v0.6.30](https://github.com/DanyilLiubchakUk/eusage/compare/v0.6.29...v0.6.30)
 
+- [cd6ad35](https://github.com/DanyilLiubchakUk/eusage/commit/cd6ad354a1af83d7c6059bc76623416a38c75bd5) ci: archive Windows installers without drive-path parsing by DanyilLiubchak
+- [830f92d](https://github.com/DanyilLiubchakUk/eusage/commit/830f92df7f09e0c35dcdb37bedc64407cc71885b) ci: verify updater signatures before publication by DanyilLiubchak
 - [8eb9de4](https://github.com/DanyilLiubchakUk/eusage/commit/8eb9de41fa961d4ff86a975926e6f15de129fdd9) fix: patch TanStack Start server response vulnerability by DanyilLiubchak
 - [1d58920](https://github.com/DanyilLiubchakUk/eusage/commit/1d5892046d3ffe4712a569e26a5b91995653fa21) test: model Windows descendant handle inheritance by DanyilLiubchak
 - [1777998](https://github.com/DanyilLiubchakUk/eusage/commit/1777998a76efcf8e3744f5acd70af5d9a92f0a64) ci: build every desktop installer before release by DanyilLiubchak
