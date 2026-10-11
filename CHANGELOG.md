@@ -14,6 +14,7 @@
 - Validate local HTTP requests and redact sensitive provider data from uploads and errors by DanyilLiubchak
 - Complete provider scans within the shared worker limit by DanyilLiubchak
 - Patch the TanStack Start server response vulnerability CVE-2026-102989 by DanyilLiubchak
+- Direct desktop connection setup instructions to eUsage by DanyilLiubchak
 
 ### Chores
 - Update Seroval and Vitest to compatible patched versions by DanyilLiubchak
@@ -27,6 +28,7 @@ Web and Convex changes take effect when the hosted app is deployed. The desktop 
 
 **Full Changelog**: [v0.6.29...v0.6.30](https://github.com/DanyilLiubchakUk/eusage/compare/v0.6.29...v0.6.30)
 
+- [af929f9](https://github.com/DanyilLiubchakUk/eusage/commit/af929f99ea8c92f63d28c67fde01be76ec9bbd54) fix: direct connection setup instructions to eUsage by DanyilLiubchak
 - [cd6ad35](https://github.com/DanyilLiubchakUk/eusage/commit/cd6ad354a1af83d7c6059bc76623416a38c75bd5) ci: archive Windows installers without drive-path parsing by DanyilLiubchak
 - [830f92d](https://github.com/DanyilLiubchakUk/eusage/commit/830f92df7f09e0c35dcdb37bedc64407cc71885b) ci: verify updater signatures before publication by DanyilLiubchak
 - [8eb9de4](https://github.com/DanyilLiubchakUk/eusage/commit/8eb9de41fa961d4ff86a975926e6f15de129fdd9) fix: patch TanStack Start server response vulnerability by DanyilLiubchak
