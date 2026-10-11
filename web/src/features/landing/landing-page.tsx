@@ -70,8 +70,8 @@ const STEPS = [
   },
   {
     icon: Zap,
-    title: "Connect desktop apps",
-    body: "Developers paste a connection string into Cursor, Codex, or Claude Desktop.",
+    title: "Connect eUsage on each device",
+    body: "Paste the connection string into eUsage, then choose the provider accounts to share.",
   },
   {
     icon: LayoutDashboard,
