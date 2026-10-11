@@ -98,7 +98,7 @@ jobs:
               bash scripts/check-linux-bundles.sh "$BUNDLE_DIR" "$VERSION" "$RUNNER_TEMP/linux-package-check"
               ;;
           esac
-          tar -czf "$RUNNER_TEMP/eusage-$BUILD_TARGET-$GITHUB_SHA.tar.gz" -C "$BUNDLE_DIR" .
+          tar -czf - -C "$BUNDLE_DIR" . > "$RUNNER_TEMP/eusage-$BUILD_TARGET-$GITHUB_SHA.tar.gz"
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.target }}-${{ github.sha }}
