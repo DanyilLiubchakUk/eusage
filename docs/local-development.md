@@ -41,7 +41,7 @@ bun --version
 Get repo:
 
 ```bash
-git clone https://github.com/DanyilLiubchakUk/eusage.git
+git clone https://github.com/dliubchak/eusage.git
 cd eusage
 ```
 
@@ -128,7 +128,7 @@ bun --version
 Get repo:
 
 ```powershell
-git clone https://github.com/DanyilLiubchakUk/eusage.git
+git clone https://github.com/dliubchak/eusage.git
 cd eusage
 ```
 

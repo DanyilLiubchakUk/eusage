@@ -9,7 +9,7 @@ Ship macOS, Windows and Linux desktop builds for a small internal team, using th
 eUsage already uses the Tauri v2 updater.
 
 - `src-tauri/tauri.conf.json` enables `createUpdaterArtifacts`.
-- The updater endpoint is `https://github.com/DanyilLiubchakUk/eusage/releases/latest/download/latest.json`.
+- The updater endpoint is `https://github.com/dliubchak/eusage/releases/latest/download/latest.json`.
 - The app checks for updates on launch and every 15 minutes.
 - When an update is downloaded, the footer shows `Restart to update`.
 - Clicking it installs the downloaded updater artifact and relaunches the app.

@@ -129,14 +129,14 @@ export function AboutDialog({ version, onClose }: AboutDialogProps) {
           </p>
           <p>
             Source of eUsage on{" "}
-            <ExternalLink href="https://github.com/DanyilLiubchakUk/eusage">
+            <ExternalLink href="https://github.com/dliubchak/eusage">
               GitHub
             </ExternalLink>
           </p>
           <p className="text-xs pt-1">
             Maintainers:{" "}
-            <ExternalLink href="https://github.com/DanyilLiubchakUk">
-              DanyilLiubchakUk
+            <ExternalLink href="https://github.com/dliubchak">
+              dliubchak
             </ExternalLink>
             ,{" "}
             <ExternalLink href="https://github.com/robinebers">

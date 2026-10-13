@@ -12,9 +12,9 @@ push a version tag like `v0.6.25`.
 
 You need these repos:
 
-- `DanyilLiubchakUk/eusage`
-- `DanyilLiubchakUk/homebrew-eusage`
-- `DanyilLiubchakUk/scoop-eusage`
+- `dliubchak/eusage`
+- `dliubchak/homebrew-eusage`
+- `dliubchak/scoop-eusage`
 
 All three should have:
 
@@ -24,7 +24,7 @@ All three should have:
 
 ## eUsage repo setup
 
-In `DanyilLiubchakUk/eusage`:
+In `dliubchak/eusage`:
 
 1. Push current `main`.
 2. Open GitHub repo settings.
@@ -41,8 +41,8 @@ Required secrets:
 
 `PACKAGE_REPOS_TOKEN` must be a GitHub token that can write to:
 
-- `DanyilLiubchakUk/homebrew-eusage`
-- `DanyilLiubchakUk/scoop-eusage`
+- `dliubchak/homebrew-eusage`
+- `dliubchak/scoop-eusage`
 
 Use a fine-grained personal access token if possible:
 
@@ -56,7 +56,7 @@ separate cross-repo token.
 
 ## Homebrew repo setup
 
-In `DanyilLiubchakUk/homebrew-eusage`:
+In `dliubchak/homebrew-eusage`:
 
 1. Push current `main`.
 2. Confirm this file exists:
@@ -68,7 +68,7 @@ Casks/eusage.rb
 3. Confirm the repo URL used by users is:
 
 ```bash
-brew tap DanyilLiubchakUk/eusage
+brew tap dliubchak/eusage
 ```
 
 No secrets are needed in this repo.
@@ -78,7 +78,7 @@ release. Manual edits are only for recovery.
 
 ## Scoop repo setup
 
-In `DanyilLiubchakUk/scoop-eusage`:
+In `dliubchak/scoop-eusage`:
 
 1. Push current `main`.
 2. Confirm this file exists:
@@ -90,7 +90,7 @@ bucket/eusage.json
 3. Confirm the bucket URL used by users is:
 
 ```powershell
-scoop bucket add eusage https://github.com/DanyilLiubchakUk/scoop-eusage
+scoop bucket add eusage https://github.com/dliubchak/scoop-eusage
 ```
 
 No secrets are needed in this repo.

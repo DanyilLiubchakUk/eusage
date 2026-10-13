@@ -58,10 +58,10 @@ function homebrewCask({ version, hashes }) {
   sha256 arm:   "${hashes.macArm}",
          intel: "${hashes.macIntel}"
 
-  url "https://github.com/DanyilLiubchakUk/eusage/releases/download/v#{version}/eUsage_#{version}_#{arch}.dmg"
+  url "https://github.com/dliubchak/eusage/releases/download/v#{version}/eUsage_#{version}_#{arch}.dmg"
   name "eUsage"
   desc "Internal team AI usage tracker"
-  homepage "https://github.com/DanyilLiubchakUk/eusage"
+  homepage "https://github.com/dliubchak/eusage"
 
   depends_on macos: :ventura
 
@@ -87,11 +87,11 @@ function scoopManifest({ version, hash }) {
   return {
     version,
     description: "Internal team AI usage tracker",
-    homepage: "https://github.com/DanyilLiubchakUk/eusage",
+    homepage: "https://github.com/dliubchak/eusage",
     license: "MIT",
     architecture: {
       "64bit": {
-        url: `https://github.com/DanyilLiubchakUk/eusage/releases/download/v${version}/eUsage_${version}_x64-setup.exe`,
+        url: `https://github.com/dliubchak/eusage/releases/download/v${version}/eUsage_${version}_x64-setup.exe`,
         hash,
       },
     },
@@ -106,12 +106,12 @@ function scoopManifest({ version, hash }) {
       args: ["/S"],
     },
     checkver: {
-      github: "https://github.com/DanyilLiubchakUk/eusage",
+      github: "https://github.com/dliubchak/eusage",
     },
     autoupdate: {
       architecture: {
         "64bit": {
-          url: "https://github.com/DanyilLiubchakUk/eusage/releases/download/v$version/eUsage_$version_x64-setup.exe",
+          url: "https://github.com/dliubchak/eusage/releases/download/v$version/eUsage_$version_x64-setup.exe",
         },
       },
     },

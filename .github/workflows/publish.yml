@@ -184,13 +184,13 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          repository: DanyilLiubchakUk/homebrew-eusage
+          repository: dliubchak/homebrew-eusage
           token: ${{ secrets.PACKAGE_REPOS_TOKEN }}
           path: package-repos/homebrew-eusage
 
       - uses: actions/checkout@v4
         with:
-          repository: DanyilLiubchakUk/scoop-eusage
+          repository: dliubchak/scoop-eusage
           token: ${{ secrets.PACKAGE_REPOS_TOKEN }}
           path: package-repos/scoop-eusage
 

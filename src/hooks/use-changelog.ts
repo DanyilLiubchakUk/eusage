@@ -11,7 +11,7 @@ export interface Release {
 }
 
 async function fetchReleaseByTag(tag: string): Promise<Release | null> {
-  const url = `https://api.github.com/repos/DanyilLiubchakUk/eusage/releases/tags/${encodeURIComponent(
+  const url = `https://api.github.com/repos/dliubchak/eusage/releases/tags/${encodeURIComponent(
     tag,
   )}`
   const res = await fetch(url)
@@ -53,7 +53,7 @@ function parseBundledChangelog(source: string): Release[] {
       name: version,
       body,
       published_at: null,
-      html_url: `https://github.com/DanyilLiubchakUk/eusage/releases/tag/${version}`,
+      html_url: `https://github.com/dliubchak/eusage/releases/tag/${version}`,
     }
   })
 }

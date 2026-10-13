@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.31
+
+### Chores
+- Update active GitHub links, updater URLs and package manager references to dliubchak ahead of the account rename.
+
 ## v0.6.30
 
 ### New Features

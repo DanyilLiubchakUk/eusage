@@ -5,10 +5,10 @@ cask "eusage" do
   sha256 arm:   "REPLACE_WITH_AARCH64_DMG_SHA256",
          intel: "REPLACE_WITH_X64_DMG_SHA256"
 
-  url "https://github.com/DanyilLiubchakUk/eusage/releases/download/v#{version}/eUsage_#{version}_#{arch}.dmg"
+  url "https://github.com/dliubchak/eusage/releases/download/v#{version}/eUsage_#{version}_#{arch}.dmg"
   name "eUsage"
   desc "Internal team AI usage tracker"
-  homepage "https://github.com/DanyilLiubchakUk/eusage"
+  homepage "https://github.com/dliubchak/eusage"
 
   depends_on macos: :ventura
 

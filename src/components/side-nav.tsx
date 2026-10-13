@@ -268,7 +268,7 @@ export function SideNav({
       <NavButton
         isActive={false}
         onClick={() => {
-          openUrl("https://github.com/DanyilLiubchakUk/eusage/issues").catch(console.error)
+          openUrl("https://github.com/dliubchak/eusage/issues").catch(console.error)
           invoke("hide_panel").catch(console.error)
         }}
         aria-label="Help"
